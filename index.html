@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Pocket Frames — High-Resolution Polaroid Studio</title>
+  <meta name="description" content="Minimalist, deterministic Polaroid photo framing tool with Hasselblad typography and camera EXIF metadata for Instagram 4:5 portrait." />
+  
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400;1,500&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+
+  <link rel="stylesheet" href="./src/style.css" />
+</head>
+<body>
+  <div id="app" class="app-layout">
+    <!-- Top Navigation Header -->
+    <header class="app-header">
+      <div class="header-brand">
+        <h1 class="brand-title">Pocket Frames</h1>
+        <span class="brand-subtitle">Frame your moment.</span>
+      </div>
+
+      <div class="header-center-info">
+        <span class="format-pill">Instagram Portrait · 4:5 · <span id="headerResLabel">2160 × 2700</span></span>
+      </div>
+
+      <div class="header-actions">
+        <!-- Undo / Redo -->
+        <button id="btnUndo" class="icon-button" title="Undo (Ctrl+Z)" aria-label="Undo" disabled>
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M3 7v6h6"/><path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13"/>
+          </svg>
+        </button>
+        <button id="btnRedo" class="icon-button" title="Redo (Ctrl+Y)" aria-label="Redo" disabled>
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 7v6h-6"/><path d="M3 17a9 9 0 0 1 9-9 9 9 0 0 1 6 2.3L21 13"/>
+          </svg>
+        </button>
+
+        <div class="header-divider"></div>
+
+        <button id="btnNewFrame" class="secondary-button" title="Start a fresh new frame">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line>
+          </svg>
+          New Frame
+        </button>
+
+        <button id="btnToggleCleanPreview" class="secondary-button" title="Toggle Clean Preview (Space)">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle>
+          </svg>
+          Preview
+        </button>
+
+        <button id="btnShortcutsHelp" class="icon-button" title="Keyboard Shortcuts" aria-label="Shortcuts">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="10"></circle><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path><line x1="12" y1="17" x2="12.01" y2="17"></line>
+          </svg>
+        </button>
+      </div>
+    </header>
+
+    <!-- Main Workspace -->
+    <main class="app-workspace">
+      <!-- Left Column: Photo Controls -->
+      <aside class="panel panel-controls" id="panelControls">
+        <div class="panel-section">
+          <h2 class="section-title">Photo</h2>
+          
+          <!-- Upload Button & Hidden Input -->
+          <div class="upload-container">
+            <input type="file" id="fileInput" accept="image/jpeg,image/png,image/webp" class="visually-hidden" />
+            <button id="btnUpload" class="primary-button upload-button">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line>
+              </svg>
+              Upload Photo
+            </button>
+            <span class="upload-hint">JPG, PNG, WebP up to 100MB</span>
+          </div>
+        </div>
+
+        <div class="panel-section">
+          <div class="section-header-row">
+            <h2 class="section-title">Zoom</h2>
+            <span id="zoomReadout" class="zoom-readout">1.00×</span>
+          </div>
+
+          <div class="zoom-slider-row">
+            <button id="btnZoomOut" class="micro-btn" title="Zoom Out (-)">−</button>
+            <input type="range" id="zoomSlider" min="0.1" max="4.0" step="0.01" value="1.0" class="custom-range" />
+            <button id="btnZoomIn" class="micro-btn" title="Zoom In (+)">+</button>
+          </div>
+
+          <!-- Fit / Fill / Reset Presets -->
+          <div class="preset-button-group">
+            <button id="btnFit" class="preset-btn" title="Show complete photograph">Fit</button>
+            <button id="btnFill" class="preset-btn" title="Cover aperture completely">Fill</button>
+            <button id="btnReset" class="preset-btn" title="Reset position to center (R)">Reset</button>
+          </div>
+        </div>
+
+        <div class="panel-section">
+          <h2 class="section-title">Guides & Snapping</h2>
+          
+          <div class="toggle-list">
+            <label class="toggle-item">
+              <input type="checkbox" id="chkGridVisible" checked />
+              <span class="toggle-custom"></span>
+              <span class="toggle-label">Alignment Guides (G)</span>
+            </label>
+
+            <label class="toggle-item">
+              <input type="checkbox" id="chkRuleOfThirds" checked />
+              <span class="toggle-custom"></span>
+              <span class="toggle-label">Rule of Thirds Grid</span>
+            </label>
+
+            <label class="toggle-item">
+              <input type="checkbox" id="chkSnapEnabled" checked />
+              <span class="toggle-custom"></span>
+              <span class="toggle-label">Magnetic Center Snap</span>
+            </label>
+          </div>
+        </div>
+
+        <!-- Dynamic Alignment Status Pill -->
+        <div class="alignment-indicator-card" id="alignmentCard">
+          <div class="indicator-row">
+            <span class="indicator-dot" id="dotH"></span>
+            <span class="indicator-text" id="textH">Horizontal Position</span>
+          </div>
+          <div class="indicator-row">
+            <span class="indicator-dot" id="dotV"></span>
+            <span class="indicator-text" id="textV">Vertical Position</span>
+          </div>
+        </div>
+      </aside>
+
+      <!-- Center Column: Interactive Preview -->
+      <section class="preview-stage" id="previewStage">
+        <div class="preview-container" id="previewContainer">
+          <canvas id="previewCanvas" class="preview-canvas" width="540" height="675"></canvas>
+          
+          <!-- Subtle Drag Overlay Helper -->
+          <div class="drag-hint-badge" id="dragHintBadge">
+            <span>Click & Drag to reposition · Wheel to zoom</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- Right Column: Camera Details Editor -->
+      <aside class="panel panel-details" id="panelDetails">
+        <div class="panel-section">
+          <div class="section-header-row">
+            <h2 class="section-title">Camera Details</h2>
+            <span id="exifBadge" class="exif-badge hidden">EXIF Detected</span>
+          </div>
+
+          <div class="field-group">
+            <label for="inputBrand" class="field-label">Top Brand</label>
+            <input type="text" id="inputBrand" class="field-input uppercase" value="HASSELBLAD" placeholder="HASSELBLAD" />
+          </div>
+
+          <div class="field-group">
+            <label for="inputDevice" class="field-label">Device</label>
+            <input type="text" id="inputDevice" class="field-input" value="OPPO Find X9" placeholder="e.g. OPPO Find X9" />
+          </div>
+
+          <div class="field-row">
+            <div class="field-group">
+              <label for="inputFocalLength" class="field-label">Focal Length</label>
+              <input type="text" id="inputFocalLength" class="field-input" value="146mm" placeholder="146mm" />
+            </div>
+
+            <div class="field-group">
+              <label for="inputAperture" class="field-label">Aperture</label>
+              <input type="text" id="inputAperture" class="field-input" value="f/2.6" placeholder="f/2.6" />
+            </div>
+          </div>
+
+          <div class="field-row">
+            <div class="field-group">
+              <label for="inputShutter" class="field-label">Shutter Speed</label>
+              <input type="text" id="inputShutter" class="field-input" value="1/25" placeholder="1/25" />
+            </div>
+
+            <div class="field-group">
+              <label for="inputIso" class="field-label">ISO</label>
+              <input type="text" id="inputIso" class="field-input" value="1600" placeholder="1600" />
+            </div>
+          </div>
+
+          <div class="live-update-notice">
+            <span class="dot-live"></span>
+            Frame updates live in real-time. Original source metadata is never modified.
+          </div>
+        </div>
+
+        <div class="panel-section persistence-section">
+          <h2 class="section-title">Session</h2>
+          <div class="session-info">
+            <span id="sessionStatus">Saved to local device</span>
+            <button id="btnClearSession" class="text-link" title="Clear locally cached frame">Clear cache</button>
+          </div>
+        </div>
+      </aside>
+    </main>
+
+    <!-- Bottom Action Bar: Export & Download -->
+    <footer class="app-footer">
+      <div class="footer-preflight" id="footerPreflight">
+        <div class="preflight-item">
+          <span class="preflight-label">Master Canvas</span>
+          <span class="preflight-value" id="pfResolution">2160 × 2700</span>
+        </div>
+        <div class="preflight-divider"></div>
+        <div class="preflight-item">
+          <span class="preflight-label">Format</span>
+          <span class="preflight-value" id="pfFormat">JPEG (99%)</span>
+        </div>
+        <div class="preflight-divider"></div>
+        <div class="preflight-item">
+          <span class="preflight-label">Aspect</span>
+          <span class="preflight-value">4:5 Instagram</span>
+        </div>
+        <div class="preflight-divider"></div>
+        <div class="preflight-item">
+          <span class="preflight-label">Alignment</span>
+          <span class="preflight-value" id="pfAlignment">Centered</span>
+        </div>
+      </div>
+
+      <div class="footer-controls">
+        <!-- Resolution Picker -->
+        <div class="select-wrapper">
+          <select id="selectResolution" class="custom-select" aria-label="Export Resolution">
+            <option value="2160x2700" selected>2160 × 2700 · High Quality (2×)</option>
+            <option value="1080x1350">1080 × 1350 · Instagram Portrait (1×)</option>
+            <option value="3240x4050">3240 × 4050 · Ultra Master (3×)</option>
+          </select>
+        </div>
+
+        <!-- Format Picker -->
+        <div class="select-wrapper">
+          <select id="selectFormat" class="custom-select" aria-label="Export Format">
+            <option value="image/jpeg" selected>JPEG (99% Quality)</option>
+            <option value="image/png">PNG (Lossless)</option>
+          </select>
+        </div>
+
+        <!-- Download Frame Master Button -->
+        <button id="btnDownload" class="primary-button download-button">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line>
+          </svg>
+          <span id="downloadBtnText">Download Frame</span>
+        </button>
+      </div>
+    </footer>
+
+    <!-- Keyboard Shortcuts Modal -->
+    <div id="shortcutsModal" class="modal-backdrop hidden">
+      <div class="modal-card">
+        <div class="modal-header">
+          <h3>Keyboard Shortcuts</h3>
+          <button id="btnCloseShortcuts" class="icon-button" aria-label="Close modal">✕</button>
+        </div>
+        <div class="shortcuts-grid">
+          <div class="shortcut-row"><kbd>Arrow keys</kbd><span>Nudge photograph (export space)</span></div>
+          <div class="shortcut-row"><kbd>Shift + Arrows</kbd><span>Fast nudge</span></div>
+          <div class="shortcut-row"><kbd>+</kbd> / <kbd>−</kbd><span>Zoom in / Zoom out</span></div>
+          <div class="shortcut-row"><kbd>R</kbd><span>Reset position & fill aperture</span></div>
+          <div class="shortcut-row"><kbd>G</kbd><span>Toggle alignment guides</span></div>
+          <div class="shortcut-row"><kbd>Space</kbd><span>Toggle clean preview mode</span></div>
+          <div class="shortcut-row"><kbd>Ctrl + Z</kbd><span>Undo</span></div>
+          <div class="shortcut-row"><kbd>Ctrl + Y</kbd><span>Redo</span></div>
+          <div class="shortcut-row"><kbd>Esc</kbd><span>Exit clean preview</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script type="module" src="./src/main.js"></script>
+</body>
+</html>
