@@ -9,10 +9,18 @@ import { getServiceStatus, createPost, analyzePhoto, getCompositionRecommendatio
 
 export async function handleAiRequest(req, res, next) {
   const url = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
-  const pathname = url.pathname;
+  let pathname = url.pathname;
+
+  // Support Vercel dynamic route params (e.g., api/ai/[action].js or query params)
+  if (!pathname.startsWith('/api/ai/') && req.query) {
+    const action = req.query.action || (Array.isArray(req.query.path) ? req.query.path.join('/') : req.query.path);
+    if (action) {
+      pathname = `/api/ai/${action}`;
+    }
+  }
 
   // Status check endpoint
-  if (pathname === '/api/ai/status' && req.method === 'GET') {
+  if ((pathname === '/api/ai/status' || pathname.endsWith('/status')) && req.method === 'GET') {
     const status = getServiceStatus();
     return sendJson(res, 200, { success: true, ...status });
   }
@@ -41,10 +49,16 @@ export async function handleAiRequest(req, res, next) {
     });
   }
 
-  // Read request body
+  // Read request body (handles both Node stream and Vercel pre-parsed body)
   let body;
   try {
-    body = await parseJsonBody(req);
+    if (req.body && typeof req.body === 'object') {
+      body = req.body;
+    } else if (typeof req.body === 'string') {
+      body = JSON.parse(req.body);
+    } else {
+      body = await parseJsonBody(req);
+    }
   } catch (err) {
     return sendJson(res, 400, {
       success: false,
