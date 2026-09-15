@@ -385,6 +385,28 @@ function setupEventListeners() {
     }, 2000);
   });
 
+  // Mobile Tab Bar Switching
+  const tabBtnControls = document.getElementById('tabBtnControls');
+  const tabBtnDetails = document.getElementById('tabBtnDetails');
+  const panelControls = document.getElementById('panelControls');
+  const panelDetails = document.getElementById('panelDetails');
+
+  if (tabBtnControls && tabBtnDetails && panelControls && panelDetails) {
+    tabBtnControls.addEventListener('click', () => {
+      tabBtnControls.classList.add('active');
+      tabBtnDetails.classList.remove('active');
+      panelControls.classList.add('mobile-active');
+      panelDetails.classList.remove('mobile-active');
+    });
+
+    tabBtnDetails.addEventListener('click', () => {
+      tabBtnDetails.classList.add('active');
+      tabBtnControls.classList.remove('active');
+      panelDetails.classList.add('mobile-active');
+      panelControls.classList.remove('mobile-active');
+    });
+  }
+
   // Keyboard Shortcuts Modal
   btnShortcutsHelp.addEventListener('click', () => shortcutsModal.classList.remove('hidden'));
   btnCloseShortcuts.addEventListener('click', () => shortcutsModal.classList.add('hidden'));

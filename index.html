@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
   <title>Pocket Frames — High-Resolution Polaroid Studio</title>
   <meta name="description" content="Minimalist, deterministic Polaroid photo framing tool with Hasselblad typography and camera EXIF metadata for Instagram 4:5 portrait." />
   
@@ -45,14 +45,14 @@
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line>
           </svg>
-          New Frame
+          <span class="btn-text">New Frame</span>
         </button>
 
         <button id="btnToggleCleanPreview" class="secondary-button" title="Toggle Clean Preview (Space)">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle>
           </svg>
-          Preview
+          <span class="btn-text">Preview</span>
         </button>
 
         <button id="btnShortcutsHelp" class="icon-button" title="Keyboard Shortcuts" aria-label="Shortcuts">
@@ -65,8 +65,33 @@
 
     <!-- Main Workspace -->
     <main class="app-workspace">
-      <!-- Left Column: Photo Controls -->
-      <aside class="panel panel-controls" id="panelControls">
+      <!-- Center Column: Interactive Preview -->
+      <section class="preview-stage" id="previewStage">
+        <div class="preview-container" id="previewContainer">
+          <canvas id="previewCanvas" class="preview-canvas" width="540" height="675"></canvas>
+          
+          <!-- Drag / Gesture Overlay Helper -->
+          <div class="drag-hint-badge" id="dragHintBadge">
+            <span class="badge-desktop">Click & Drag to reposition · Wheel to zoom</span>
+            <span class="badge-touch">Drag to reposition · Pinch to zoom</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- Mobile Tab Bar (Visible on mobile/small screens) -->
+      <nav class="mobile-tab-bar" id="mobileTabBar" aria-label="Editor Panels">
+        <button id="tabBtnControls" class="mobile-tab-btn active" type="button">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+          Photo & Guides
+        </button>
+        <button id="tabBtnDetails" class="mobile-tab-btn" type="button">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+          Camera Details
+        </button>
+      </nav>
+
+      <!-- Left / Bottom Column: Photo Controls -->
+      <aside class="panel panel-controls mobile-active" id="panelControls">
         <div class="panel-section">
           <h2 class="section-title">Photo</h2>
           
@@ -91,7 +116,7 @@
 
           <div class="zoom-slider-row">
             <button id="btnZoomOut" class="micro-btn" title="Zoom Out (-)">−</button>
-            <input type="range" id="zoomSlider" min="0.1" max="4.0" step="0.01" value="1.0" class="custom-range" />
+            <input type="range" id="zoomSlider" min="0.1" max="4.0" step="0.01" value="1.0" class="custom-range" aria-label="Zoom scale" />
             <button id="btnZoomIn" class="micro-btn" title="Zoom In (+)">+</button>
           </div>
 
@@ -140,19 +165,7 @@
         </div>
       </aside>
 
-      <!-- Center Column: Interactive Preview -->
-      <section class="preview-stage" id="previewStage">
-        <div class="preview-container" id="previewContainer">
-          <canvas id="previewCanvas" class="preview-canvas" width="540" height="675"></canvas>
-          
-          <!-- Subtle Drag Overlay Helper -->
-          <div class="drag-hint-badge" id="dragHintBadge">
-            <span>Click & Drag to reposition · Wheel to zoom</span>
-          </div>
-        </div>
-      </section>
-
-      <!-- Right Column: Camera Details Editor -->
+      <!-- Right / Bottom Column: Camera Details Editor -->
       <aside class="panel panel-details" id="panelDetails">
         <div class="panel-section">
           <div class="section-header-row">
@@ -225,7 +238,7 @@
         <div class="preflight-divider"></div>
         <div class="preflight-item">
           <span class="preflight-label">Aspect</span>
-          <span class="preflight-value">4:5 Instagram</span>
+          <span class="preflight-value">4:5 Portrait</span>
         </div>
         <div class="preflight-divider"></div>
         <div class="preflight-item">
