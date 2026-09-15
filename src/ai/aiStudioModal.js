@@ -7,6 +7,8 @@ import { store } from '../state.js';
 import { fetchAiStatus, requestCreatePost, cancelActiveAiRequest } from './geminiClient.js';
 import { applyAiComposition } from './compositionApplier.js';
 import { CAPTION_STYLES, AI_STATUS } from './aiTypes.js';
+import { DayWheelPicker } from './dayWheelPicker.js';
+import { triggerPickerTick } from '../utils/appleHapticAudio.js';
 
 export class AiStudioModal {
   constructor() {
@@ -17,6 +19,7 @@ export class AiStudioModal {
     this.isApplying = false;
 
     this.initElements();
+    this.initWheelPicker();
     this.bindEvents();
     this.checkStatus();
   }
@@ -28,6 +31,8 @@ export class AiStudioModal {
     this.btnCancelAi = document.getElementById('btnCancelAi');
     this.btnDayPrev = document.getElementById('btnDayPrev');
     this.btnDayNext = document.getElementById('btnDayNext');
+    this.btnOpenDayWheel = document.getElementById('btnOpenDayWheel');
+    this.displayDayNumber = document.getElementById('displayDayNumber');
     this.inputDayNumber = document.getElementById('inputDayNumber');
     this.aiStatusBadge = document.getElementById('aiStatusBadge');
 
@@ -79,6 +84,16 @@ export class AiStudioModal {
     this.btnCopyCompletePackage = document.getElementById('btnCopyCompletePackage');
   }
 
+  initWheelPicker() {
+    this.dayWheelPicker = new DayWheelPicker({
+      totalDays: 47,
+      initialDay: 18,
+      onApply: (day) => {
+        this.setDay(day);
+      }
+    });
+  }
+
   bindEvents() {
     // Open/Close
     const btnOpen = document.getElementById('btnOpenAiStudio');
@@ -91,17 +106,39 @@ export class AiStudioModal {
       });
     }
 
-    // Stepper
+    // Wheel Picker Trigger Button
+    if (this.btnOpenDayWheel) {
+      this.btnOpenDayWheel.addEventListener('click', () => {
+        const current = parseInt(this.inputDayNumber?.value, 10) || 18;
+        this.dayWheelPicker.open(current);
+      });
+
+      // Mouse wheel directly on trigger pill in header
+      this.btnOpenDayWheel.addEventListener('wheel', (e) => {
+        e.preventDefault();
+        const current = parseInt(this.inputDayNumber?.value, 10) || 18;
+        const delta = e.deltaY > 0 ? 1 : -1;
+        const newDay = Math.max(1, Math.min(47, current + delta));
+        if (newDay !== current) {
+          triggerPickerTick();
+          this.setDay(newDay);
+        }
+      }, { passive: false });
+    }
+
+    // Stepper Quick Nudges
     if (this.btnDayPrev) {
       this.btnDayPrev.addEventListener('click', () => {
-        const current = parseInt(this.inputDayNumber.value, 10) || 1;
+        const current = parseInt(this.inputDayNumber?.value, 10) || 18;
+        triggerPickerTick();
         this.setDay(Math.max(1, current - 1));
       });
     }
 
     if (this.btnDayNext) {
       this.btnDayNext.addEventListener('click', () => {
-        const current = parseInt(this.inputDayNumber.value, 10) || 1;
+        const current = parseInt(this.inputDayNumber?.value, 10) || 18;
+        triggerPickerTick();
         this.setDay(Math.min(47, current + 1));
       });
     }
@@ -188,8 +225,10 @@ export class AiStudioModal {
   }
 
   setDay(day) {
-    if (this.inputDayNumber) this.inputDayNumber.value = day;
-    store.setAiState({ dayNumber: day });
+    const clamped = Math.max(1, Math.min(47, day));
+    if (this.inputDayNumber) this.inputDayNumber.value = clamped;
+    if (this.displayDayNumber) this.displayDayNumber.textContent = clamped;
+    store.setAiState({ dayNumber: clamped });
   }
 
   open() {
@@ -199,7 +238,7 @@ export class AiStudioModal {
 
     const state = store.getState();
     const day = state.ai?.dayNumber || 18;
-    if (this.inputDayNumber) this.inputDayNumber.value = day;
+    this.setDay(day);
 
     // If state already has postData, render it immediately
     if (state.ai?.postData) {

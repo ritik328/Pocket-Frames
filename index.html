@@ -344,7 +344,11 @@
               <div class="day-stepper-control">
                 <span class="day-label">DAY</span>
                 <button type="button" id="btnDayPrev" class="day-step-btn" title="Previous Day">−</button>
-                <input type="number" id="inputDayNumber" class="day-number-input" value="18" min="1" max="47" />
+                <button type="button" id="btnOpenDayWheel" class="day-picker-trigger-btn" title="Click to scroll & select campaign day">
+                  <span id="displayDayNumber">18</span>
+                  <svg class="pill-chevron-icon" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
+                </button>
+                <input type="hidden" id="inputDayNumber" value="18" />
                 <button type="button" id="btnDayNext" class="day-step-btn" title="Next Day">+</button>
                 <span class="day-total">/ 47</span>
               </div>
@@ -515,6 +519,32 @@
               </button>
             </div>
           </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- iOS Timeframe Wheel Day Picker Modal -->
+    <div id="dayWheelModal" class="modal-backdrop hidden" aria-labelledby="dayWheelTitle" role="dialog" aria-modal="true">
+      <div class="day-wheel-card">
+        <div class="day-wheel-header">
+          <h3 id="dayWheelTitle" class="day-wheel-title">Filter Timeframe</h3>
+          <button type="button" id="btnCloseDayWheel" class="day-wheel-close-btn" aria-label="Close Timeframe Picker">✕</button>
+        </div>
+
+        <div class="day-wheel-container">
+          <!-- Amber highlight selection bar in center -->
+          <div class="day-wheel-highlight-pill" aria-hidden="true"></div>
+          
+          <!-- Scrollable wheel list -->
+          <div id="wheelDaysList" class="day-wheel-list" tabindex="0" role="listbox" aria-label="Select campaign day">
+            <!-- Dynamically populated Days 1 to 47 -->
+          </div>
+        </div>
+
+        <div class="day-wheel-footer">
+          <button type="button" id="btnApplyDayWheel" class="day-wheel-apply-btn">
+            Apply <span class="apply-checkmark">✓</span>
+          </button>
         </div>
       </div>
     </div>
