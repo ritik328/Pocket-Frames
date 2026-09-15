@@ -29,7 +29,7 @@ export function isGeminiConfigured() {
  */
 export function getServiceStatus() {
   const configured = isGeminiConfigured();
-  const model = process.env.GEMINI_MODEL || 'gemini-1.5-flash';
+  const model = process.env.GEMINI_MODEL || 'gemini-3.5-flash-lite';
   return {
     configured,
     status: configured ? 'connected' : 'not_configured',
@@ -44,28 +44,28 @@ export function getServiceStatus() {
  * Orchestrates full visual analysis, composition recommendation, captions, hashtags, critique, and portfolio potential.
  */
 export async function createPost(payload) {
-  return executeAiOperation('create_post', payload, 'Analyze this photograph and create a complete Instagram post package according to the system prompt guidelines.');
+  return executeAiOperation('createPost', payload, 'Analyze this mobile photograph and generate the complete 47 DAYS / 47 FRAMES post package.');
 }
 
 /**
- * Modular Operation: Analyze Photo
+ * Fast Endpoint: Analyze Photo
  */
 export async function analyzePhoto(payload) {
-  return executeAiOperation('analyze_photo', payload, 'Analyze this photograph for genre, lighting, visual balance, negative space, visual impact, and camera settings explanation.');
+  return executeAiOperation('analyzePhoto', payload, 'Perform deep visual and technical analysis of this mobile photograph.');
 }
 
 /**
- * Modular Operation: Composition
+ * Fast Endpoint: Composition Recommendation
  */
 export async function getCompositionRecommendation(payload) {
-  return executeAiOperation('composition', payload, 'Analyze the subject position, horizon, and leading lines. Recommend normalized subject center coordinates (recommended_x, recommended_y) and zoom.');
+  return executeAiOperation('composition', payload, 'Analyze framing and provide normalized golden-ratio composition recommendations.');
 }
 
 /**
- * Modular Operation: Critique
+ * Fast Endpoint: Photographic Critique
  */
 export async function getCritique(payload) {
-  return executeAiOperation('critique', payload, 'Provide an educational critique: what works, what weakens it, what to try, and what not to change.');
+  return executeAiOperation('critique', payload, 'Provide an actionable, constructive 4-part photographic critique.');
 }
 
 /**
@@ -74,7 +74,7 @@ export async function getCritique(payload) {
 async function executeAiOperation(operation, payload, userPrompt) {
   const requestId = generateRequestId();
   const startTime = Date.now();
-  const model = process.env.GEMINI_MODEL || 'gemini-1.5-flash';
+  const model = process.env.GEMINI_MODEL || 'gemini-3.5-flash-lite';
   const apiKey = process.env.GEMINI_API_KEY?.trim();
 
   // Cache Check
