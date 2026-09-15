@@ -113,17 +113,50 @@ export class AiStudioModal {
         this.dayWheelPicker.open(current);
       });
 
-      // Mouse wheel directly on trigger pill in header
-      this.btnOpenDayWheel.addEventListener('wheel', (e) => {
+      // Discrete mouse wheel scrolling on header day pill & control: exactly 1 day per notch
+      let headerWheelAccumulator = 0;
+      let lastHeaderStepTime = 0;
+      let headerWheelResetTimer = null;
+      const HEADER_STEP_COOLDOWN_MS = 140; // Lock out burst events from the same physical notch
+      const HEADER_WHEEL_THRESHOLD = 40;
+
+      const onHeaderWheel = (e) => {
         e.preventDefault();
-        const current = parseInt(this.inputDayNumber?.value, 10) || 18;
-        const delta = e.deltaY > 0 ? 1 : -1;
-        const newDay = Math.max(1, Math.min(47, current + delta));
-        if (newDay !== current) {
-          triggerPickerTick();
-          this.setDay(newDay);
+        const now = performance.now();
+
+        // If stepped within refractory cooldown, ignore trailing events from the same notch
+        if (now - lastHeaderStepTime < HEADER_STEP_COOLDOWN_MS) {
+          headerWheelAccumulator = 0;
+          return;
         }
-      }, { passive: false });
+
+        headerWheelAccumulator += e.deltaY;
+
+        if (Math.abs(headerWheelAccumulator) >= HEADER_WHEEL_THRESHOLD) {
+          const step = headerWheelAccumulator > 0 ? 1 : -1;
+          headerWheelAccumulator = 0;
+          lastHeaderStepTime = now;
+
+          const current = parseInt(this.inputDayNumber?.value, 10) || 18;
+          const newDay = Math.max(1, Math.min(47, current + step));
+          if (newDay !== current) {
+            triggerPickerTick();
+            this.setDay(newDay);
+          }
+        }
+
+        clearTimeout(headerWheelResetTimer);
+        headerWheelResetTimer = setTimeout(() => {
+          headerWheelAccumulator = 0;
+        }, 160);
+      };
+
+      this.btnOpenDayWheel.addEventListener('wheel', onHeaderWheel, { passive: false });
+
+      const stepperControl = document.querySelector('.day-stepper-control');
+      if (stepperControl && stepperControl !== this.btnOpenDayWheel) {
+        stepperControl.addEventListener('wheel', onHeaderWheel, { passive: false });
+      }
     }
 
     // Stepper Quick Nudges

@@ -2448,6 +2448,7 @@ kbd {
   align-items: center;
   justify-content: center;
   scroll-snap-align: center;
+  scroll-snap-stop: always;
   font-size: 19px;
   font-weight: 500;
   color: var(--text-muted);

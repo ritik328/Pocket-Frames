@@ -78,6 +78,83 @@ export class DayWheelPicker {
       });
     }
 
+    // Discrete mouse wheel scrolling: 1 notch = EXACTLY 1 day (never skips 1 to 3)
+    let wheelAccumulator = 0;
+    let lastWheelStepTime = 0;
+    let wheelResetTimer = null;
+    const STEP_COOLDOWN_MS = 140; // Lock out burst events from the same physical notch
+    const WHEEL_THRESHOLD = 40;
+
+    const onWheelStep = (e) => {
+      e.preventDefault();
+      const now = performance.now();
+
+      // If we stepped within the refractory period, drop any trailing events from the same notch
+      if (now - lastWheelStepTime < STEP_COOLDOWN_MS) {
+        wheelAccumulator = 0;
+        return;
+      }
+
+      wheelAccumulator += e.deltaY;
+
+      if (Math.abs(wheelAccumulator) >= WHEEL_THRESHOLD) {
+        const step = wheelAccumulator > 0 ? 1 : -1;
+        wheelAccumulator = 0;
+        lastWheelStepTime = now;
+        const nextDay = Math.max(1, Math.min(this.totalDays, this.selectedDay + step));
+        if (nextDay !== this.selectedDay) {
+          triggerPickerTick();
+          this.scrollToDay(nextDay, true);
+        }
+      }
+
+      clearTimeout(wheelResetTimer);
+      wheelResetTimer = setTimeout(() => {
+        wheelAccumulator = 0;
+      }, 160);
+    };
+
+    if (this.wheelList) {
+      this.wheelList.addEventListener('wheel', onWheelStep, { passive: false });
+    }
+    const wheelContainer = this.modal?.querySelector('.day-wheel-container');
+    if (wheelContainer && wheelContainer !== this.wheelList) {
+      wheelContainer.addEventListener('wheel', onWheelStep, { passive: false });
+    }
+
+    // Drag-to-scroll support for desktop mouse and mobile touch
+    let isDragging = false;
+    let startY = 0;
+    let startScrollTop = 0;
+
+    const onPointerDown = (e) => {
+      isDragging = true;
+      startY = e.clientY || e.touches?.[0]?.clientY || 0;
+      startScrollTop = this.wheelList.scrollTop;
+      this.wheelList.style.scrollBehavior = 'auto';
+    };
+
+    const onPointerMove = (e) => {
+      if (!isDragging) return;
+      const currentY = e.clientY || e.touches?.[0]?.clientY || 0;
+      const delta = startY - currentY;
+      this.wheelList.scrollTop = startScrollTop + delta;
+    };
+
+    const onPointerUp = () => {
+      if (!isDragging) return;
+      isDragging = false;
+      this.snapToNearest();
+    };
+
+    this.wheelList.addEventListener('mousedown', onPointerDown);
+    window.addEventListener('mousemove', onPointerMove);
+    window.addEventListener('mouseup', onPointerUp);
+
+    this.wheelList.addEventListener('touchstart', onPointerDown, { passive: true });
+    window.addEventListener('touchmove', onPointerMove, { passive: true });
+    window.addEventListener('touchend', onPointerUp);
+
     // Wheel Scroll Listener with Haptic Audio Ticks
     if (this.wheelList) {
       this.wheelList.addEventListener('scroll', () => {
@@ -105,6 +182,8 @@ export class DayWheelPicker {
   }
 
   handleScroll() {
+    if (this.isProgrammaticScroll) return;
+
     const scrollTop = this.wheelList.scrollTop;
     const rawIndex = Math.round(scrollTop / this.itemHeight);
     const dayIndex = Math.min(Math.max(1, rawIndex + 1), this.totalDays);
@@ -124,6 +203,7 @@ export class DayWheelPicker {
   }
 
   snapToNearest() {
+    if (this.isProgrammaticScroll) return;
     const targetScroll = (this.selectedDay - 1) * this.itemHeight;
     if (Math.abs(this.wheelList.scrollTop - targetScroll) > 1) {
       this.wheelList.scrollTo({
@@ -156,7 +236,18 @@ export class DayWheelPicker {
   scrollToDay(day, smooth = false) {
     const clamped = Math.min(Math.max(1, day), this.totalDays);
     this.selectedDay = clamped;
+    this.lastSnappedIndex = clamped;
     const targetScroll = (clamped - 1) * this.itemHeight;
+
+    if (smooth) {
+      this.isProgrammaticScroll = true;
+      clearTimeout(this.progScrollTimer);
+      this.progScrollTimer = setTimeout(() => {
+        this.isProgrammaticScroll = false;
+      }, 160);
+    } else {
+      this.isProgrammaticScroll = false;
+    }
 
     this.wheelList.scrollTo({
       top: targetScroll,
