@@ -2,7 +2,8 @@
    Pocket Frames - Responsive Studio Design System & Liquid Glass Engine
    ========================================================================== */
 
-:root {
+:root,
+body[data-theme="light"] {
   --bg-app: #F7F7F9;
   --bg-card: #FFFFFF;
   --bg-input: #FFFFFF;
@@ -31,15 +32,73 @@
   --header-height: 56px;
   --footer-height: 64px;
 
-  /* ========================================================================
-     Liquid Glass Refraction & Specular Reflection Tokens
-     ======================================================================== */
+  /* Liquid Glass Tokens */
   --c-glass: #c2c2c8;
   --c-light: #ffffff;
   --c-dark: #000000;
   --glass-reflex-light: 1.15;
   --glass-reflex-dark: 0.95;
   --saturation: 150%;
+
+  --select-chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2344444F' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+}
+
+/* Dark Theme (Obsidian Studio) */
+body[data-theme="dark"],
+body:has(input[value="dark"]:checked) {
+  --bg-app: #111114;
+  --bg-card: #18181D;
+  --bg-input: #1F1F26;
+  --bg-subtle: #22222A;
+  --bg-hover: #2B2B36;
+
+  --text-main: #F4F4F7;
+  --text-muted: #9E9EA8;
+  --text-dim: #6B6B76;
+
+  --border-light: #2A2A34;
+  --border-strong: #3E3E4B;
+
+  --c-glass: #2A2A36;
+  --c-light: #FFFFFF;
+  --c-dark: #000000;
+  --glass-reflex-light: 0.35;
+  --glass-reflex-dark: 2.0;
+  --saturation: 150%;
+
+  --shadow-frame: 0 28px 60px -12px rgba(0, 0, 0, 0.7), 0 4px 20px -4px rgba(0, 0, 0, 0.5);
+  --shadow-card: 0 4px 14px rgba(0, 0, 0, 0.25);
+
+  --select-chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23E0E0E6' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+}
+
+/* Dim Theme (Midnight Cyan / VisionOS) */
+body[data-theme="dim"],
+body:has(input[value="dim"]:checked) {
+  --bg-app: #0D1622;
+  --bg-card: #142232;
+  --bg-input: #1A2C40;
+  --bg-subtle: #1E3147;
+  --bg-hover: #253C56;
+
+  --text-main: #EDF3F8;
+  --text-muted: #8EADC6;
+  --text-dim: #5C7791;
+
+  --border-light: #20354E;
+  --border-strong: #2F4C6E;
+
+  --c-light: #99deff;
+  --c-dark: #070d16;
+  --c-glass: #1b3046;
+  --glass-reflex-light: 0.7;
+  --glass-reflex-dark: 2.0;
+  --saturation: 180%;
+
+  --shadow-frame: 0 28px 60px -12px rgba(0, 0, 0, 0.8), 0 4px 20px -4px rgba(0, 0, 0, 0.55);
+  --shadow-card: 0 4px 14px rgba(0, 0, 0, 0.3);
+
+  --select-chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2399deff' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
 }
 
 /* Reset & Base */
@@ -57,6 +116,7 @@ html, body {
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  transition: background-color 400ms cubic-bezier(1, 0, 0.4, 1), color 400ms cubic-bezier(1, 0, 0.4, 1);
 }
 
 /* Desktop: Fixed full viewport layout */
@@ -177,6 +237,170 @@ html, body {
   height: 20px;
   background: var(--border-light);
   margin: 0 4px;
+}
+
+/* ==========================================================================
+   Liquid Glass Theme Switcher (Light / Dark / Dim)
+   ========================================================================== */
+.switcher {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  width: 98px;
+  height: 32px;
+  box-sizing: border-box;
+  padding: 3px;
+  margin: 0;
+  border: 1px solid color-mix(in srgb, var(--c-light) 40%, transparent);
+  border-radius: 99em;
+  background-color: color-mix(in srgb, var(--c-glass) 16%, transparent);
+  backdrop-filter: blur(10px) url(#liquid-glass) saturate(var(--saturation));
+  -webkit-backdrop-filter: blur(10px) saturate(var(--saturation));
+  box-shadow: 
+    inset 0 0 0 1px color-mix(in srgb, var(--c-light) calc(var(--glass-reflex-light) * 12%), transparent),
+    inset 1.8px 2.5px 0px -1px color-mix(in srgb, var(--c-light) calc(var(--glass-reflex-light) * 80%), transparent), 
+    inset -1.5px -1.5px 0px -1px color-mix(in srgb, var(--c-light) calc(var(--glass-reflex-light) * 60%), transparent), 
+    inset 0px 2px 3px -1px color-mix(in srgb, var(--c-dark) calc(var(--glass-reflex-dark) * 15%), transparent), 
+    0px 2px 6px 0px color-mix(in srgb, var(--c-dark) calc(var(--glass-reflex-dark) * 6%), transparent);
+  transition: 
+    background-color 400ms cubic-bezier(1, 0.0, 0.4, 1),
+    border-color 400ms cubic-bezier(1, 0.0, 0.4, 1),
+    box-shadow 400ms cubic-bezier(1, 0.0, 0.4, 1);
+  flex-shrink: 0;
+}
+
+.switcher__legend {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  border: 0;
+  padding: 0;
+  white-space: nowrap;
+  clip-path: inset(100%);
+  clip: rect(0 0 0 0);
+  overflow: hidden;
+}
+
+.switcher__input {
+  clip: rect(0 0 0 0);
+  clip-path: inset(100%);
+  height: 1px;
+  width: 1px;
+  overflow: hidden;
+  position: absolute;
+  white-space: nowrap;
+}
+
+.switcher__icon {
+  display: block;
+  width: 17px;
+  height: 17px;
+  transition: scale 200ms cubic-bezier(0.5, 0, 0, 1), color 200ms ease;
+}
+
+.switcher__option {
+  --c: var(--text-muted);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 29px;
+  height: 100%;
+  box-sizing: border-box;
+  border-radius: 99em;
+  opacity: 1;
+  transition: all 160ms;
+  cursor: pointer;
+  z-index: 2;
+  position: relative;
+}
+
+.switcher__option:hover {
+  --c: var(--text-main);
+}
+
+.switcher__option:hover .switcher__icon {
+  scale: 1.18;
+}
+
+.switcher__option:has(input:checked) {
+  --c: var(--text-main);
+  cursor: default;
+}
+
+.switcher::after {
+  content: '';
+  position: absolute;
+  left: 3px;
+  top: 3px;
+  display: block;
+  width: 29px;
+  height: calc(100% - 6px);
+  border-radius: 99em;
+  background-color: color-mix(in srgb, var(--c-glass) 40%, transparent);
+  z-index: 1;
+  box-shadow: 
+    inset 0 0 0 1px color-mix(in srgb, var(--c-light) calc(var(--glass-reflex-light) * 25%), transparent),
+    inset 1.5px 1.5px 0px 0px color-mix(in srgb, var(--c-light) calc(var(--glass-reflex-light) * 90%), transparent), 
+    inset -1px -1px 0px 0px color-mix(in srgb, var(--c-light) calc(var(--glass-reflex-light) * 70%), transparent), 
+    0px 2px 6px 0px color-mix(in srgb, var(--c-dark) calc(var(--glass-reflex-dark) * 12%), transparent);
+  pointer-events: none;
+}
+
+.switcher:has(input[c-option="1"]:checked)::after {
+  translate: 0 0;
+  transform-origin: right;
+  transition: 
+    background-color 400ms cubic-bezier(1, 0.0, 0.4, 1),
+    box-shadow 400ms cubic-bezier(1, 0.0, 0.4, 1),
+    translate 400ms cubic-bezier(1, 0.0, 0.4, 1);
+  animation: scaleToggle 440ms ease; 
+}
+
+.switcher:has(input[c-option="2"]:checked)::after {
+  translate: 31px 0;
+  transition: 
+    background-color 400ms cubic-bezier(1, 0.0, 0.4, 1),
+    box-shadow 400ms cubic-bezier(1, 0.0, 0.4, 1),
+    translate 400ms cubic-bezier(1, 0.0, 0.4, 1);
+  animation: scaleToggle2 440ms ease; 
+}
+
+.switcher[c-previous="1"]:has(input[c-option="2"]:checked)::after {
+  transform-origin: left;
+}
+
+.switcher[c-previous="3"]:has(input[c-option="2"]:checked)::after {
+  transform-origin: right;
+}
+
+.switcher:has(input[c-option="3"]:checked)::after {
+  translate: 62px 0;
+  transform-origin: left;
+  transition: 
+    background-color 400ms cubic-bezier(1, 0.0, 0.4, 1),
+    box-shadow 400ms cubic-bezier(1, 0.0, 0.4, 1),
+    translate 400ms cubic-bezier(1, 0.0, 0.4, 1);
+  animation: scaleToggle3 440ms ease; 
+}
+
+@keyframes scaleToggle {
+  0% { scale: 1 1; }
+  50% { scale: 1.15 1; }
+  100% { scale: 1 1; }
+}
+
+@keyframes scaleToggle2 {
+  0% { scale: 1 1; }
+  50% { scale: 1.25 1; }
+  100% { scale: 1 1; }
+} 
+
+@keyframes scaleToggle3 {
+  0% { scale: 1 1; }
+  50% { scale: 1.15 1; }
+  100% { scale: 1 1; }
 }
 
 /* ==========================================================================
@@ -853,13 +1077,13 @@ html, body {
   backdrop-filter: blur(12px) url(#liquid-glass) saturate(var(--saturation));
   -webkit-backdrop-filter: blur(12px) saturate(var(--saturation));
   border: 1px solid color-mix(in srgb, var(--c-light) 50%, transparent);
-  border-radius: 999px;
+  border-radius: 8px;
   padding: 8px 34px 8px 14px;
   font-size: 13px;
   font-weight: 500;
   color: var(--text-main);
   cursor: pointer;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2344444F' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+  background-image: var(--select-chevron);
   background-repeat: no-repeat;
   background-position: right 12px center;
   white-space: nowrap;
@@ -870,6 +1094,11 @@ html, body {
     inset 0px 3px 4px -2px color-mix(in srgb, var(--c-dark) calc(var(--glass-reflex-dark) * 18%), transparent), 
     0px 2px 6px 0px color-mix(in srgb, var(--c-dark) calc(var(--glass-reflex-dark) * 6%), transparent);
   transition: all 220ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.custom-select option {
+  background-color: var(--bg-card);
+  color: var(--text-main);
 }
 
 .custom-select:hover {
@@ -1119,7 +1348,37 @@ kbd {
   }
 
   .header-actions {
-    gap: 5px;
+    gap: 4px;
+  }
+
+  .switcher {
+    width: 86px;
+    height: 28px;
+    padding: 2px;
+  }
+
+  .switcher__option {
+    width: 26px;
+  }
+
+  .switcher__icon {
+    width: 14px;
+    height: 14px;
+  }
+
+  .switcher::after {
+    width: 26px;
+    height: calc(100% - 4px);
+    top: 2px;
+    left: 2px;
+  }
+
+  .switcher:has(input[c-option="2"]:checked)::after {
+    translate: 27px 0;
+  }
+
+  .switcher:has(input[c-option="3"]:checked)::after {
+    translate: 54px 0;
   }
 
   .btn-text {

@@ -76,6 +76,9 @@ async function initApp() {
   // Setup Event Listeners
   setupEventListeners();
 
+  // Initialize Theme Switcher (Liquid Glass Light/Dark/Dim)
+  initThemeSwitcher();
+
   // Handle Resize
   setupResizeObserver();
 
@@ -216,6 +219,44 @@ function updatePreflightUI() {
 function updateUndoRedoUI() {
   btnUndo.disabled = !store.canUndo();
   btnRedo.disabled = !store.canRedo();
+}
+
+/**
+ * Liquid Glass Theme Switcher Engine (Light, Dark, Dim)
+ * Tracks direction of movement for the elastic liquid indicator and persists preference
+ */
+function initThemeSwitcher() {
+  const switcher = document.getElementById('themeSwitcher');
+  if (!switcher) return;
+
+  const radios = switcher.querySelectorAll('input[type="radio"]');
+  let previousValue = null;
+
+  // Restore saved theme or match system dark preference
+  let savedTheme = localStorage.getItem('pocket_frames_theme');
+  if (!savedTheme) {
+    savedTheme = (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) ? 'dark' : 'light';
+  }
+
+  const initialRadio = switcher.querySelector(`input[value="${savedTheme}"]`) || switcher.querySelector('input[value="light"]');
+  if (initialRadio) {
+    initialRadio.checked = true;
+    previousValue = initialRadio.getAttribute('c-option');
+    switcher.setAttribute('c-previous', previousValue);
+    document.body.setAttribute('data-theme', savedTheme);
+  }
+
+  radios.forEach(radio => {
+    radio.addEventListener('change', () => {
+      if (radio.checked) {
+        switcher.setAttribute('c-previous', previousValue ?? '');
+        previousValue = radio.getAttribute('c-option');
+        const theme = radio.value;
+        document.body.setAttribute('data-theme', theme);
+        localStorage.setItem('pocket_frames_theme', theme);
+      }
+    });
+  });
 }
 
 /**
