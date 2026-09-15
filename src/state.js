@@ -32,6 +32,15 @@ export const DEFAULT_STATE = {
     resolution: '2160x2700', // '1080x1350', '2160x2700', '3240x4050'
     format: 'image/jpeg',    // 'image/jpeg', 'image/png'
     quality: 0.99
+  },
+  ai: {
+    dayNumber: 18,
+    campaign: '47 DAYS / 47 FRAMES',
+    postData: null,
+    isAnalyzing: false,
+    status: 'IDLE',
+    error: null,
+    selectedCaptionStyle: 'minimal'
   }
 };
 
@@ -168,6 +177,14 @@ class StateStore {
       ...partial
     };
     this.notify('export');
+  }
+
+  setAiState(partial) {
+    this.state.ai = {
+      ...this.state.ai,
+      ...partial
+    };
+    this.notify('ai');
   }
 
   resetNewFrame() {

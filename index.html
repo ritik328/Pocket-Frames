@@ -79,6 +79,13 @@
           <span class="btn-text">Preview</span>
         </button>
 
+        <button id="btnOpenAiStudio" class="secondary-button ai-director-btn" title="Open Gemini AI Photography Director & Post Studio">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z"/>
+          </svg>
+          <span class="btn-text">AI Director</span>
+        </button>
+
         <button id="btnShortcutsHelp" class="icon-button" title="Keyboard Shortcuts" aria-label="Shortcuts">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <circle cx="12" cy="12" r="10"></circle><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path><line x1="12" y1="17" x2="12.01" y2="17"></line>
@@ -144,11 +151,12 @@
             <button id="btnZoomIn" class="micro-btn" title="Zoom In (+)">+</button>
           </div>
 
-          <!-- Fit / Fill / Reset Presets -->
+          <!-- Fit / Fill / Reset / AI Presets -->
           <div class="preset-button-group">
             <button id="btnFit" class="preset-btn" title="Show complete photograph">Fit</button>
             <button id="btnFill" class="preset-btn" title="Cover aperture completely">Fill</button>
             <button id="btnReset" class="preset-btn" title="Reset position to center (R)">Reset</button>
+            <button id="btnAiAutoCompose" class="preset-btn ai-compose-preset" title="AI Composition Assistant (Recommend Crop & Centering)">✨ AI Framing</button>
           </div>
         </div>
 
@@ -316,6 +324,197 @@
           <div class="shortcut-row"><kbd>Ctrl + Z</kbd><span>Undo</span></div>
           <div class="shortcut-row"><kbd>Ctrl + Y</kbd><span>Redo</span></div>
           <div class="shortcut-row"><kbd>Esc</kbd><span>Exit clean preview</span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- AI Photography Director & Post Studio Modal -->
+    <div id="aiStudioModal" class="modal-backdrop hidden" aria-labelledby="aiStudioTitle" role="dialog" aria-modal="true">
+      <div class="modal-card ai-studio-card">
+        <!-- Studio Header -->
+        <div class="modal-header ai-modal-header">
+          <div class="ai-header-left">
+            <div class="ai-title-row">
+              <span class="ai-sparkle-icon">✨</span>
+              <h3 id="aiStudioTitle">AI Photography Director</h3>
+            </div>
+            <!-- Campaign & Day Stepper -->
+            <div class="ai-campaign-stepper">
+              <span class="campaign-name">47 DAYS / 47 FRAMES</span>
+              <div class="day-stepper-control">
+                <span class="day-label">DAY</span>
+                <button type="button" id="btnDayPrev" class="day-step-btn" title="Previous Day">−</button>
+                <input type="number" id="inputDayNumber" class="day-number-input" value="18" min="1" max="47" />
+                <button type="button" id="btnDayNext" class="day-step-btn" title="Next Day">+</button>
+                <span class="day-total">/ 47</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="ai-header-right">
+            <!-- Server Connection Status Badge -->
+            <div id="aiStatusBadge" class="ai-status-badge">
+              <span class="status-dot"></span> Checking API...
+            </div>
+            <button id="btnCloseAiStudio" class="icon-button" aria-label="Close AI Studio">✕</button>
+          </div>
+        </div>
+
+        <!-- Studio Body -->
+        <div class="ai-modal-body">
+          <!-- State: IDLE (Invitation) -->
+          <div id="aiStateIdle" class="ai-state-view ai-state-idle">
+            <div class="idle-art-frame">
+              <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+                <circle cx="8.5" cy="8.5" r="1.5"/>
+                <polyline points="21 15 16 10 5 21"/>
+              </svg>
+            </div>
+            <h4>Creator Studio & Post Generator</h4>
+            <p>Analyze your photograph with Gemini Vision for composition scores, subject centering, human-crafted captions, smart hashtags, and OPPO portfolio readiness.</p>
+            <button id="btnRunCreatePost" class="primary-button ai-hero-action-btn">
+              <span>✨ Create Post Package</span>
+            </button>
+          </div>
+
+          <!-- State: LOADING (Analyzing Pulse) -->
+          <div id="aiStateLoading" class="ai-state-view ai-state-loading hidden">
+            <div class="liquid-pulse-spinner"></div>
+            <h4>Analyzing with Gemini Vision...</h4>
+            <p class="loading-subtext">Evaluating lighting, subject balance, photographic depth, and caption styles.</p>
+            <button id="btnCancelAi" class="secondary-button" type="button">Cancel</button>
+          </div>
+
+          <!-- State: ERROR (Diagnostic Feedback) -->
+          <div id="aiStateError" class="ai-state-view ai-state-error hidden">
+            <div class="error-badge-icon">⚠️</div>
+            <h4>Analysis Notice</h4>
+            <p id="aiErrorMessageText" class="error-message-text">Unable to complete analysis.</p>
+            <button id="btnRetryAi" class="primary-button" type="button">Try Again</button>
+          </div>
+
+          <!-- State: CONTENT (Generated Studio Suite) -->
+          <div id="aiStateContent" class="ai-state-view ai-state-content hidden">
+            <!-- Title & Genre Bar -->
+            <div class="ai-section ai-title-genre-bar">
+              <div class="title-input-wrapper">
+                <label class="field-label">Photo Title</label>
+                <input type="text" id="inputPostTitle" class="field-input post-title-input" placeholder="Enter title..." />
+              </div>
+              <div class="genre-wrapper">
+                <label class="field-label">Genre</label>
+                <div class="genre-pills">
+                  <span id="genreBadgePrimary" class="genre-badge primary">Street Photography</span>
+                  <div id="genreSecondaryTags" class="genre-secondary-tags"></div>
+                </div>
+              </div>
+            </div>
+
+            <!-- OPPO Portfolio Potential & Scores Grid -->
+            <div class="ai-section ai-portfolio-card">
+              <div class="portfolio-header">
+                <div class="portfolio-badges-row">
+                  <span id="badgePortfolioRating" class="portfolio-badge rating-high">Portfolio Candidate: HIGH</span>
+                  <span id="badgeMobileStrength" class="mobile-strength-badge">Mobile Strength: 8.5/10</span>
+                  <span id="badgeOppoRelevance" class="oppo-relevance-badge rating-high">OPPO Relevance: HIGH</span>
+                </div>
+              </div>
+              <p id="textPortfolioReason" class="portfolio-reason-quote">Strong visual storytelling and controlled low-light exposure.</p>
+              
+              <!-- 4-Score Breakdown -->
+              <div class="score-meters-grid">
+                <div class="score-meter-card">
+                  <span class="score-num" id="scoreComposition">8.4</span>
+                  <span class="score-name">Composition</span>
+                </div>
+                <div class="score-meter-card">
+                  <span class="score-num" id="scoreStory">8.8</span>
+                  <span class="score-name">Story</span>
+                </div>
+                <div class="score-meter-card">
+                  <span class="score-num" id="scoreVisualImpact">8.1</span>
+                  <span class="score-name">Visual Impact</span>
+                </div>
+                <div class="score-meter-card">
+                  <span class="score-num" id="scoreBackground">7.5</span>
+                  <span class="score-name">Background</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- AI Composition Assistant Card -->
+            <div class="ai-section ai-composition-card" id="aiCompositionCard">
+              <div class="comp-card-header">
+                <h4>AI Composition Recommendation</h4>
+                <span class="comp-confidence-tag" id="compCoordsReadout">Target: (50%, 50%) · Zoom: 1.05×</span>
+              </div>
+              <p id="compReasonText" class="comp-reason-text">A slight vertical adjustment balances the upper negative space.</p>
+              
+              <div class="comp-critique-row">
+                <div class="comp-critique-col">
+                  <span class="critique-col-label">Strengths</span>
+                  <ul id="compStrengthsList" class="comp-list"></ul>
+                </div>
+                <div class="comp-critique-col">
+                  <span class="critique-col-label">Critique</span>
+                  <ul id="compWeaknessesList" class="comp-list weaknesses"></ul>
+                </div>
+              </div>
+
+              <div class="comp-actions-row">
+                <button type="button" id="btnApplyComposition" class="primary-button btn-apply-composition">Apply to Canvas</button>
+                <button type="button" id="btnIgnoreComposition" class="secondary-button btn-ignore-composition">Ignore</button>
+              </div>
+            </div>
+
+            <!-- Captions Suite -->
+            <div class="ai-section ai-captions-card">
+              <div class="section-header-row">
+                <span class="field-label">Photographer Captions (Human & Restrained)</span>
+                <button type="button" id="btnCopyCaption" class="action-copy-btn">📋 Copy Caption</button>
+              </div>
+              <div id="captionTabsContainer" class="caption-tabs-row"></div>
+              <textarea id="textareaActiveCaption" class="field-input caption-textarea" rows="2"></textarea>
+            </div>
+
+            <!-- Hashtags, Alt Text & Instagram Story -->
+            <div class="ai-section ai-metadata-split">
+              <!-- Hashtags -->
+              <div class="ai-split-block">
+                <div class="section-header-row">
+                  <span class="field-label">Intelligent Hashtags (3–6 curated)</span>
+                  <button type="button" id="btnCopyHashtags" class="action-copy-btn">📋 Copy</button>
+                </div>
+                <input type="text" id="inputHashtags" class="field-input" />
+              </div>
+
+              <!-- Instagram Story Text -->
+              <div class="ai-split-block">
+                <div class="section-header-row">
+                  <span class="field-label">Instagram Story Note</span>
+                  <button type="button" id="btnCopyStoryText" class="action-copy-btn">📋 Copy</button>
+                </div>
+                <input type="text" id="inputStoryText" class="field-input" />
+              </div>
+            </div>
+
+            <!-- Alt Text -->
+            <div class="ai-section">
+              <div class="section-header-row">
+                <span class="field-label">Accessibility Alt Text (No marketing/hashtags)</span>
+                <button type="button" id="btnCopyAltText" class="action-copy-btn">📋 Copy Alt Text</button>
+              </div>
+              <input type="text" id="inputAltText" class="field-input" />
+            </div>
+
+            <!-- Master Package Copy Button -->
+            <div class="ai-modal-footer">
+              <button type="button" id="btnCopyCompletePackage" class="primary-button btn-copy-master-package">
+                <span>🚀 Copy Complete Post Package</span>
+              </button>
+            </div>
+          </div>
         </div>
       </div>
     </div>

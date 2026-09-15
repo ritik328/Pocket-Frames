@@ -12,6 +12,7 @@ import { downloadFrame, getPreflightSummary, EXPORT_PRESETS } from './export/exp
 import { loadUserImage } from './image/imageLoader.js';
 import { setupKeyboardShortcuts } from './shortcuts.js';
 import { loadProjectFromDB, clearProjectFromDB } from './storage/projectStorage.js';
+import { AiStudioModal } from './ai/aiStudioModal.js';
 
 // DOM Elements
 const previewCanvas = document.getElementById('previewCanvas');
@@ -63,6 +64,9 @@ const btnCloseShortcuts = document.getElementById('btnCloseShortcuts');
 
 let positionManager = null;
 let metadataEditor = null;
+let aiStudioModal = null;
+
+const btnAiAutoCompose = document.getElementById('btnAiAutoCompose');
 
 // Initialize App
 async function initApp() {
@@ -78,6 +82,9 @@ async function initApp() {
 
   // Initialize Theme Switcher (Liquid Glass Light/Dark/Dim)
   initThemeSwitcher();
+
+  // Initialize AI Photography Director Studio Modal
+  aiStudioModal = new AiStudioModal();
 
   // Handle Resize
   setupResizeObserver();
@@ -357,6 +364,19 @@ function setupEventListeners() {
     const scale = calculateFillScale(state.image.width, state.image.height);
     store.setTransform({ x: 0, y: 0, scale }, true);
   });
+
+  // AI Auto-Compose Framing Preset
+  if (btnAiAutoCompose) {
+    btnAiAutoCompose.addEventListener('click', () => {
+      const state = store.getState();
+      if (!state.image) {
+        fileInput.click();
+        return;
+      }
+      aiStudioModal.open();
+      aiStudioModal.runAnalysis();
+    });
+  }
 
   // Toggles
   chkGridVisible.addEventListener('change', (e) => {

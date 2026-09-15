@@ -29,6 +29,13 @@ Optimized for Instagram 4:5 portrait format at **2160 × 2700 px** (2× master) 
   - 30-step **Undo / Redo** (`Ctrl+Z` / `Ctrl+Y`).
   - IndexedDB auto-save to persist your session locally.
   - Clean preview mode (`Space`) to inspect frames without UI distractions.
+- **Gemini Vision AI Photography Director Studio**:
+  - **47 DAYS / 47 FRAMES Campaign Engine**: One-button "Create Post" generating photo titles, 5 distinct caption tones (Minimal, Cinematic, Documentary, Personal, Photography-Focused), hashtags, accessible alt text, and Instagram story copy.
+  - **Natural Creator Strategy**: Photography-first editorial voice that builds authentic portfolio authority and natural OPPO visibility without sounding promotional or like an advertisement.
+  - **Intelligent Composition Rebalancing**: Computes normalized golden-ratio framing offsets `(recommended_x, recommended_y, recommended_zoom)` that can be applied with one click or undone seamlessly.
+  - **Separated Portfolio & Hardware Analytics**: Discrete scoring metrics for `Portfolio Potential`, `Mobile Photography Strength`, and `OPPO/Hasselblad Relevance`.
+  - **Privacy & Security Architecture**: `GEMINI_API_KEY` is strictly server-side (never exposed to client bundles). AI requests use an offscreen 1024px downscaled analysis copy, preserving the full-resolution uncompressed master for final export.
+  - **Built-in Demo Fallback**: Functions seamlessly out of the box even without an API key with realistic mock analysis.
 
 ---
 
@@ -47,6 +54,10 @@ cd Pocket-Frames
 
 # Install dependencies
 npm install
+
+# (Optional) Configure Gemini API for live Vision intelligence
+cp .env.example .env
+# Add your GEMINI_API_KEY inside .env
 
 # Start local dev server
 npm run dev
