@@ -8,27 +8,28 @@ import { checkRateLimit, validateImageTransport } from '../utils/rateLimit.js';
 import { getServiceStatus, createPost, analyzePhoto, getCompositionRecommendation, getCritique } from '../services/geminiService.js';
 
 export async function handleAiRequest(req, res, next) {
-  const url = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
-  let pathname = url.pathname;
+  // Set CORS headers for all responses
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With');
 
-  // Support Vercel dynamic route params (e.g., api/ai/[action].js or query params)
-  if (!pathname.startsWith('/api/ai/') && req.query) {
-    const action = req.query.action || (Array.isArray(req.query.path) ? req.query.path.join('/') : req.query.path);
-    if (action) {
-      pathname = `/api/ai/${action}`;
-    }
+  // Handle CORS Preflight (OPTIONS)
+  if (req.method === 'OPTIONS') {
+    res.statusCode = 204;
+    res.setHeader('Access-Control-Max-Age', '86400');
+    return res.end();
   }
 
-  // Status check endpoint
-  if ((pathname === '/api/ai/status' || pathname.endsWith('/status')) && req.method === 'GET') {
+  const url = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
+  const pathname = url.pathname;
+  const segments = pathname.split('/').filter(Boolean);
+  const lastSegment = segments[segments.length - 1] || '';
+  const action = req.query?.action || lastSegment || 'status';
+
+  // Status check endpoint (GET or action=status)
+  if (action === 'status' || pathname.endsWith('/status')) {
     const status = getServiceStatus();
     return sendJson(res, 200, { success: true, ...status });
-  }
-
-  // Only handle /api/ai/* routes
-  if (!pathname.startsWith('/api/ai/')) {
-    if (typeof next === 'function') return next();
-    return sendJson(res, 404, { success: false, error: 'Not Found' });
   }
 
   if (req.method !== 'POST') {
@@ -78,28 +79,39 @@ export async function handleAiRequest(req, res, next) {
   try {
     let result;
 
-    switch (pathname) {
-      case '/api/ai/create-post':
+    switch (action) {
+      case 'create-post':
         result = await createPost(body);
         break;
 
-      case '/api/ai/analyze-photo':
+      case 'analyze-photo':
         result = await analyzePhoto(body);
         break;
 
-      case '/api/ai/composition':
+      case 'composition':
         result = await getCompositionRecommendation(body);
         break;
 
-      case '/api/ai/critique':
+      case 'critique':
         result = await getCritique(body);
         break;
 
       default:
-        return sendJson(res, 404, {
-          success: false,
-          error: { code: 'UNKNOWN_AI_ENDPOINT', message: `No endpoint matching ${pathname}` }
-        });
+        // Try pathname matching as fallback
+        if (pathname.includes('create-post')) {
+          result = await createPost(body);
+        } else if (pathname.includes('analyze-photo')) {
+          result = await analyzePhoto(body);
+        } else if (pathname.includes('composition')) {
+          result = await getCompositionRecommendation(body);
+        } else if (pathname.includes('critique')) {
+          result = await getCritique(body);
+        } else {
+          return sendJson(res, 404, {
+            success: false,
+            error: { code: 'UNKNOWN_AI_ENDPOINT', message: `No endpoint matching action: ${action}` }
+          });
+        }
     }
 
     if (!result.success) {
@@ -109,7 +121,7 @@ export async function handleAiRequest(req, res, next) {
     return sendJson(res, 200, result);
 
   } catch (err) {
-    console.error(`[AIRoutes] Unhandled server error in ${pathname}:`, err);
+    console.error(`[AIRoutes] Unhandled server error in ${action}:`, err);
     return sendJson(res, 500, {
       success: false,
       error: { code: 'INTERNAL_SERVER_ERROR', message: 'An internal error occurred processing the request.' }
