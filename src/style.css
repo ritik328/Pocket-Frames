@@ -1,6 +1,5 @@
 /* ==========================================================================
-   Pocket Frames - Responsive Studio Design System & Layout
-   Fully compatible with Mobile (320px+), Tablets, Laptops & 4K Displays
+   Pocket Frames - Responsive Studio Design System & Liquid Glass Engine
    ========================================================================== */
 
 :root {
@@ -31,6 +30,16 @@
 
   --header-height: 56px;
   --footer-height: 64px;
+
+  /* ========================================================================
+     Liquid Glass Refraction & Specular Reflection Tokens
+     ======================================================================== */
+  --c-glass: #c2c2c8;
+  --c-light: #ffffff;
+  --c-dark: #000000;
+  --glass-reflex-light: 1.15;
+  --glass-reflex-dark: 0.95;
+  --saturation: 150%;
 }
 
 /* Reset & Base */
@@ -50,7 +59,7 @@ html, body {
   -moz-osx-font-smoothing: grayscale;
 }
 
-/* Desktop: App Layout Grid (Fixed full viewport) */
+/* Desktop: Fixed full viewport layout */
 @media (min-width: 961px) {
   html, body {
     height: 100%;
@@ -91,7 +100,9 @@ html, body {
   }
 }
 
-/* Header */
+/* ==========================================================================
+   Header with Liquid Glass Actions
+   ========================================================================== */
 .app-header {
   height: var(--header-height);
   background-color: var(--bg-card);
@@ -134,14 +145,23 @@ html, body {
   align-items: center;
 }
 
+/* Liquid Glass Format Pill */
 .format-pill {
   font-family: var(--font-mono);
   font-size: 11px;
+  font-weight: 500;
   color: var(--text-muted);
-  background: var(--bg-subtle);
-  padding: 4px 10px;
+  background-color: color-mix(in srgb, var(--c-glass) 16%, transparent);
+  backdrop-filter: blur(10px) saturate(var(--saturation));
+  -webkit-backdrop-filter: blur(10px) saturate(var(--saturation));
+  padding: 5px 12px;
   border-radius: 999px;
-  border: 1px solid var(--border-light);
+  border: 1px solid color-mix(in srgb, var(--c-light) 45%, transparent);
+  box-shadow: 
+    inset 0 0 0 1px color-mix(in srgb, var(--c-light) calc(var(--glass-reflex-light) * 12%), transparent),
+    inset 1.5px 2px 0px -1px color-mix(in srgb, var(--c-light) calc(var(--glass-reflex-light) * 80%), transparent),
+    inset -1px -1.5px 0px -1px color-mix(in srgb, var(--c-dark) 10%, transparent),
+    0 1px 4px rgba(0, 0, 0, 0.03);
   letter-spacing: 0.02em;
   white-space: nowrap;
 }
@@ -159,59 +179,106 @@ html, body {
   margin: 0 4px;
 }
 
-/* Buttons */
+/* ==========================================================================
+   Liquid Glass Buttons & Controls (Header & Toolbar)
+   ========================================================================== */
+
+/* Liquid Glass Icon Buttons (Undo, Redo, Shortcuts) */
 .icon-button {
-  background: transparent;
-  border: 1px solid transparent;
-  border-radius: 6px;
-  padding: 6px 8px;
+  background-color: color-mix(in srgb, var(--c-glass) 14%, transparent);
+  backdrop-filter: blur(10px) saturate(var(--saturation));
+  -webkit-backdrop-filter: blur(10px) saturate(var(--saturation));
+  border: 1px solid color-mix(in srgb, var(--c-light) 50%, transparent);
+  border-radius: 50%;
+  width: 32px;
+  height: 32px;
+  padding: 0;
   color: var(--text-main);
   cursor: pointer;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  transition: all 0.15s ease;
+  box-shadow: 
+    inset 0 0 0 1px color-mix(in srgb, var(--c-light) calc(var(--glass-reflex-light) * 10%), transparent),
+    inset 1.5px 2px 0px -1px color-mix(in srgb, var(--c-light) calc(var(--glass-reflex-light) * 85%), transparent),
+    inset -1px -1px 0px -1px color-mix(in srgb, var(--c-light) calc(var(--glass-reflex-light) * 50%), transparent),
+    inset 0px 2px 3px -1px color-mix(in srgb, var(--c-dark) 14%, transparent),
+    0 2px 6px rgba(0, 0, 0, 0.04);
+  transition: all 220ms cubic-bezier(0.16, 1, 0.3, 1);
   flex-shrink: 0;
 }
 
 .icon-button:hover:not(:disabled) {
-  background: var(--bg-subtle);
-  border-color: var(--border-light);
+  background-color: color-mix(in srgb, var(--c-glass) 26%, transparent);
+  box-shadow: 
+    inset 0 0 0 1px color-mix(in srgb, var(--c-light) calc(var(--glass-reflex-light) * 20%), transparent),
+    inset 1.8px 2.5px 0px -1px color-mix(in srgb, var(--c-light) calc(var(--glass-reflex-light) * 95%), transparent),
+    0 4px 12px rgba(0, 0, 0, 0.08);
+  transform: translateY(-1px);
+}
+
+.icon-button:active:not(:disabled) {
+  transform: translateY(0.5px) scale(0.95);
+  background-color: color-mix(in srgb, var(--c-glass) 35%, transparent);
 }
 
 .icon-button:disabled {
   opacity: 0.3;
   cursor: not-allowed;
+  box-shadow: none;
+  background: var(--bg-subtle);
 }
 
+/* Liquid Glass Secondary Buttons (+ New Frame, Preview) - As in Image 2 */
 .secondary-button {
-  background: var(--bg-card);
-  border: 1px solid var(--border-light);
-  border-radius: 6px;
-  padding: 6px 12px;
+  background-color: color-mix(in srgb, var(--c-glass) 16%, transparent);
+  backdrop-filter: blur(12px) url(#liquid-glass) saturate(var(--saturation));
+  -webkit-backdrop-filter: blur(12px) saturate(var(--saturation));
+  border: 1px solid color-mix(in srgb, var(--c-light) 50%, transparent);
+  border-radius: 8px;
+  padding: 6px 14px;
   font-size: 13px;
   font-weight: 500;
   color: var(--text-main);
   cursor: pointer;
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  transition: all 0.15s ease;
+  gap: 7px;
+  box-shadow: 
+    inset 0 0 0 1px color-mix(in srgb, var(--c-light) calc(var(--glass-reflex-light) * 14%), transparent),
+    inset 1.8px 3px 0px -2px color-mix(in srgb, var(--c-light) calc(var(--glass-reflex-light) * 85%), transparent), 
+    inset -2px -2px 0px -2px color-mix(in srgb, var(--c-light) calc(var(--glass-reflex-light) * 75%), transparent), 
+    inset -3px -8px 1px -6px color-mix(in srgb, var(--c-light) calc(var(--glass-reflex-light) * 55%), transparent), 
+    inset -0.3px -1px 4px 0px color-mix(in srgb, var(--c-dark) calc(var(--glass-reflex-dark) * 12%), transparent), 
+    inset 0px 3px 4px -2px color-mix(in srgb, var(--c-dark) calc(var(--glass-reflex-dark) * 18%), transparent), 
+    0px 2px 6px 0px color-mix(in srgb, var(--c-dark) calc(var(--glass-reflex-dark) * 6%), transparent);
+  transition: all 240ms cubic-bezier(0.16, 1, 0.3, 1);
   white-space: nowrap;
   flex-shrink: 0;
 }
 
 .secondary-button:hover {
-  background: var(--bg-subtle);
-  border-color: var(--border-strong);
+  background-color: color-mix(in srgb, var(--c-glass) 26%, transparent);
+  box-shadow: 
+    inset 0 0 0 1px color-mix(in srgb, var(--c-light) calc(var(--glass-reflex-light) * 25%), transparent),
+    inset 2px 3.5px 0px -1.5px color-mix(in srgb, var(--c-light) calc(var(--glass-reflex-light) * 95%), transparent), 
+    inset -2px -2px 0px -1.5px color-mix(in srgb, var(--c-light) calc(var(--glass-reflex-light) * 85%), transparent), 
+    0px 4px 14px 0px color-mix(in srgb, var(--c-dark) calc(var(--glass-reflex-dark) * 10%), transparent);
+  transform: translateY(-1px);
 }
 
-.primary-button {
-  background: var(--text-main);
-  border: 1px solid var(--text-main);
-  border-radius: 6px;
+.secondary-button:active {
+  transform: translateY(0.5px) scale(0.97);
+  background-color: color-mix(in srgb, var(--c-glass) 36%, transparent);
+}
+
+/* Primary Upload Button (Frosted Obsidian Liquid Glass) */
+.upload-button {
+  background: linear-gradient(180deg, #2A2A32 0%, #15151A 100%);
+  border: 1px solid rgba(255, 255, 255, 0.22) !important;
+  border-radius: 10px;
   color: #FFFFFF;
-  padding: 8px 16px;
+  padding: 11px 18px;
   font-size: 13px;
   font-weight: 500;
   cursor: pointer;
@@ -219,20 +286,34 @@ html, body {
   align-items: center;
   justify-content: center;
   gap: 8px;
-  transition: background 0.15s ease, transform 0.1s ease;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  box-shadow: 
+    inset 0 0 0 1px rgba(255, 255, 255, 0.12),
+    inset 1.8px 2.5px 0px -1px rgba(255, 255, 255, 0.45),
+    inset -1.5px -2px 0px -1px rgba(255, 255, 255, 0.15),
+    inset 0px 3px 4px -2px rgba(0, 0, 0, 0.4),
+    0px 4px 12px rgba(0, 0, 0, 0.18);
+  transition: all 220ms cubic-bezier(0.16, 1, 0.3, 1);
   white-space: nowrap;
 }
 
-.primary-button:hover {
-  background: #2A2A32;
-  border-color: #2A2A32;
+.upload-button:hover {
+  background: linear-gradient(180deg, #353540 0%, #1E1E25 100%);
+  box-shadow: 
+    inset 0 0 0 1px rgba(255, 255, 255, 0.25),
+    inset 2px 3px 0px -1px rgba(255, 255, 255, 0.65),
+    0px 6px 18px rgba(0, 0, 0, 0.26);
+  transform: translateY(-1px);
 }
 
-.primary-button:active {
-  transform: scale(0.98);
+.upload-button:active {
+  transform: translateY(0.5px) scale(0.98);
 }
 
-/* Side Panels */
+/* ==========================================================================
+   Side Panels
+   ========================================================================== */
 .panel {
   background: var(--bg-card);
   overflow-y: auto;
@@ -272,16 +353,10 @@ html, body {
   justify-content: space-between;
 }
 
-/* Upload */
 .upload-container {
   display: flex;
   flex-direction: column;
   gap: 8px;
-}
-
-.upload-button {
-  width: 100%;
-  padding: 10px 16px;
 }
 
 .upload-hint {
@@ -290,15 +365,26 @@ html, body {
   text-align: center;
 }
 
-/* Zoom Slider */
+/* ==========================================================================
+   Zoom Controls & Presets (Liquid Glass as in Image 1)
+   ========================================================================== */
+
+/* Liquid Glass Readout Pill (e.g. 2.66×) */
 .zoom-readout {
   font-family: var(--font-mono);
-  font-size: 12px;
-  font-weight: 500;
+  font-size: 13px;
+  font-weight: 600;
   color: var(--text-main);
-  background: var(--bg-subtle);
-  padding: 2px 6px;
-  border-radius: 4px;
+  background-color: color-mix(in srgb, var(--c-glass) 18%, transparent);
+  backdrop-filter: blur(10px) saturate(var(--saturation));
+  -webkit-backdrop-filter: blur(10px) saturate(var(--saturation));
+  padding: 2px 8px;
+  border-radius: 6px;
+  border: 1px solid color-mix(in srgb, var(--c-light) 65%, transparent);
+  box-shadow: 
+    inset 1.5px 2px 0px -1px color-mix(in srgb, var(--c-light) 85%, transparent),
+    inset -1px -1.5px 0px -1px color-mix(in srgb, var(--c-dark) 10%, transparent),
+    0 2px 6px rgba(0, 0, 0, 0.04);
 }
 
 .zoom-slider-row {
@@ -307,13 +393,22 @@ html, body {
   gap: 10px;
 }
 
+/* Liquid Glass Micro-buttons (+ / -) */
 .micro-btn {
-  width: 28px;
-  height: 28px;
-  border-radius: 4px;
-  border: 1px solid var(--border-light);
-  background: var(--bg-card);
-  font-size: 14px;
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  background-color: color-mix(in srgb, var(--c-glass) 16%, transparent);
+  backdrop-filter: blur(10px) saturate(var(--saturation));
+  -webkit-backdrop-filter: blur(10px) saturate(var(--saturation));
+  border: 1px solid color-mix(in srgb, var(--c-light) 55%, transparent);
+  box-shadow: 
+    inset 0 0 0 1px color-mix(in srgb, var(--c-light) 15%, transparent),
+    inset 1.5px 2.5px 0px -1px color-mix(in srgb, var(--c-light) 90%, transparent),
+    inset -1.5px -1.5px 0px -1px color-mix(in srgb, var(--c-light) 60%, transparent),
+    inset 0 2px 3px -1px color-mix(in srgb, var(--c-dark) 15%, transparent),
+    0 2px 6px rgba(0, 0, 0, 0.04);
+  font-size: 15px;
   font-weight: 600;
   cursor: pointer;
   display: flex;
@@ -321,45 +416,102 @@ html, body {
   justify-content: center;
   color: var(--text-main);
   flex-shrink: 0;
+  transition: all 200ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .micro-btn:hover {
-  background: var(--bg-subtle);
+  background-color: color-mix(in srgb, var(--c-glass) 28%, transparent);
+  box-shadow: 
+    inset 2px 3px 0px -1px color-mix(in srgb, var(--c-light) 95%, transparent),
+    0 4px 10px rgba(0, 0, 0, 0.08);
+  transform: translateY(-1px);
 }
 
+.micro-btn:active {
+  transform: translateY(0.5px) scale(0.96);
+  background-color: color-mix(in srgb, var(--c-glass) 38%, transparent);
+}
+
+/* Liquid Glass Slider Track & Thumb (Image 1: Solid Dark Progress + White Rim Knob) */
 .custom-range {
   flex: 1;
-  accent-color: var(--text-main);
   height: 6px;
-  cursor: pointer;
+  border-radius: 999px;
+  background: linear-gradient(to right, #111115 0%, #111115 var(--zoom-percent, 23%), #DCDDE1 var(--zoom-percent, 23%), #DCDDE1 100%);
+  -webkit-appearance: none;
+  appearance: none;
+  outline: none;
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.15);
 }
 
-/* Preset Buttons (Fit, Fill, Reset) */
+.custom-range::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #111115;
+  border: 2px solid #FFFFFF;
+  box-shadow: 
+    inset 1px 1.5px 0px 0px rgba(255, 255, 255, 0.5),
+    0 2px 6px rgba(0, 0, 0, 0.25);
+  cursor: pointer;
+  transition: transform 160ms cubic-bezier(0.16, 1, 0.3, 1), box-shadow 160ms ease;
+}
+
+.custom-range::-webkit-slider-thumb:hover {
+  transform: scale(1.15);
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.35);
+}
+
+/* Liquid Glass Preset Buttons (Image 1: Fit, Fill, Reset Individual Controls) */
 .preset-button-group {
   display: grid;
   grid-template-columns: 1fr 1fr 1fr;
-  gap: 6px;
+  gap: 8px;
+  padding: 0;
+  background: transparent;
+  border: none;
+  box-shadow: none;
 }
 
 .preset-btn {
-  background: var(--bg-subtle);
-  border: 1px solid var(--border-light);
+  background-color: color-mix(in srgb, var(--c-glass) 18%, transparent);
+  backdrop-filter: blur(10px) url(#liquid-glass) saturate(var(--saturation));
+  -webkit-backdrop-filter: blur(10px) saturate(var(--saturation));
+  border: 1px solid color-mix(in srgb, var(--c-light) 65%, transparent);
   border-radius: 6px;
   padding: 8px 0;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 500;
   color: var(--text-main);
   cursor: pointer;
-  transition: all 0.15s ease;
+  transition: all 200ms cubic-bezier(0.16, 1, 0.3, 1);
   text-align: center;
+  box-shadow: 
+    inset 0 0 0 1px color-mix(in srgb, var(--c-light) 12%, transparent),
+    inset 1px 2px 0px -1px color-mix(in srgb, var(--c-light) 85%, transparent),
+    inset -1px -1px 0px -1px color-mix(in srgb, var(--c-light) 50%, transparent),
+    0 1px 3px rgba(0, 0, 0, 0.04);
 }
 
 .preset-btn:hover {
-  background: var(--bg-hover);
-  border-color: var(--border-strong);
+  background-color: color-mix(in srgb, var(--c-glass) 30%, transparent);
+  border-color: color-mix(in srgb, var(--c-light) 90%, transparent);
+  box-shadow: 
+    inset 1.5px 2px 0px -1px color-mix(in srgb, var(--c-light) 95%, transparent),
+    0 3px 8px rgba(0, 0, 0, 0.06);
+  transform: translateY(-1px);
 }
 
-/* Toggles */
+.preset-btn:active {
+  transform: scale(0.97);
+  background-color: color-mix(in srgb, var(--c-glass) 40%, transparent);
+}
+
+/* ==========================================================================
+   Toggles & Dynamic Alignment Feedback
+   ========================================================================== */
 .toggle-list {
   display: flex;
   flex-direction: column;
@@ -384,7 +536,7 @@ html, body {
   width: 18px;
   height: 18px;
   border: 1.5px solid var(--border-strong);
-  border-radius: 4px;
+  border-radius: 5px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -407,15 +559,22 @@ html, body {
   transform: rotate(45deg) translate(-0.5px, -1px);
 }
 
-/* Dynamic Alignment Feedback Card */
+/* Liquid Glass Alignment Card */
 .alignment-indicator-card {
-  background: var(--bg-subtle);
-  border: 1px solid var(--border-light);
-  border-radius: 8px;
-  padding: 10px 12px;
+  background-color: color-mix(in srgb, var(--c-glass) 14%, transparent);
+  backdrop-filter: blur(12px) saturate(var(--saturation));
+  -webkit-backdrop-filter: blur(12px) saturate(var(--saturation));
+  border: 1px solid color-mix(in srgb, var(--c-light) 45%, transparent);
+  border-radius: 12px;
+  padding: 12px 14px;
   display: flex;
   flex-direction: column;
   gap: 8px;
+  box-shadow: 
+    inset 0 0 0 1px color-mix(in srgb, var(--c-light) 12%, transparent),
+    inset 1.5px 2px 0px -1px color-mix(in srgb, var(--c-light) 75%, transparent),
+    inset -1.5px -1.5px 0px -1px color-mix(in srgb, var(--c-light) 50%, transparent),
+    0 2px 8px rgba(0, 0, 0, 0.04);
 }
 
 .indicator-row {
@@ -445,7 +604,9 @@ html, body {
   font-weight: 500;
 }
 
-/* Center Column: Live Preview */
+/* ==========================================================================
+   Center Column: Live Preview & Floating Badges
+   ========================================================================== */
 .preview-stage {
   flex: 1;
   display: flex;
@@ -492,17 +653,24 @@ html, body {
   outline-offset: 4px;
 }
 
+/* Floating Liquid Glass Drag Hint Badge */
 .drag-hint-badge {
   position: absolute;
-  bottom: 12px;
-  background: rgba(17, 17, 21, 0.75);
-  backdrop-filter: blur(4px);
+  bottom: 14px;
+  background-color: color-mix(in srgb, #0F0F14 78%, transparent);
+  backdrop-filter: blur(12px) saturate(140%);
+  -webkit-backdrop-filter: blur(12px) saturate(140%);
+  border: 1px solid rgba(255, 255, 255, 0.22);
   color: #FFFFFF;
-  padding: 4px 10px;
+  padding: 5px 12px;
   border-radius: 999px;
   font-size: 11px;
   opacity: 0;
   pointer-events: none;
+  box-shadow: 
+    inset 1.5px 2px 0px -1px rgba(255, 255, 255, 0.4),
+    inset -1px -1.5px 0px -1px rgba(255, 255, 255, 0.15),
+    0 4px 16px rgba(0, 0, 0, 0.25);
   transition: opacity 0.3s ease;
   white-space: nowrap;
 }
@@ -515,7 +683,9 @@ html, body {
   opacity: 1;
 }
 
-/* Metadata Form Inputs */
+/* ==========================================================================
+   Metadata Form Inputs
+   ========================================================================== */
 .field-group {
   display: flex;
   flex-direction: column;
@@ -615,7 +785,9 @@ html, body {
   color: var(--accent-red);
 }
 
-/* Footer / Action Bar */
+/* ==========================================================================
+   Footer & Export Controls (Liquid Glass as in Image 3)
+   ========================================================================== */
 .app-footer {
   height: var(--footer-height);
   background: var(--bg-card);
@@ -674,33 +846,89 @@ html, body {
   position: relative;
 }
 
+/* Liquid Glass Custom Select Dropdown (Image 3) */
 .custom-select {
   appearance: none;
-  background: var(--bg-card);
-  border: 1px solid var(--border-light);
-  border-radius: 6px;
-  padding: 8px 32px 8px 12px;
+  background-color: color-mix(in srgb, var(--c-glass) 16%, transparent);
+  backdrop-filter: blur(12px) url(#liquid-glass) saturate(var(--saturation));
+  -webkit-backdrop-filter: blur(12px) saturate(var(--saturation));
+  border: 1px solid color-mix(in srgb, var(--c-light) 50%, transparent);
+  border-radius: 999px;
+  padding: 8px 34px 8px 14px;
   font-size: 13px;
   font-weight: 500;
   color: var(--text-main);
   cursor: pointer;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%236B6B76' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2344444F' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
   background-repeat: no-repeat;
-  background-position: right 10px center;
+  background-position: right 12px center;
   white-space: nowrap;
+  box-shadow: 
+    inset 0 0 0 1px color-mix(in srgb, var(--c-light) calc(var(--glass-reflex-light) * 14%), transparent),
+    inset 1.8px 3px 0px -2px color-mix(in srgb, var(--c-light) calc(var(--glass-reflex-light) * 85%), transparent), 
+    inset -2px -2px 0px -2px color-mix(in srgb, var(--c-light) calc(var(--glass-reflex-light) * 75%), transparent), 
+    inset 0px 3px 4px -2px color-mix(in srgb, var(--c-dark) calc(var(--glass-reflex-dark) * 18%), transparent), 
+    0px 2px 6px 0px color-mix(in srgb, var(--c-dark) calc(var(--glass-reflex-dark) * 6%), transparent);
+  transition: all 220ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .custom-select:hover {
-  border-color: var(--border-strong);
+  background-color: color-mix(in srgb, var(--c-glass) 26%, transparent);
+  box-shadow: 
+    inset 0 0 0 1px color-mix(in srgb, var(--c-light) calc(var(--glass-reflex-light) * 25%), transparent),
+    inset 2px 3.5px 0px -1.5px color-mix(in srgb, var(--c-light) calc(var(--glass-reflex-light) * 95%), transparent), 
+    0px 4px 12px 0px color-mix(in srgb, var(--c-dark) calc(var(--glass-reflex-dark) * 10%), transparent);
+  transform: translateY(-1px);
 }
 
+.custom-select:focus {
+  outline: none;
+  border-color: var(--text-main);
+}
+
+/* Liquid Glass Master Download Button (Image 3: Frosted Obsidian Glass) */
 .download-button {
-  padding: 9px 20px;
+  background: linear-gradient(180deg, #2A2A32 0%, #111115 100%);
+  border: 1px solid rgba(255, 255, 255, 0.22) !important;
+  border-radius: 8px;
+  color: #FFFFFF;
+  padding: 8px 22px;
   font-size: 13px;
+  font-weight: 500;
   letter-spacing: 0.02em;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  box-shadow: 
+    inset 0 0 0 1px rgba(255, 255, 255, 0.12),
+    inset 1.8px 2.5px 0px -1px rgba(255, 255, 255, 0.5),
+    inset -1.5px -2px 0px -1px rgba(255, 255, 255, 0.15),
+    inset 0px 3px 4px -2px rgba(0, 0, 0, 0.45),
+    0px 4px 14px rgba(0, 0, 0, 0.22);
+  transition: all 220ms cubic-bezier(0.16, 1, 0.3, 1);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  cursor: pointer;
+  white-space: nowrap;
 }
 
-/* Clean Preview Mode */
+.download-button:hover {
+  background: linear-gradient(180deg, #353540 0%, #1A1A20 100%);
+  box-shadow: 
+    inset 0 0 0 1px rgba(255, 255, 255, 0.25),
+    inset 2px 3px 0px -1px rgba(255, 255, 255, 0.7),
+    0px 6px 20px rgba(0, 0, 0, 0.3);
+  transform: translateY(-1px);
+}
+
+.download-button:active {
+  transform: translateY(0.5px) scale(0.98);
+}
+
+/* ==========================================================================
+   Clean Preview Mode
+   ========================================================================== */
 .clean-preview .app-header,
 .clean-preview .panel-controls,
 .clean-preview .panel-details,
@@ -725,12 +953,15 @@ html, body {
   max-height: 92vh !important;
 }
 
-/* Modal */
+/* ==========================================================================
+   Liquid Glass Modal (Shortcuts)
+   ========================================================================== */
 .modal-backdrop {
   position: fixed;
   inset: 0;
   background: rgba(17, 17, 21, 0.45);
-  backdrop-filter: blur(4px);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -738,12 +969,18 @@ html, body {
 }
 
 .modal-card {
-  background: var(--bg-card);
-  border-radius: 12px;
+  background-color: rgba(255, 255, 255, 0.92);
+  backdrop-filter: blur(20px) url(#liquid-glass) saturate(150%);
+  -webkit-backdrop-filter: blur(20px) saturate(150%);
+  border: 1px solid rgba(255, 255, 255, 0.75);
+  border-radius: 16px;
   width: 440px;
   max-width: 92vw;
-  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
-  padding: 20px;
+  box-shadow: 
+    inset 0 0 0 1px rgba(255, 255, 255, 0.5),
+    inset 2px 3px 0px -1px rgba(255, 255, 255, 0.95),
+    0 24px 48px rgba(0, 0, 0, 0.16);
+  padding: 22px;
 }
 
 .modal-header {
@@ -768,13 +1005,15 @@ html, body {
 }
 
 kbd {
-  background: var(--bg-subtle);
-  border: 1px solid var(--border-light);
-  border-radius: 4px;
-  padding: 2px 6px;
+  background-color: color-mix(in srgb, var(--c-glass) 22%, transparent);
+  border: 1px solid color-mix(in srgb, var(--c-light) 60%, transparent);
+  border-radius: 6px;
+  padding: 3px 8px;
   font-family: var(--font-mono);
   font-size: 11px;
+  font-weight: 500;
   color: var(--text-main);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
 }
 
 .hidden {
@@ -807,13 +1046,13 @@ kbd {
   }
 
   .app-workspace {
-    display: flex;
-    flex-direction: column;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
     height: auto;
   }
 
   .preview-stage {
-    order: 1;
+    grid-column: 1 / -1;
     min-height: 480px;
     padding: 16px;
   }
@@ -826,7 +1065,6 @@ kbd {
     display: none !important;
   }
 
-  /* Two panels sit side-by-side cleanly below preview */
   .panel-controls {
     order: 2;
     border-right: 1px solid var(--border-light);
@@ -839,16 +1077,6 @@ kbd {
     border-left: none;
     border-top: 1px solid var(--border-light);
     border-bottom: 1px solid var(--border-light);
-  }
-
-  /* Container wrapper around both panels for 2-column layout */
-  .app-workspace {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-  }
-
-  .preview-stage {
-    grid-column: 1 / -1;
   }
 
   .app-footer {
@@ -873,7 +1101,6 @@ kbd {
     overflow-y: auto;
   }
 
-  /* Header adjustments */
   .app-header {
     height: 50px;
     padding: 0 12px;
@@ -892,7 +1119,7 @@ kbd {
   }
 
   .header-actions {
-    gap: 4px;
+    gap: 5px;
   }
 
   .btn-text {
@@ -900,14 +1127,13 @@ kbd {
   }
 
   .secondary-button {
-    padding: 6px 8px;
+    padding: 6px 10px;
   }
 
   .header-divider {
     margin: 0 2px;
   }
 
-  /* Workspace */
   .app-workspace {
     display: flex;
     flex-direction: column;
@@ -915,7 +1141,6 @@ kbd {
     overflow: visible;
   }
 
-  /* Preview Stage on Mobile */
   .preview-stage {
     order: 1;
     padding: 12px;
@@ -940,28 +1165,33 @@ kbd {
   .drag-hint-badge {
     opacity: 0.9;
     font-size: 10px;
-    padding: 3px 8px;
+    padding: 4px 10px;
   }
 
-  /* Mobile Segmented Tab Bar */
+  /* Liquid Glass Mobile Tab Switcher */
   .mobile-tab-bar {
     order: 2;
     display: grid;
     grid-template-columns: 1fr 1fr;
-    background: var(--bg-card);
-    border-top: 1px solid var(--border-light);
-    border-bottom: 1px solid var(--border-light);
-    padding: 6px;
-    gap: 6px;
+    background-color: color-mix(in srgb, var(--c-glass) 16%, transparent);
+    backdrop-filter: blur(14px) url(#liquid-glass) saturate(var(--saturation));
+    -webkit-backdrop-filter: blur(14px) saturate(var(--saturation));
+    border-top: 1px solid color-mix(in srgb, var(--c-light) 45%, transparent);
+    border-bottom: 1px solid color-mix(in srgb, var(--c-light) 30%, transparent);
+    padding: 6px 8px;
+    gap: 8px;
     position: sticky;
     top: 0;
     z-index: 15;
+    box-shadow: 
+      inset 0 1px 0 rgba(255, 255, 255, 0.4),
+      0 4px 12px rgba(0, 0, 0, 0.03);
   }
 
   .mobile-tab-btn {
     background: transparent;
-    border: none;
-    border-radius: 6px;
+    border: 1px solid transparent;
+    border-radius: 999px;
     padding: 8px 12px;
     font-size: 13px;
     font-weight: 500;
@@ -971,15 +1201,18 @@ kbd {
     align-items: center;
     justify-content: center;
     gap: 6px;
-    transition: all 0.15s ease;
+    transition: all 220ms cubic-bezier(0.16, 1, 0.3, 1);
   }
 
   .mobile-tab-btn.active {
-    background: var(--text-main);
+    background-color: var(--text-main);
     color: #FFFFFF;
+    box-shadow: 
+      inset 0 0 0 1px rgba(255, 255, 255, 0.15),
+      inset 1px 1.5px 0px 0px rgba(255, 255, 255, 0.35),
+      0 2px 8px rgba(0, 0, 0, 0.18);
   }
 
-  /* Mobile Panels: Tabbed Display */
   .panel {
     border: none !important;
     padding: 16px 14px;
@@ -991,13 +1224,12 @@ kbd {
     order: 3;
   }
 
-  /* Prevent auto-zoom on mobile inputs */
   .field-input {
     font-size: 16px;
     padding: 10px;
   }
 
-  /* Footer on Mobile */
+  /* Liquid Glass Mobile Footer */
   .app-footer {
     order: 4;
     position: sticky;
@@ -1007,9 +1239,11 @@ kbd {
     gap: 10px;
     padding: 10px 12px;
     padding-bottom: max(10px, env(safe-area-inset-bottom));
-    background: rgba(255, 255, 255, 0.96);
-    backdrop-filter: blur(12px);
-    box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.05);
+    background-color: rgba(255, 255, 255, 0.94);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.06);
+    border-top: 1px solid color-mix(in srgb, var(--c-light) 60%, transparent);
   }
 
   .footer-preflight {
@@ -1052,13 +1286,13 @@ kbd {
   .custom-select {
     width: 100%;
     font-size: 12px;
-    padding: 9px 24px 9px 8px;
+    padding: 9px 26px 9px 10px;
   }
 
   .download-button {
     grid-column: 1 / -1;
     width: 100%;
-    padding: 11px 16px;
+    padding: 12px 16px;
     font-size: 14px;
   }
 }

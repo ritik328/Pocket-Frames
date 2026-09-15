@@ -103,6 +103,10 @@ function onStateChange(state, changeType) {
   const scale = state.transform.scale;
   zoomSlider.value = scale;
   zoomReadout.textContent = `${scale.toFixed(2)}×`;
+  const minZoom = parseFloat(zoomSlider.min) || 0.1;
+  const maxZoom = parseFloat(zoomSlider.max) || 4.0;
+  const percent = Math.min(100, Math.max(0, ((scale - minZoom) / (maxZoom - minZoom)) * 100));
+  zoomSlider.style.setProperty('--zoom-percent', `${percent}%`);
 
   // Clean preview mode toggle
   if (state.editor.cleanPreview) {
