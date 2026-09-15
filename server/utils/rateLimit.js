@@ -10,8 +10,8 @@ const ALLOWED_MIME_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp']);
 
 const ipRequestMap = new Map();
 
-// Periodic cleanup of expired rate limit windows
-setInterval(() => {
+// Periodic cleanup of expired rate limit windows (unref'd to prevent keeping process alive)
+const cleanupTimer = setInterval(() => {
   const now = Date.now();
   for (const [ip, data] of ipRequestMap.entries()) {
     if (now - data.windowStart > WINDOW_MS * 2) {
@@ -19,6 +19,10 @@ setInterval(() => {
     }
   }
 }, WINDOW_MS);
+
+if (cleanupTimer && typeof cleanupTimer.unref === 'function') {
+  cleanupTimer.unref();
+}
 
 /**
  * Check if incoming request exceeds rate limits
