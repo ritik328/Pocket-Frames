@@ -1,5 +1,6 @@
 /**
  * Pocket Frames - Main Application Coordinator
+ * Powers the Modern Liquid Glass Studio layout.
  */
 import { store } from './state.js';
 import { renderFrame } from './frame/frameRenderer.js';
@@ -15,73 +16,88 @@ import { loadProjectFromDB, clearProjectFromDB } from './storage/projectStorage.
 import { AiStudioModal } from './ai/aiStudioModal.js';
 import { applyAiComposition } from './ai/compositionApplier.js';
 
-// DOM Elements
+// DOM Elements with Dual-Selector Support
 const previewCanvas = document.getElementById('previewCanvas');
-const previewContainer = document.getElementById('previewContainer');
+const previewContainer = document.getElementById('previewContainer') || document.getElementById('canvasArea');
 const fileInput = document.getElementById('fileInput');
-const btnUpload = document.getElementById('btnUpload');
+const btnUpload = document.getElementById('uploadBtn') || document.getElementById('btnUpload');
 
 const zoomSlider = document.getElementById('zoomSlider');
-const zoomReadout = document.getElementById('zoomReadout');
-const btnZoomIn = document.getElementById('btnZoomIn');
-const btnZoomOut = document.getElementById('btnZoomOut');
+const zoomReadout = document.getElementById('zoomValue') || document.getElementById('zoomReadout');
+const btnZoomIn = document.getElementById('zoomPlus') || document.getElementById('btnZoomIn');
+const btnZoomOut = document.getElementById('zoomMinus') || document.getElementById('btnZoomOut');
 
-const btnFit = document.getElementById('btnFit');
-const btnFill = document.getElementById('btnFill');
-const btnReset = document.getElementById('btnReset');
+const btnFit = document.getElementById('fitBtn') || document.getElementById('btnFit');
+const btnFill = document.getElementById('fillBtn') || document.getElementById('btnFill');
+const btnReset = document.getElementById('resetBtn') || document.getElementById('btnReset');
+const btnAiAutoCompose = document.getElementById('aiFramingBtn') || document.getElementById('btnAiAutoCompose');
 
-const chkGridVisible = document.getElementById('chkGridVisible');
-const chkRuleOfThirds = document.getElementById('chkRuleOfThirds');
-const chkSnapEnabled = document.getElementById('chkSnapEnabled');
+const chkGridVisible = document.getElementById('guideAlignment') || document.getElementById('chkGridVisible');
+const chkRuleOfThirds = document.getElementById('guideThirds') || document.getElementById('chkRuleOfThirds');
+const chkSnapEnabled = document.getElementById('guideSnap') || document.getElementById('chkSnapEnabled');
 
-const dotH = document.getElementById('dotH');
-const dotV = document.getElementById('dotV');
-const textH = document.getElementById('textH');
-const textV = document.getElementById('textV');
-const alignmentCard = document.getElementById('alignmentCard');
+const itemVCentered = document.getElementById('itemVCentered');
+const itemHCentered = document.getElementById('itemHCentered');
+const confirmList = document.getElementById('confirmList');
+const alignmentStatus = document.getElementById('alignmentStatus') || document.getElementById('pfAlignment');
 
-const btnUndo = document.getElementById('btnUndo');
-const btnRedo = document.getElementById('btnRedo');
-const btnNewFrame = document.getElementById('btnNewFrame');
-const btnToggleCleanPreview = document.getElementById('btnToggleCleanPreview');
+const btnUndo = document.getElementById('undoBtn') || document.getElementById('btnUndo');
+const btnRedo = document.getElementById('redoBtn') || document.getElementById('btnRedo');
+const btnNewFrame = document.getElementById('newFrameBtn') || document.getElementById('btnNewFrame');
+const btnToggleCleanPreview = document.getElementById('previewBtn') || document.getElementById('btnToggleCleanPreview');
 
-const selectResolution = document.getElementById('selectResolution');
-const selectFormat = document.getElementById('selectFormat');
-const btnDownload = document.getElementById('btnDownload');
+const btnDownload = document.getElementById('downloadBtn') || document.getElementById('btnDownload');
 const downloadBtnText = document.getElementById('downloadBtnText');
 const headerResLabel = document.getElementById('headerResLabel');
-
 const pfResolution = document.getElementById('pfResolution');
 const pfFormat = document.getElementById('pfFormat');
-const pfAlignment = document.getElementById('pfAlignment');
 
-const exifBadge = document.getElementById('exifBadge');
-const btnClearSession = document.getElementById('btnClearSession');
-const sessionStatus = document.getElementById('sessionStatus');
+const btnClearSession = document.getElementById('clearCacheBtn') || document.getElementById('btnClearSession');
+const sizeSelectBtn = document.getElementById('sizeSelect');
+const qualitySelectBtn = document.getElementById('qualitySelect');
 
 const shortcutsModal = document.getElementById('shortcutsModal');
-const btnShortcutsHelp = document.getElementById('btnShortcutsHelp');
+const btnShortcutsHelp = document.getElementById('helpBtn') || document.getElementById('btnShortcutsHelp');
 const btnCloseShortcuts = document.getElementById('btnCloseShortcuts');
+const btnOpenAiStudio = document.getElementById('aiDirectorBtn') || document.getElementById('btnOpenAiStudio');
+
+const toastEl = document.getElementById('toast');
+let toastTimer = null;
 
 let positionManager = null;
 let metadataEditor = null;
 let aiStudioModal = null;
 
-const btnAiAutoCompose = document.getElementById('btnAiAutoCompose');
+/**
+ * Toast helper for non-blocking tactile feedback
+ */
+export function showToast(msg) {
+  if (!toastEl) return;
+  toastEl.textContent = msg;
+  toastEl.classList.add('is-visible');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => {
+    toastEl.classList.remove('is-visible');
+  }, 2200);
+}
 
 // Initialize App
 async function initApp() {
   await ensureFontsReady();
 
   // Setup sub-managers
-  positionManager = new PositionManager(previewCanvas, previewContainer);
-  metadataEditor = new MetadataEditor(document.getElementById('panelDetails'));
+  if (previewCanvas && previewContainer) {
+    positionManager = new PositionManager(previewCanvas, previewContainer);
+  }
+  
+  const panelDetails = document.getElementById('panelDetails') || document.querySelector('.sidebar--right');
+  metadataEditor = new MetadataEditor(panelDetails);
   setupKeyboardShortcuts();
 
   // Setup Event Listeners
   setupEventListeners();
 
-  // Initialize Theme Switcher (Liquid Glass Light/Dark/Dim)
+  // Initialize Theme Switcher (Light / Dark / Auto)
   initThemeSwitcher();
 
   // Initialize AI Photography Director Studio Modal
@@ -112,40 +128,47 @@ function onStateChange(state, changeType) {
 
   // Update zoom slider and readout
   const scale = state.transform.scale;
-  zoomSlider.value = scale;
-  zoomReadout.textContent = `${scale.toFixed(2)}×`;
-  const minZoom = parseFloat(zoomSlider.min) || 0.1;
-  const maxZoom = parseFloat(zoomSlider.max) || 4.0;
-  const percent = Math.min(100, Math.max(0, ((scale - minZoom) / (maxZoom - minZoom)) * 100));
-  zoomSlider.style.setProperty('--zoom-percent', `${percent}%`);
+  if (zoomSlider) zoomSlider.value = scale;
+  if (zoomReadout) zoomReadout.textContent = `${scale.toFixed(2)}×`;
 
   // Clean preview mode toggle
   if (state.editor.cleanPreview) {
     document.body.classList.add('clean-preview');
+    if (btnToggleCleanPreview) {
+      btnToggleCleanPreview.classList.add('is-toggled');
+      const label = btnToggleCleanPreview.querySelector('.btn-label');
+      if (label) label.textContent = 'Editing';
+    }
   } else {
     document.body.classList.remove('clean-preview');
+    if (btnToggleCleanPreview) {
+      btnToggleCleanPreview.classList.remove('is-toggled');
+      const label = btnToggleCleanPreview.querySelector('.btn-label');
+      if (label) label.textContent = 'Preview';
+    }
   }
 
   // Toggles sync
-  chkGridVisible.checked = state.editor.gridVisible;
-  chkRuleOfThirds.checked = state.editor.ruleOfThirds;
-  chkSnapEnabled.checked = state.editor.snapEnabled;
+  if (chkGridVisible) chkGridVisible.checked = state.editor.gridVisible;
+  if (chkRuleOfThirds) chkRuleOfThirds.checked = state.editor.ruleOfThirds;
+  if (chkSnapEnabled) chkSnapEnabled.checked = state.editor.snapEnabled;
 
   // Header resolution label
   const preset = EXPORT_PRESETS[state.export.resolution] || EXPORT_PRESETS['2160x2700'];
-  headerResLabel.textContent = `${preset.width} × ${preset.height}`;
+  if (headerResLabel) headerResLabel.textContent = `${preset.width} × ${preset.height}`;
 }
 
 /**
  * Render the live preview on canvas
  */
 function updatePreview() {
+  if (!previewCanvas) return;
   const state = store.getState();
   const dpr = Math.min(window.devicePixelRatio || 1, 2);
 
   const rect = previewCanvas.getBoundingClientRect();
-  const cssWidth = rect.width || 540;
-  const cssHeight = rect.height || 675;
+  const cssWidth = rect.width || 400;
+  const cssHeight = rect.height || 500;
 
   const targetWidth = Math.round(cssWidth * dpr);
   const targetHeight = Math.round(cssHeight * dpr);
@@ -162,37 +185,34 @@ function updatePreview() {
  */
 function updateAlignmentUI(state) {
   if (!state.image) {
-    alignmentCard.style.opacity = '0.5';
-    dotH.classList.remove('active');
-    dotV.classList.remove('active');
-    textH.textContent = 'Horizontal Position';
-    textV.textContent = 'Vertical Position';
+    if (itemVCentered) itemVCentered.classList.remove('is-aligned');
+    if (itemHCentered) itemHCentered.classList.remove('is-aligned');
+    if (alignmentStatus) {
+      alignmentStatus.textContent = 'Empty frame';
+      alignmentStatus.classList.remove('statusbar__value--sage');
+    }
     return;
   }
 
-  alignmentCard.style.opacity = '1';
   const alignment = checkAlignment(state.transform);
 
-  // X alignment = Vertical center guide
-  if (alignment.isXAligned) {
-    dotV.classList.add('active');
-    textV.textContent = '✓ Horizontally Centered';
-    textV.parentElement.classList.add('active');
-  } else {
-    dotV.classList.remove('active');
-    textV.textContent = 'Horizontal Offset';
-    textV.parentElement.classList.remove('active');
-  }
+  if (itemVCentered) itemVCentered.classList.toggle('is-aligned', alignment.isYAligned);
+  if (itemHCentered) itemHCentered.classList.toggle('is-aligned', alignment.isXAligned);
 
-  // Y alignment = Horizontal center guide
-  if (alignment.isYAligned) {
-    dotH.classList.add('active');
-    textH.textContent = '✓ Vertically Centered';
-    textH.parentElement.classList.add('active');
-  } else {
-    dotH.classList.remove('active');
-    textH.textContent = 'Vertical Offset';
-    textH.parentElement.classList.remove('active');
+  if (alignmentStatus) {
+    if (alignment.isFullyAligned) {
+      alignmentStatus.textContent = 'Perfect center';
+      alignmentStatus.classList.add('statusbar__value--sage');
+    } else if (alignment.isXAligned) {
+      alignmentStatus.textContent = 'H-Centered';
+      alignmentStatus.classList.remove('statusbar__value--sage');
+    } else if (alignment.isYAligned) {
+      alignmentStatus.textContent = 'V-Centered';
+      alignmentStatus.classList.remove('statusbar__value--sage');
+    } else {
+      alignmentStatus.textContent = 'Unsnapped';
+      alignmentStatus.classList.remove('statusbar__value--sage');
+    }
   }
 }
 
@@ -203,68 +223,56 @@ function updatePreflightUI() {
   const state = store.getState();
   const preflight = getPreflightSummary(state);
 
-  pfResolution.textContent = preflight.resolutionLabel;
-  pfFormat.textContent = preflight.formatLabel;
-
-  if (!preflight.hasImage) {
-    pfAlignment.textContent = 'Empty Frame';
-    pfAlignment.style.color = 'var(--text-dim)';
-  } else if (preflight.isFullyAligned) {
-    pfAlignment.textContent = 'Perfect Center';
-    pfAlignment.style.color = 'var(--accent-red)';
-  } else if (preflight.isXAligned || preflight.isYAligned) {
-    pfAlignment.textContent = preflight.isXAligned ? 'H-Centered' : 'V-Centered';
-    pfAlignment.style.color = 'var(--text-main)';
-  } else {
-    pfAlignment.textContent = 'Manual Offset';
-    pfAlignment.style.color = 'var(--text-muted)';
-  }
+  if (pfResolution) pfResolution.textContent = preflight.resolutionLabel;
+  if (pfFormat) pfFormat.textContent = preflight.formatLabel;
 }
 
 /**
  * Update undo/redo button enabled states
  */
 function updateUndoRedoUI() {
-  btnUndo.disabled = !store.canUndo();
-  btnRedo.disabled = !store.canRedo();
+  if (btnUndo) btnUndo.disabled = !store.canUndo();
+  if (btnRedo) btnRedo.disabled = !store.canRedo();
 }
 
 /**
- * Liquid Glass Theme Switcher Engine (Light, Dark, Dim)
- * Tracks direction of movement for the elastic liquid indicator and persists preference
+ * Modern Liquid Glass Theme Switcher Engine (Light, Dark, Auto)
  */
 function initThemeSwitcher() {
-  const switcher = document.getElementById('themeSwitcher');
-  if (!switcher) return;
+  const THEME_KEY = 'pocketframes-theme';
+  let currentChoice = document.documentElement.getAttribute('data-theme-choice') || localStorage.getItem(THEME_KEY) || 'auto';
 
-  const radios = switcher.querySelectorAll('input[type="radio"]');
-  let previousValue = null;
-
-  // Restore saved theme or match system dark preference
-  let savedTheme = localStorage.getItem('pocket_frames_theme');
-  if (!savedTheme) {
-    savedTheme = (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) ? 'dark' : 'light';
+  function systemPrefersLight() {
+    return window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches;
   }
 
-  const initialRadio = switcher.querySelector(`input[value="${savedTheme}"]`) || switcher.querySelector('input[value="light"]');
-  if (initialRadio) {
-    initialRadio.checked = true;
-    previousValue = initialRadio.getAttribute('c-option');
-    switcher.setAttribute('c-previous', previousValue);
-    document.body.setAttribute('data-theme', savedTheme);
-  }
+  function applyTheme(choice) {
+    currentChoice = choice;
+    const resolved = choice === 'auto' ? (systemPrefersLight() ? 'light' : 'dark') : choice;
+    document.documentElement.setAttribute('data-theme', resolved);
+    document.documentElement.setAttribute('data-theme-choice', choice);
+    document.body.setAttribute('data-theme', resolved);
 
-  radios.forEach(radio => {
-    radio.addEventListener('change', () => {
-      if (radio.checked) {
-        switcher.setAttribute('c-previous', previousValue ?? '');
-        previousValue = radio.getAttribute('c-option');
-        const theme = radio.value;
-        document.body.setAttribute('data-theme', theme);
-        localStorage.setItem('pocket_frames_theme', theme);
-      }
+    document.querySelectorAll('.theme-switch__btn').forEach(btn => {
+      btn.classList.toggle('is-active', btn.dataset.themeChoice === choice);
     });
+
+    try {
+      localStorage.setItem(THEME_KEY, choice);
+    } catch (e) {}
+  }
+
+  applyTheme(currentChoice);
+
+  document.querySelectorAll('.theme-switch__btn').forEach(btn => {
+    btn.addEventListener('click', () => applyTheme(btn.dataset.themeChoice));
   });
+
+  if (window.matchMedia) {
+    window.matchMedia('(prefers-color-scheme: light)').addEventListener('change', () => {
+      if (currentChoice === 'auto') applyTheme('auto');
+    });
+  }
 }
 
 /**
@@ -272,219 +280,288 @@ function initThemeSwitcher() {
  */
 function setupEventListeners() {
   // File upload
-  btnUpload.addEventListener('click', () => fileInput.click());
-  previewCanvas.addEventListener('click', () => {
-    if (!store.getState().image) {
-      fileInput.click();
-    }
-  });
+  if (btnUpload && fileInput) {
+    btnUpload.addEventListener('click', () => fileInput.click());
+  }
 
-  fileInput.addEventListener('change', async (e) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    try {
-      btnUpload.disabled = true;
-      btnUpload.textContent = 'Decoding...';
-
-      const loaded = await loadUserImage(file);
-      store.setImage(loaded);
-
-      // Auto-calculate initial Fill scale
-      const fillScale = calculateFillScale(loaded.width, loaded.height);
-      store.setTransform({ x: 0, y: 0, scale: fillScale }, true);
-
-      // If EXIF extracted, auto-fill editable metadata
-      if (loaded.extractedExif) {
-        const updates = {};
-        if (loaded.extractedExif.device) updates.device = loaded.extractedExif.device;
-        if (loaded.extractedExif.focalLength) updates.focalLength = loaded.extractedExif.focalLength;
-        if (loaded.extractedExif.aperture) updates.aperture = loaded.extractedExif.aperture;
-        if (loaded.extractedExif.shutter) updates.shutter = loaded.extractedExif.shutter;
-        if (loaded.extractedExif.iso) updates.iso = loaded.extractedExif.iso;
-
-        if (Object.keys(updates).length > 0) {
-          store.setMetadata(updates, true);
-          exifBadge.classList.remove('hidden');
-          setTimeout(() => exifBadge.classList.add('hidden'), 5000);
-        }
+  if (previewCanvas && fileInput) {
+    previewCanvas.addEventListener('click', () => {
+      if (!store.getState().image) {
+        fileInput.click();
       }
-    } catch (err) {
-      alert(err.message || 'Error loading image.');
-    } finally {
-      btnUpload.disabled = false;
-      btnUpload.innerHTML = `
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line>
-        </svg>
-        Upload Photo
-      `;
-      fileInput.value = '';
-    }
-  });
+    });
+  }
+
+  if (fileInput) {
+    fileInput.addEventListener('change', async (e) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+
+      if (!file.type.startsWith('image/')) {
+        showToast("That file isn't an image — try JPG, PNG or WebP.");
+        return;
+      }
+      if (file.size > 100 * 1024 * 1024) {
+        showToast('That file is larger than 100MB.');
+        return;
+      }
+
+      try {
+        if (btnUpload) btnUpload.disabled = true;
+        showToast('Decoding photograph...');
+
+        const loaded = await loadUserImage(file);
+        store.setImage(loaded);
+
+        // Auto-calculate initial Fill scale
+        const fillScale = calculateFillScale(loaded.width, loaded.height);
+        store.setTransform({ x: 0, y: 0, scale: fillScale }, true);
+
+        // If EXIF extracted, auto-fill editable metadata
+        if (loaded.extractedExif) {
+          const updates = {};
+          if (loaded.extractedExif.device) updates.device = loaded.extractedExif.device;
+          if (loaded.extractedExif.focalLength) updates.focalLength = loaded.extractedExif.focalLength;
+          if (loaded.extractedExif.aperture) updates.aperture = loaded.extractedExif.aperture;
+          if (loaded.extractedExif.shutter) updates.shutter = loaded.extractedExif.shutter;
+          if (loaded.extractedExif.iso) updates.iso = loaded.extractedExif.iso;
+
+          if (Object.keys(updates).length > 0) {
+            store.setMetadata(updates, true);
+          }
+        }
+        showToast('Photo uploaded & centered.');
+      } catch (err) {
+        showToast(err.message || 'Error loading image.');
+      } finally {
+        if (btnUpload) btnUpload.disabled = false;
+        fileInput.value = '';
+      }
+    });
+  }
 
   // Zoom Slider
-  zoomSlider.addEventListener('input', (e) => {
-    const scale = parseFloat(e.target.value);
-    store.setTransform({ scale }, false);
-  });
-  zoomSlider.addEventListener('change', () => {
-    store.pushHistory();
-  });
+  if (zoomSlider) {
+    zoomSlider.addEventListener('input', (e) => {
+      const scale = parseFloat(e.target.value);
+      store.setTransform({ scale }, false);
+    });
+    zoomSlider.addEventListener('change', () => {
+      store.pushHistory();
+    });
+  }
 
   // Zoom +/- Buttons
-  btnZoomIn.addEventListener('click', () => {
-    const current = store.getState().transform.scale;
-    const next = clampZoom(current * 1.1);
-    store.setTransform({ scale: next }, true);
-  });
-  btnZoomOut.addEventListener('click', () => {
-    const current = store.getState().transform.scale;
-    const next = clampZoom(current * 0.9);
-    store.setTransform({ scale: next }, true);
-  });
+  if (btnZoomIn) {
+    btnZoomIn.addEventListener('click', () => {
+      const current = store.getState().transform.scale;
+      const next = clampZoom(current * 1.1);
+      store.setTransform({ scale: next }, true);
+    });
+  }
+
+  if (btnZoomOut) {
+    btnZoomOut.addEventListener('click', () => {
+      const current = store.getState().transform.scale;
+      const next = clampZoom(current * 0.9);
+      store.setTransform({ scale: next }, true);
+    });
+  }
 
   // Presets: Fit, Fill, Reset
-  btnFit.addEventListener('click', () => {
-    const state = store.getState();
-    if (!state.image) return;
-    const scale = calculateFitScale(state.image.width, state.image.height);
-    store.setTransform({ x: 0, y: 0, scale }, true);
-  });
+  if (btnFit) {
+    btnFit.addEventListener('click', () => {
+      const state = store.getState();
+      if (!state.image) {
+        fileInput?.click();
+        return;
+      }
+      const scale = calculateFitScale(state.image.width, state.image.height);
+      store.setTransform({ x: 0, y: 0, scale }, true);
+      showToast('Fitted to frame.');
+    });
+  }
 
-  btnFill.addEventListener('click', () => {
-    const state = store.getState();
-    if (!state.image) return;
-    const scale = calculateFillScale(state.image.width, state.image.height);
-    store.setTransform({ x: 0, y: 0, scale }, true);
-  });
+  if (btnFill) {
+    btnFill.addEventListener('click', () => {
+      const state = store.getState();
+      if (!state.image) {
+        fileInput?.click();
+        return;
+      }
+      const scale = calculateFillScale(state.image.width, state.image.height);
+      store.setTransform({ x: 0, y: 0, scale }, true);
+      showToast('Filled the frame.');
+    });
+  }
 
-  btnReset.addEventListener('click', () => {
-    const state = store.getState();
-    if (!state.image) return;
-    const scale = calculateFillScale(state.image.width, state.image.height);
-    store.setTransform({ x: 0, y: 0, scale }, true);
-  });
+  if (btnReset) {
+    btnReset.addEventListener('click', () => {
+      const state = store.getState();
+      if (!state.image) return;
+      const scale = calculateFillScale(state.image.width, state.image.height);
+      store.setTransform({ x: 0, y: 0, scale }, true);
+      showToast('Zoom reset.');
+    });
+  }
 
   // AI Auto-Compose Framing Preset
   if (btnAiAutoCompose) {
     btnAiAutoCompose.addEventListener('click', () => {
       const state = store.getState();
       if (!state.image) {
-        fileInput.click();
+        fileInput?.click();
         return;
       }
-      aiStudioModal.open();
-      aiStudioModal.runAnalysis();
+      if (aiStudioModal) {
+        aiStudioModal.open();
+        aiStudioModal.runAnalysis();
+      }
+    });
+  }
+
+  // AI Photography Director Main Header Button
+  if (btnOpenAiStudio) {
+    btnOpenAiStudio.addEventListener('click', () => {
+      if (aiStudioModal) {
+        aiStudioModal.open();
+      }
     });
   }
 
   // Toggles
-  chkGridVisible.addEventListener('change', (e) => {
-    store.setEditor({ gridVisible: e.target.checked });
-  });
+  if (chkGridVisible) {
+    chkGridVisible.addEventListener('change', (e) => {
+      store.setEditor({ gridVisible: e.target.checked });
+    });
+  }
 
-  chkRuleOfThirds.addEventListener('change', (e) => {
-    store.setEditor({ ruleOfThirds: e.target.checked });
-  });
+  if (chkRuleOfThirds) {
+    chkRuleOfThirds.addEventListener('change', (e) => {
+      store.setEditor({ ruleOfThirds: e.target.checked });
+    });
+  }
 
-  chkSnapEnabled.addEventListener('change', (e) => {
-    store.setEditor({ snapEnabled: e.target.checked });
-  });
+  if (chkSnapEnabled) {
+    chkSnapEnabled.addEventListener('change', (e) => {
+      store.setEditor({ snapEnabled: e.target.checked });
+      if (confirmList) confirmList.style.opacity = e.target.checked ? '1' : '0.4';
+    });
+  }
 
   // Undo / Redo
-  btnUndo.addEventListener('click', () => store.undo());
-  btnRedo.addEventListener('click', () => store.redo());
+  if (btnUndo) {
+    btnUndo.addEventListener('click', () => {
+      if (store.canUndo()) {
+        store.undo();
+        showToast('Undone.');
+      } else {
+        showToast('Nothing to undo.');
+      }
+    });
+  }
+
+  if (btnRedo) {
+    btnRedo.addEventListener('click', () => {
+      if (store.canRedo()) {
+        store.redo();
+        showToast('Redone.');
+      } else {
+        showToast('Nothing to redo.');
+      }
+    });
+  }
 
   // New Frame
-  btnNewFrame.addEventListener('click', () => {
-    if (confirm('Start a new frame? Current photo and positioning will be cleared.')) {
-      store.resetNewFrame();
-      clearProjectFromDB();
-    }
-  });
+  if (btnNewFrame) {
+    btnNewFrame.addEventListener('click', () => {
+      if (confirm('Start a new frame? Current photo and positioning will be cleared.')) {
+        store.resetNewFrame();
+        clearProjectFromDB();
+        showToast('Started a new frame.');
+      }
+    });
+  }
 
   // Clean Preview Mode Toggle
-  btnToggleCleanPreview.addEventListener('click', () => {
-    const current = store.getState().editor.cleanPreview;
-    store.setEditor({ cleanPreview: !current });
-  });
-
-  // Resolution & Format dropdowns
-  selectResolution.addEventListener('change', (e) => {
-    store.setExport({ resolution: e.target.value });
-  });
-
-  selectFormat.addEventListener('change', (e) => {
-    store.setExport({ format: e.target.value });
-  });
-
-  // Download Frame
-  btnDownload.addEventListener('click', async () => {
-    const state = store.getState();
-    try {
-      btnDownload.disabled = true;
-      downloadBtnText.textContent = 'Rendering Master...';
-
-      await downloadFrame(state, (msg) => {
-        downloadBtnText.textContent = msg;
-      });
-
-      downloadBtnText.textContent = 'Downloaded!';
-      setTimeout(() => {
-        downloadBtnText.textContent = 'Download Frame';
-        btnDownload.disabled = false;
-      }, 2000);
-    } catch (err) {
-      alert(`Export failed: ${err.message}`);
-      downloadBtnText.textContent = 'Download Frame';
-      btnDownload.disabled = false;
-    }
-  });
-
-  // Clear Session
-  btnClearSession.addEventListener('click', async () => {
-    await clearProjectFromDB();
-    sessionStatus.textContent = 'Cache cleared';
-    setTimeout(() => {
-      sessionStatus.textContent = 'Saved to local device';
-    }, 2000);
-  });
-
-  // Mobile Tab Bar Switching
-  const tabBtnControls = document.getElementById('tabBtnControls');
-  const tabBtnDetails = document.getElementById('tabBtnDetails');
-  const panelControls = document.getElementById('panelControls');
-  const panelDetails = document.getElementById('panelDetails');
-
-  if (tabBtnControls && tabBtnDetails && panelControls && panelDetails) {
-    tabBtnControls.addEventListener('click', () => {
-      tabBtnControls.classList.add('active');
-      tabBtnDetails.classList.remove('active');
-      panelControls.classList.add('mobile-active');
-      panelDetails.classList.remove('mobile-active');
+  if (btnToggleCleanPreview) {
+    btnToggleCleanPreview.addEventListener('click', () => {
+      const current = store.getState().editor.cleanPreview;
+      store.setEditor({ cleanPreview: !current });
     });
+  }
 
-    tabBtnDetails.addEventListener('click', () => {
-      tabBtnDetails.classList.add('active');
-      tabBtnControls.classList.remove('active');
-      panelDetails.classList.add('mobile-active');
-      panelControls.classList.remove('mobile-active');
+  // Size & Quality Select Buttons
+  if (sizeSelectBtn) {
+    sizeSelectBtn.addEventListener('click', () => {
+      showToast('Master resolution: 2160 × 2700 (Instagram Portrait 4:5)');
+    });
+  }
+
+  if (qualitySelectBtn) {
+    qualitySelectBtn.addEventListener('click', () => {
+      showToast('Master format: JPEG (99% archival quality)');
+    });
+  }
+
+  // Download Frame Master Button
+  if (btnDownload) {
+    btnDownload.addEventListener('click', async () => {
+      const state = store.getState();
+      if (!state.image) {
+        showToast('Upload a photo first to download your frame.');
+        return;
+      }
+
+      try {
+        btnDownload.disabled = true;
+        if (downloadBtnText) downloadBtnText.textContent = 'Rendering...';
+
+        await downloadFrame(state, (msg) => {
+          if (downloadBtnText) downloadBtnText.textContent = msg;
+        });
+
+        if (downloadBtnText) downloadBtnText.textContent = 'Downloaded!';
+        showToast('Frame downloaded successfully.');
+        setTimeout(() => {
+          if (downloadBtnText) downloadBtnText.textContent = 'Download frame';
+          btnDownload.disabled = false;
+        }, 2200);
+      } catch (err) {
+        showToast(`Export failed: ${err.message}`);
+        if (downloadBtnText) downloadBtnText.textContent = 'Download frame';
+        btnDownload.disabled = false;
+      }
+    });
+  }
+
+  // Clear Session Cache
+  if (btnClearSession) {
+    btnClearSession.addEventListener('click', async () => {
+      await clearProjectFromDB();
+      showToast('Local cache cleared.');
     });
   }
 
   // Keyboard Shortcuts Modal
-  btnShortcutsHelp.addEventListener('click', () => shortcutsModal.classList.remove('hidden'));
-  btnCloseShortcuts.addEventListener('click', () => shortcutsModal.classList.add('hidden'));
-  shortcutsModal.addEventListener('click', (e) => {
-    if (e.target === shortcutsModal) shortcutsModal.classList.add('hidden');
-  });
+  if (btnShortcutsHelp && shortcutsModal) {
+    btnShortcutsHelp.addEventListener('click', () => shortcutsModal.classList.remove('hidden'));
+  }
+  if (btnCloseShortcuts && shortcutsModal) {
+    btnCloseShortcuts.addEventListener('click', () => shortcutsModal.classList.add('hidden'));
+  }
+  if (shortcutsModal) {
+    shortcutsModal.addEventListener('click', (e) => {
+      if (e.target === shortcutsModal) shortcutsModal.classList.add('hidden');
+    });
+  }
 }
 
 /**
  * Handle responsive canvas resizing smoothly
  */
 function setupResizeObserver() {
+  if (!previewContainer) return;
   const resizeObserver = new ResizeObserver(() => {
     updatePreview();
   });
@@ -513,11 +590,9 @@ async function tryRestoreSession() {
     }
     if (saved.export) {
       store.setExport(saved.export);
-      selectResolution.value = saved.export.resolution || '2160x2700';
-      selectFormat.value = saved.export.format || 'image/jpeg';
     }
 
-    // Check if AI recommendation was applied from AI Photography Director page
+    // Check if AI recommendation was applied from AI Photography Director
     try {
       const pendingComp = localStorage.getItem('pocket_frames_applied_composition');
       if (pendingComp) {

@@ -14,13 +14,15 @@ export class MetadataEditor {
   }
 
   init() {
+    const getEl = (sel1, sel2) => (this.container ? this.container.querySelector(sel1) || (sel2 ? this.container.querySelector(sel2) : null) : document.querySelector(sel1) || (sel2 ? document.querySelector(sel2) : null));
+
     this.inputs = {
-      brand: this.container.querySelector('#inputBrand'),
-      device: this.container.querySelector('#inputDevice'),
-      focalLength: this.container.querySelector('#inputFocalLength'),
-      aperture: this.container.querySelector('#inputAperture'),
-      shutter: this.container.querySelector('#inputShutter'),
-      iso: this.container.querySelector('#inputIso')
+      brand: getEl('#inputBrand'),
+      device: getEl('#inputDevice'),
+      focalLength: getEl('#inputFL', '#inputFocalLength'),
+      aperture: getEl('#inputAperture'),
+      shutter: getEl('#inputShutter'),
+      iso: getEl('#inputISO', '#inputIso')
     };
 
     // Attach reactive input listeners
