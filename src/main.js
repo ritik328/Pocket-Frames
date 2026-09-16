@@ -15,6 +15,7 @@ import { setupKeyboardShortcuts } from './shortcuts.js';
 import { loadProjectFromDB, clearProjectFromDB } from './storage/projectStorage.js';
 import { AiStudioModal } from './ai/aiStudioModal.js';
 import { applyAiComposition } from './ai/compositionApplier.js';
+import { InteractiveDots } from './canvas/interactiveDots.js';
 
 // DOM Elements with Dual-Selector Support
 const previewCanvas = document.getElementById('previewCanvas');
@@ -102,6 +103,13 @@ async function initApp() {
 
   // Initialize AI Photography Director Studio Modal
   aiStudioModal = new AiStudioModal();
+
+  // Initialize Interactive Dots for Dark Mode (Desktop only)
+  const dotsCanvas = document.getElementById('interactiveDotsCanvas');
+  const canvasArea = document.getElementById('canvasArea');
+  if (dotsCanvas && canvasArea) {
+    new InteractiveDots(dotsCanvas, canvasArea);
+  }
 
   // Handle Resize
   setupResizeObserver();
