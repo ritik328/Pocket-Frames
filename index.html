@@ -9,7 +9,7 @@
   <!-- Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400;1,500&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500&family=Instrument+Serif:ital@0;1&family=Inter:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400;1,500&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 
   <link rel="stylesheet" href="./src/style.css" />
 </head>
@@ -79,12 +79,12 @@
           <span class="btn-text">Preview</span>
         </button>
 
-        <a href="/ai-director.html" id="btnOpenAiStudio" class="secondary-button ai-director-btn" title="Open AI Photography Director Page" style="text-decoration: none;">
+        <button type="button" id="btnOpenAiStudio" class="secondary-button ai-director-btn" title="Open AI Photography Director">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z"/>
           </svg>
           <span class="btn-text">AI Director</span>
-        </a>
+        </button>
 
         <button id="btnShortcutsHelp" class="icon-button" title="Keyboard Shortcuts" aria-label="Shortcuts">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -330,196 +330,209 @@
 
     <!-- AI Photography Director & Post Studio Modal -->
     <div id="aiStudioModal" class="modal-backdrop hidden" aria-labelledby="aiStudioTitle" role="dialog" aria-modal="true">
-      <div class="modal-card ai-studio-card">
-        <!-- Studio Header -->
-        <div class="modal-header ai-modal-header">
-          <div class="ai-header-left">
-            <div class="ai-title-row">
-              <span class="ai-sparkle-icon">✨</span>
-              <h3 id="aiStudioTitle">AI Photography Director</h3>
-            </div>
-            <!-- Campaign & Day Stepper -->
-            <div class="ai-campaign-stepper">
-              <span class="campaign-name">47 DAYS / 47 FRAMES</span>
-              <div class="day-stepper-control">
-                <span class="day-label">DAY</span>
-                <button type="button" id="btnDayPrev" class="day-step-btn" title="Previous Day">−</button>
-                <button type="button" id="btnOpenDayWheel" class="day-picker-trigger-btn" title="Click to scroll & select campaign day">
-                  <span id="displayDayNumber">18</span>
-                  <svg class="pill-chevron-icon" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
-                </button>
-                <input type="hidden" id="inputDayNumber" value="18" />
-                <button type="button" id="btnDayNext" class="day-step-btn" title="Next Day">+</button>
-                <span class="day-total">/ 47</span>
-              </div>
+      <div class="ai-app">
+
+        <!-- Top bar -->
+        <header class="ai-topbar">
+          <div class="ai-brand">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round">
+              <polygon points="12,3 19,7.5 19,16.5 12,21 5,16.5 5,7.5"/>
+              <circle cx="12" cy="12" r="3.1"/>
+            </svg>
+            <div>
+              <div class="ai-brand__name" id="aiStudioTitle">AI Photography Director</div>
+              <p class="ai-brand__meta">47-day mobile photography series</p>
             </div>
           </div>
 
-          <div class="ai-header-right">
-            <!-- Server Connection Status Badge -->
-            <div id="aiStatusBadge" class="ai-status-badge">
-              <span class="status-dot"></span> Checking API...
-            </div>
-            <button id="btnCloseAiStudio" class="icon-button" aria-label="Close AI Studio">✕</button>
-          </div>
-        </div>
-
-        <!-- Studio Body -->
-        <div class="ai-modal-body">
-          <!-- State: IDLE (Invitation) -->
-          <div id="aiStateIdle" class="ai-state-view ai-state-idle">
-            <div class="idle-art-frame">
-              <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-                <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
-                <circle cx="8.5" cy="8.5" r="1.5"/>
-                <polyline points="21 15 16 10 5 21"/>
+          <div class="ai-glass ai-status-pill" id="aiStatusBadge">
+            <span class="ai-dot ai-dot--live" id="aiStatusDot" aria-hidden="true"></span>
+            <span id="aiStatusText">Gemini · flash-lite</span>
+            <button type="button" class="ai-status-pill__dismiss" id="btnCloseAiStudio" aria-label="Close AI Studio">
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round">
+                <line x1="5" y1="5" x2="19" y2="19"/><line x1="19" y1="5" x2="5" y2="19"/>
               </svg>
-            </div>
-            <h4>Creator Studio & Post Generator</h4>
-            <p>Analyze your photograph with Gemini Vision for composition scores, subject centering, human-crafted captions, smart hashtags, and OPPO portfolio readiness.</p>
-            <button id="btnRunCreatePost" class="primary-button ai-hero-action-btn">
-              <span>✨ Create Post Package</span>
             </button>
           </div>
+        </header>
 
-          <!-- State: LOADING (Analyzing Pulse) -->
-          <div id="aiStateLoading" class="ai-state-view ai-state-loading hidden">
-            <div class="liquid-pulse-spinner"></div>
-            <h4>Analyzing with Gemini Vision...</h4>
-            <p class="loading-subtext">Evaluating lighting, subject balance, photographic depth, and caption styles.</p>
-            <button id="btnCancelAi" class="secondary-button" type="button">Cancel</button>
+        <!-- Frame navigator -->
+        <section class="ai-frame-nav" aria-label="Frame navigator">
+          <div class="ai-frame-nav__row">
+            <span class="ai-eyebrow">Frame</span>
+            <div class="ai-frame-count">
+              <button type="button" class="ai-stepper" id="btnDayPrev" data-dir="-1" aria-label="Previous frame">−</button>
+              <button type="button" class="ai-frame-btn" id="btnOpenDayWheel" title="Click to scroll & select campaign day">
+                <span class="ai-frame-count__value" id="displayDayNumber" aria-live="polite">18</span>
+              </button>
+              <input type="hidden" id="inputDayNumber" value="18" />
+              <span class="ai-frame-count__total">/ 47</span>
+              <button type="button" class="ai-stepper" id="btnDayNext" data-dir="1" aria-label="Next frame">+</button>
+            </div>
           </div>
-
-          <!-- State: ERROR (Diagnostic Feedback) -->
-          <div id="aiStateError" class="ai-state-view ai-state-error hidden">
-            <div class="error-badge-icon">⚠️</div>
-            <h4>Analysis Notice</h4>
-            <p id="aiErrorMessageText" class="error-message-text">Unable to complete analysis.</p>
-            <button id="btnRetryAi" class="primary-button" type="button">Try Again</button>
+          <div class="ai-progress" id="aiProgress" role="progressbar" aria-valuemin="1" aria-valuemax="47" aria-valuenow="18" aria-label="Series progress">
+            <div class="ai-progress__fill" id="aiProgressFill"></div>
           </div>
+        </section>
 
-          <!-- State: CONTENT (Generated Studio Suite) -->
-          <div id="aiStateContent" class="ai-state-view ai-state-content hidden">
-            <!-- Title & Genre Bar -->
-            <div class="ai-section ai-title-genre-bar">
-              <div class="title-input-wrapper">
-                <label class="field-label">Photo Title</label>
-                <input type="text" id="inputPostTitle" class="field-input post-title-input" placeholder="Enter title..." />
-              </div>
-              <div class="genre-wrapper">
-                <label class="field-label">Genre</label>
-                <div class="genre-pills">
-                  <span id="genreBadgePrimary" class="genre-badge primary">Street Photography</span>
-                  <div id="genreSecondaryTags" class="genre-secondary-tags"></div>
-                </div>
+        <!-- Loading State -->
+        <div id="aiStateLoading" class="ai-state-loading hidden">
+          <div class="ai-liquid-pulse-spinner"></div>
+          <p class="ai-loading-title">Analyzing photograph with Gemini Vision...</p>
+          <p class="ai-loading-subtext">Evaluating lighting, subject balance, and photographic depth.</p>
+          <button type="button" id="btnCancelAi" class="ai-btn ai-btn--ghost">Cancel</button>
+        </div>
+
+        <!-- Error State -->
+        <div id="aiStateError" class="ai-state-error hidden">
+          <div class="ai-error-icon">⚠️</div>
+          <p id="aiErrorMessageText" class="ai-error-text">Unable to complete analysis.</p>
+          <button type="button" id="btnRetryAi" class="ai-btn ai-btn--ghost">Try Again</button>
+        </div>
+
+        <!-- Main Content Area -->
+        <div id="aiStateContent">
+          <!-- Identity -->
+          <section class="ai-identity">
+            <span class="ai-eyebrow">Title</span>
+            <h1 class="ai-photo-title" id="inputPostTitle" contenteditable="true" spellcheck="false">Prismatik</h1>
+            <span class="ai-eyebrow">Genre</span>
+            <div class="ai-tabs ai-tabs--underline genre-tabs" id="genreTabsContainer" role="tablist" aria-label="Genre">
+              <button type="button" class="ai-tab is-active" role="tab" aria-selected="true" data-genre="Abstract Photography">Abstract Photography</button>
+              <button type="button" class="ai-tab" role="tab" aria-selected="false" data-genre="Minimal">Minimal</button>
+              <button type="button" class="ai-tab" role="tab" aria-selected="false" data-genre="Experimental">Experimental</button>
+            </div>
+            <input type="hidden" id="genreBadgePrimary" value="Abstract Photography" />
+          </section>
+
+          <!-- Status line -->
+          <section class="ai-status-line" aria-label="Analysis summary">
+            <div class="ai-status-item">
+              <span class="ai-dot ai-dot--sage" aria-hidden="true"></span>
+              <span>Portfolio candidate</span>
+              <span class="ai-status-item__value ai-status-item__value--sage" id="badgePortfolioRating">Medium</span>
+            </div>
+            <div class="ai-status-item">
+              <span>Mobile camera strength</span>
+              <span class="ai-status-item__value" id="badgeMobileStrength">8.2<span class="ai-status-item__value-sub">/10</span></span>
+            </div>
+            <div class="ai-status-item">
+              <span>OPPO relevance</span>
+              <span class="ai-status-item__value" id="badgeOppoRelevance">Medium</span>
+            </div>
+          </section>
+
+          <p class="ai-quote" id="textPortfolioReason">"Striking abstract quality that broadens the portfolio's range beyond documentary work."</p>
+
+          <!-- Score readout -->
+          <section class="ai-readout" aria-label="Composition scores">
+            <div class="ai-readout__item"><span class="ai-readout__value" id="scoreComposition">8.5</span><span class="ai-readout__label">Composition</span></div>
+            <div class="ai-readout__item"><span class="ai-readout__value" id="scoreStory">7.8</span><span class="ai-readout__label">Story</span></div>
+            <div class="ai-readout__item"><span class="ai-readout__value" id="scoreVisualImpact">8.9</span><span class="ai-readout__label">Visual impact</span></div>
+            <div class="ai-readout__item"><span class="ai-readout__value" id="scoreBackground">8.2</span><span class="ai-readout__label">Background</span></div>
+          </section>
+
+          <!-- Liquid glass hero panel -->
+          <section class="ai-glass ai-panel" id="aiCompositionCard" aria-label="AI composition recommendation">
+            <div class="ai-panel__glow" aria-hidden="true"></div>
+            <div class="ai-panel__header">
+              <h2>AI composition recommendation</h2>
+              <div class="ai-panel__meta">
+                <span id="compCoordsReadout">Target: (50%, 50%)</span>
+                <span id="compZoomReadout">Zoom 1.02×</span>
+                <span id="compConfidenceReadout">Confidence 90%</span>
               </div>
             </div>
-
-            <!-- OPPO Portfolio Potential & Scores Grid -->
-            <div class="ai-section ai-portfolio-card">
-              <div class="portfolio-header">
-                <div class="portfolio-badges-row">
-                  <span id="badgePortfolioRating" class="portfolio-badge rating-high">Portfolio Candidate: HIGH</span>
-                  <span id="badgeMobileStrength" class="mobile-strength-badge">Mobile Strength: 8.5/10</span>
-                  <span id="badgeOppoRelevance" class="oppo-relevance-badge rating-high">OPPO Relevance: HIGH</span>
-                </div>
+            <p class="ai-panel__body" id="compReasonText">Slight upward shift removes the distracting bottom edge text while preserving the diagonal light path.</p>
+            <div class="ai-panel__grid">
+              <div class="ai-panel__col">
+                <span class="ai-panel__col-label">Strengths</span>
+                <ul class="ai-check-list" id="compStrengthsList">
+                  <li>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 12.5 9.5 18 20 5"/></svg>
+                    <span>Clean diagonal division</span>
+                  </li>
+                  <li>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 12.5 9.5 18 20 5"/></svg>
+                    <span>Balanced color weight</span>
+                  </li>
+                </ul>
               </div>
-              <p id="textPortfolioReason" class="portfolio-reason-quote">Strong visual storytelling and controlled low-light exposure.</p>
-              
-              <!-- 4-Score Breakdown -->
-              <div class="score-meters-grid">
-                <div class="score-meter-card">
-                  <span class="score-num" id="scoreComposition">8.4</span>
-                  <span class="score-name">Composition</span>
-                </div>
-                <div class="score-meter-card">
-                  <span class="score-num" id="scoreStory">8.8</span>
-                  <span class="score-name">Story</span>
-                </div>
-                <div class="score-meter-card">
-                  <span class="score-num" id="scoreVisualImpact">8.1</span>
-                  <span class="score-name">Visual Impact</span>
-                </div>
-                <div class="score-meter-card">
-                  <span class="score-num" id="scoreBackground">7.5</span>
-                  <span class="score-name">Background</span>
-                </div>
+              <div class="ai-panel__col">
+                <span class="ai-panel__col-label">Critique</span>
+                <p class="ai-critique" id="compCritiqueWrapper">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3.5 L22 20.5 L2 20.5 Z"/><line x1="12" y1="9.5" x2="12" y2="14.3"/><circle cx="12" cy="17.4" r="1" fill="currentColor" stroke="none"/></svg>
+                  <span id="compCritiqueText">Text element at the bottom edge creates minor distraction</span>
+                </p>
               </div>
             </div>
-
-            <!-- AI Composition Assistant Card -->
-            <div class="ai-section ai-composition-card" id="aiCompositionCard">
-              <div class="comp-card-header">
-                <h4>AI Composition Recommendation</h4>
-                <span class="comp-confidence-tag" id="compCoordsReadout">Target: (50%, 50%) · Zoom: 1.05×</span>
-              </div>
-              <p id="compReasonText" class="comp-reason-text">A slight vertical adjustment balances the upper negative space.</p>
-              
-              <div class="comp-critique-row">
-                <div class="comp-critique-col">
-                  <span class="critique-col-label">Strengths</span>
-                  <ul id="compStrengthsList" class="comp-list"></ul>
-                </div>
-                <div class="comp-critique-col">
-                  <span class="critique-col-label">Critique</span>
-                  <ul id="compWeaknessesList" class="comp-list weaknesses"></ul>
-                </div>
-              </div>
-
-              <div class="comp-actions-row">
-                <button type="button" id="btnApplyComposition" class="primary-button btn-apply-composition">Apply to Canvas</button>
-                <button type="button" id="btnIgnoreComposition" class="secondary-button btn-ignore-composition">Ignore</button>
-              </div>
+            <div class="ai-panel__actions">
+              <button type="button" class="ai-btn ai-btn--primary" id="btnApplyComposition">Apply to Canvas</button>
+              <button type="button" class="ai-btn ai-btn--ghost" id="btnIgnoreComposition">Ignore</button>
             </div>
+          </section>
 
-            <!-- Captions Suite -->
-            <div class="ai-section ai-captions-card">
-              <div class="section-header-row">
-                <span class="field-label">Photographer Captions (Human & Restrained)</span>
-                <button type="button" id="btnCopyCaption" class="action-copy-btn">📋 Copy Caption</button>
-              </div>
-              <div id="captionTabsContainer" class="caption-tabs-row"></div>
-              <textarea id="textareaActiveCaption" class="field-input caption-textarea" rows="2"></textarea>
-            </div>
-
-            <!-- Hashtags, Alt Text & Instagram Story -->
-            <div class="ai-section ai-metadata-split">
-              <!-- Hashtags -->
-              <div class="ai-split-block">
-                <div class="section-header-row">
-                  <span class="field-label">Intelligent Hashtags (3–6 curated)</span>
-                  <button type="button" id="btnCopyHashtags" class="action-copy-btn">📋 Copy</button>
-                </div>
-                <input type="text" id="inputHashtags" class="field-input" />
-              </div>
-
-              <!-- Instagram Story Text -->
-              <div class="ai-split-block">
-                <div class="section-header-row">
-                  <span class="field-label">Instagram Story Note</span>
-                  <button type="button" id="btnCopyStoryText" class="action-copy-btn">📋 Copy</button>
-                </div>
-                <input type="text" id="inputStoryText" class="field-input" />
-              </div>
-            </div>
-
-            <!-- Alt Text -->
-            <div class="ai-section">
-              <div class="section-header-row">
-                <span class="field-label">Accessibility Alt Text (No marketing/hashtags)</span>
-                <button type="button" id="btnCopyAltText" class="action-copy-btn">📋 Copy Alt Text</button>
-              </div>
-              <input type="text" id="inputAltText" class="field-input" />
-            </div>
-
-            <!-- Master Package Copy Button -->
-            <div class="ai-modal-footer">
-              <button type="button" id="btnCopyCompletePackage" class="primary-button btn-copy-master-package">
-                <span>🚀 Copy Complete Post Package</span>
+          <!-- Photographer caption -->
+          <section class="ai-field" aria-label="Photographer caption">
+            <div class="ai-field__header">
+              <span class="ai-field__label">Photographer Captions (Human & Restrained)</span>
+              <button type="button" class="ai-copy-btn" id="btnCopyCaption" data-copy-target="textareaActiveCaption">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/></svg>
+                Copy Caption
               </button>
             </div>
+            <div class="ai-tabs ai-tabs--pill caption-tabs" id="captionTabsContainer" role="tablist" aria-label="Caption tone">
+              <button type="button" class="ai-tab is-active" role="tab" aria-selected="true" data-style="minimal">Minimal</button>
+              <button type="button" class="ai-tab" role="tab" aria-selected="false" data-style="cinematic">Cinematic</button>
+              <button type="button" class="ai-tab" role="tab" aria-selected="false" data-style="documentary">Documentary</button>
+              <button type="button" class="ai-tab" role="tab" aria-selected="false" data-style="personal">Personal</button>
+              <button type="button" class="ai-tab" role="tab" aria-selected="false" data-style="photography">Photography</button>
+            </div>
+            <p class="ai-field__text" id="textareaActiveCaption" contenteditable="true" spellcheck="false" style="margin-top:12px;">Shifting spectra in the dark.</p>
+          </section>
+
+          <!-- Hashtags & Story note in a 2-column row -->
+          <div class="ai-field-row">
+            <section class="ai-field" aria-label="Hashtags">
+              <div class="ai-field__header">
+                <span class="ai-field__label">Intelligent Hashtags (3–6 curated)</span>
+                <button type="button" class="ai-copy-btn" id="btnCopyHashtags" data-copy-target="inputHashtags">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/></svg>
+                  Copy
+                </button>
+              </div>
+              <p class="ai-field__text ai-field__text--mono" id="inputHashtags" contenteditable="true" spellcheck="false">#ShotOnOPPO #MobilePhotography #AbstractPhoto #PrismaticGradient #Day18</p>
+            </section>
+            <section class="ai-field" aria-label="Story note">
+              <div class="ai-field__header">
+                <span class="ai-field__label">Instagram Story Note</span>
+                <button type="button" class="ai-copy-btn" id="btnCopyStoryText" data-copy-target="inputStoryText">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/></svg>
+                  Copy
+                </button>
+              </div>
+              <p class="ai-field__text ai-field__text--mono" id="inputStoryText" contenteditable="true" spellcheck="false">DAY 18/47 — Shot on OPPO Find X9</p>
+            </section>
+          </div>
+
+          <!-- Alt text -->
+          <section class="ai-field" aria-label="Accessibility alt text">
+            <div class="ai-field__header">
+              <span class="ai-field__label">Accessibility Alt Text (No marketing/hashtags)</span>
+              <button type="button" class="ai-copy-btn" id="btnCopyAltText" data-copy-target="inputAltText">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/></svg>
+                Copy Alt Text
+              </button>
+            </div>
+            <p class="ai-field__text" id="inputAltText" contenteditable="true" spellcheck="false">An abstract close-up photograph featuring a diagonal gradient of warm orange, white, and deep blue light.</p>
+          </section>
+
+          <!-- Master Package Copy Button -->
+          <div class="ai-sticky-bar">
+            <button type="button" class="ai-btn ai-btn--full" id="btnCopyCompletePackage">Copy complete post package</button>
           </div>
         </div>
+
       </div>
     </div>
 

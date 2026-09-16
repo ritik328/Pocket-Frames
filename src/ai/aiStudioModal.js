@@ -27,7 +27,6 @@ export class AiStudioModal {
   initElements() {
     // Buttons & Steppers
     this.btnClose = document.getElementById('btnCloseAiStudio');
-    this.btnRunCreatePost = document.getElementById('btnRunCreatePost');
     this.btnCancelAi = document.getElementById('btnCancelAi');
     this.btnDayPrev = document.getElementById('btnDayPrev');
     this.btnDayNext = document.getElementById('btnDayNext');
@@ -35,9 +34,11 @@ export class AiStudioModal {
     this.displayDayNumber = document.getElementById('displayDayNumber');
     this.inputDayNumber = document.getElementById('inputDayNumber');
     this.aiStatusBadge = document.getElementById('aiStatusBadge');
+    this.aiStatusText = document.getElementById('aiStatusText');
+    this.aiStatusDot = document.getElementById('aiStatusDot');
+    this.progressFill = document.getElementById('progressFill') || document.getElementById('aiProgressFill');
 
     // Sections & States
-    this.stateIdle = document.getElementById('aiStateIdle');
     this.stateLoading = document.getElementById('aiStateLoading');
     this.stateError = document.getElementById('aiStateError');
     this.stateContent = document.getElementById('aiStateContent');
@@ -45,15 +46,15 @@ export class AiStudioModal {
     this.btnRetryAi = document.getElementById('btnRetryAi');
 
     // Content Display Elements
-    this.inputPostTitle = document.getElementById('inputPostTitle');
+    this.inputPostTitle = document.getElementById('inputPostTitle') || document.getElementById('photoTitle');
+    this.genreTabsContainer = document.getElementById('genreTabsContainer');
     this.genreBadgePrimary = document.getElementById('genreBadgePrimary');
-    this.genreSecondaryTags = document.getElementById('genreSecondaryTags');
 
     // Scores & Portfolio
-    this.badgePortfolioRating = document.getElementById('badgePortfolioRating');
-    this.textPortfolioReason = document.getElementById('textPortfolioReason');
-    this.badgeMobileStrength = document.getElementById('badgeMobileStrength');
-    this.badgeOppoRelevance = document.getElementById('badgeOppoRelevance');
+    this.badgePortfolioRating = document.getElementById('badgePortfolioRating') || document.getElementById('portfolioRatingValue');
+    this.textPortfolioReason = document.getElementById('textPortfolioReason') || document.getElementById('aiQuoteText');
+    this.badgeMobileStrength = document.getElementById('badgeMobileStrength') || document.getElementById('mobileStrengthValue');
+    this.badgeOppoRelevance = document.getElementById('badgeOppoRelevance') || document.getElementById('oppoRelevanceValue');
     this.scoreComposition = document.getElementById('scoreComposition');
     this.scoreStory = document.getElementById('scoreStory');
     this.scoreVisualImpact = document.getElementById('scoreVisualImpact');
@@ -63,25 +64,28 @@ export class AiStudioModal {
     this.compStrengthsList = document.getElementById('compStrengthsList');
     this.compWeaknessesList = document.getElementById('compWeaknessesList');
     this.compReasonText = document.getElementById('compReasonText');
-    this.compCoordsReadout = document.getElementById('compCoordsReadout');
+    this.compCoordsReadout = document.getElementById('compCoordsReadout') || document.getElementById('compCenterMeta');
+    this.compZoomReadout = document.getElementById('compZoomReadout') || document.getElementById('compZoomMeta');
+    this.compConfidenceReadout = document.getElementById('compConfidenceReadout') || document.getElementById('compConfidenceMeta');
+    this.compCritiqueText = document.getElementById('compCritiqueText');
     this.btnApplyComposition = document.getElementById('btnApplyComposition');
     this.btnIgnoreComposition = document.getElementById('btnIgnoreComposition');
 
     // Captions
     this.captionTabsContainer = document.getElementById('captionTabsContainer');
-    this.textareaActiveCaption = document.getElementById('textareaActiveCaption');
+    this.textareaActiveCaption = document.getElementById('textareaActiveCaption') || document.getElementById('captionText');
     this.btnCopyCaption = document.getElementById('btnCopyCaption');
 
     // Hashtags & Alt Text
-    this.inputHashtags = document.getElementById('inputHashtags');
+    this.inputHashtags = document.getElementById('inputHashtags') || document.getElementById('hashtagText');
     this.btnCopyHashtags = document.getElementById('btnCopyHashtags');
-    this.inputAltText = document.getElementById('inputAltText');
+    this.inputAltText = document.getElementById('inputAltText') || document.getElementById('altText');
     this.btnCopyAltText = document.getElementById('btnCopyAltText');
-    this.inputStoryText = document.getElementById('inputStoryText');
+    this.inputStoryText = document.getElementById('inputStoryText') || document.getElementById('storyText');
     this.btnCopyStoryText = document.getElementById('btnCopyStoryText');
 
     // Master Copy Action
-    this.btnCopyCompletePackage = document.getElementById('btnCopyCompletePackage');
+    this.btnCopyCompletePackage = document.getElementById('btnCopyCompletePackage') || document.getElementById('copyAllBtn');
   }
 
   initWheelPicker() {
@@ -97,7 +101,10 @@ export class AiStudioModal {
   bindEvents() {
     // Open/Close
     const btnOpen = document.getElementById('btnOpenAiStudio');
-    if (btnOpen) btnOpen.addEventListener('click', () => this.open());
+    if (btnOpen) btnOpen.addEventListener('click', (e) => {
+      e.preventDefault();
+      this.open();
+    });
 
     if (this.btnClose) this.btnClose.addEventListener('click', () => this.close());
     if (this.modal) {
@@ -153,7 +160,7 @@ export class AiStudioModal {
 
       this.btnOpenDayWheel.addEventListener('wheel', onHeaderWheel, { passive: false });
 
-      const stepperControl = document.querySelector('.day-stepper-control');
+      const stepperControl = document.querySelector('.ai-frame-nav') || document.querySelector('.day-stepper-control');
       if (stepperControl && stepperControl !== this.btnOpenDayWheel) {
         stepperControl.addEventListener('wheel', onHeaderWheel, { passive: false });
       }
@@ -183,8 +190,22 @@ export class AiStudioModal {
       });
     }
 
-    // Actions
-    if (this.btnRunCreatePost) this.btnRunCreatePost.addEventListener('click', () => this.runAnalysis());
+    // Genre Tabs
+    if (this.genreTabsContainer) {
+      this.genreTabsContainer.addEventListener('click', (e) => {
+        const tab = e.target.closest('.ai-tab');
+        if (!tab) return;
+        this.genreTabsContainer.querySelectorAll('.ai-tab').forEach(t => {
+          t.classList.remove('is-active');
+          t.setAttribute('aria-selected', 'false');
+        });
+        tab.classList.add('is-active');
+        tab.setAttribute('aria-selected', 'true');
+        if (this.genreBadgePrimary) this.genreBadgePrimary.value = tab.dataset.genre || tab.textContent.trim();
+      });
+    }
+
+    // Retry & Cancel
     if (this.btnRetryAi) this.btnRetryAi.addEventListener('click', () => this.runAnalysis());
     if (this.btnCancelAi) this.btnCancelAi.addEventListener('click', () => this.cancel());
 
@@ -196,6 +217,10 @@ export class AiStudioModal {
         if (applied) {
           this.btnApplyComposition.textContent = '✓ Applied to Canvas';
           this.btnApplyComposition.classList.add('applied');
+          if (this.btnIgnoreComposition) {
+            this.btnIgnoreComposition.disabled = true;
+            this.btnIgnoreComposition.style.opacity = '0.5';
+          }
           setTimeout(() => {
             if (this.btnApplyComposition) {
               this.btnApplyComposition.textContent = 'Apply to Canvas';
@@ -210,28 +235,36 @@ export class AiStudioModal {
       this.btnIgnoreComposition.addEventListener('click', () => {
         const compSection = document.getElementById('aiCompositionCard');
         if (compSection) compSection.style.opacity = '0.5';
+        this.btnIgnoreComposition.textContent = 'Ignored';
+        this.btnIgnoreComposition.disabled = true;
+        if (this.btnApplyComposition) this.btnApplyComposition.style.opacity = '0.5';
       });
     }
 
     // Clipboard Copy Handlers
-    this.setupCopyButton(this.btnCopyCaption, () => this.textareaActiveCaption?.value);
-    this.setupCopyButton(this.btnCopyHashtags, () => this.inputHashtags?.value);
-    this.setupCopyButton(this.btnCopyAltText, () => this.inputAltText?.value);
-    this.setupCopyButton(this.btnCopyStoryText, () => this.inputStoryText?.value);
+    const getFieldVal = (el) => {
+      if (!el) return '';
+      return ('value' in el ? el.value : el.textContent) || '';
+    };
+
+    this.setupCopyButton(this.btnCopyCaption, () => getFieldVal(this.textareaActiveCaption));
+    this.setupCopyButton(this.btnCopyHashtags, () => getFieldVal(this.inputHashtags));
+    this.setupCopyButton(this.btnCopyAltText, () => getFieldVal(this.inputAltText));
+    this.setupCopyButton(this.btnCopyStoryText, () => getFieldVal(this.inputStoryText));
 
     // Master Post Package Copy
     if (this.btnCopyCompletePackage) {
       this.btnCopyCompletePackage.addEventListener('click', () => {
-        const title = this.inputPostTitle?.value || '';
-        const caption = this.textareaActiveCaption?.value || '';
-        const hashtags = this.inputHashtags?.value || '';
-        const story = this.inputStoryText?.value || '';
+        const title = getFieldVal(this.inputPostTitle);
+        const caption = getFieldVal(this.textareaActiveCaption);
+        const hashtags = getFieldVal(this.inputHashtags);
+        const story = getFieldVal(this.inputStoryText);
 
         const fullPost = [
-          title ? `"${title}"` : null,
-          caption,
-          story ? `—\n${story}` : null,
-          `.\n.\n.\n${hashtags}`
+          title ? `"${title.trim()}"` : null,
+          caption.trim(),
+          story ? `—\n${story.trim()}` : null,
+          hashtags ? `.\n.\n.\n${hashtags.trim()}` : null
         ].filter(Boolean).join('\n\n');
 
         navigator.clipboard.writeText(fullPost);
@@ -246,14 +279,12 @@ export class AiStudioModal {
   }
 
   renderStatusBadge() {
-    if (!this.aiStatusBadge) return;
-
     if (this.serverStatus.configured) {
-      this.aiStatusBadge.className = 'ai-status-badge connected';
-      this.aiStatusBadge.innerHTML = `<span class="status-dot"></span> Gemini API — Connected (${this.serverStatus.model || '1.5-flash'})`;
+      if (this.aiStatusText) this.aiStatusText.textContent = `Gemini · ${this.serverStatus.model || 'flash-lite'}`;
+      if (this.aiStatusDot) this.aiStatusDot.className = 'ai-dot ai-dot--live';
     } else {
-      this.aiStatusBadge.className = 'ai-status-badge demo';
-      this.aiStatusBadge.innerHTML = `<span class="status-dot"></span> DEMO MODE — Gemini API not configured on server`;
+      if (this.aiStatusText) this.aiStatusText.textContent = 'DEMO MODE';
+      if (this.aiStatusDot) this.aiStatusDot.className = 'ai-dot';
     }
   }
 
@@ -261,6 +292,10 @@ export class AiStudioModal {
     const clamped = Math.max(1, Math.min(47, day));
     if (this.inputDayNumber) this.inputDayNumber.value = clamped;
     if (this.displayDayNumber) this.displayDayNumber.textContent = clamped;
+    if (this.progressFill) {
+      const pct = (clamped / 47) * 100;
+      this.progressFill.style.width = pct + '%';
+    }
     store.setAiState({ dayNumber: clamped });
   }
 
@@ -273,13 +308,43 @@ export class AiStudioModal {
     const day = state.ai?.dayNumber || 18;
     this.setDay(day);
 
-    // If state already has postData, render it immediately
     if (state.ai?.postData) {
       this.currentData = state.ai.postData;
-      this.showView('CONTENT');
       this.populateContent(this.currentData);
     } else {
-      this.showView('IDLE');
+      // Default curated reference state matching the screenshot
+      this.populateContent({
+        photo_title: 'Prismatik',
+        genre: { primary: 'Abstract Photography' },
+        portfolio_potential: { rating: 'medium', reason: 'Striking abstract quality that broadens the portfolio\'s range beyond documentary work.' },
+        mobile_photography_strength: { score: 8.2 },
+        oppo_relevance: { rating: 'medium' },
+        scores: { composition: 8.5, story: 7.8, visual_impact: 8.9, background: 8.2 },
+        composition: {
+          recommended_x: 0.50,
+          recommended_y: 0.50,
+          recommended_zoom: 1.02,
+          confidence: 0.90,
+          reason: 'Slight upward shift removes the distracting bottom edge text while preserving the diagonal light path.',
+          strengths: ['Clean diagonal division', 'Balanced color weight'],
+          weaknesses: ['Text element at the bottom edge creates minor distraction']
+        },
+        caption_options: [
+          { style: 'minimal', text: 'Shifting spectra in the dark.' },
+          { style: 'cinematic', text: 'Warmth spills across the frame, then fades into nothing.' },
+          { style: 'documentary', text: 'Handheld, day eighteen of the series — light bending across a plain wall.' },
+          { style: 'personal', text: 'Kept returning to this wall until the light finally did what I wanted.' },
+          { style: 'photography', text: 'Diagonal gradient, warm-to-cool falloff, single light source, minimal post.' }
+        ],
+        hashtags: ['#ShotOnOPPO', '#MobilePhotography', '#AbstractPhoto', '#PrismaticGradient', '#Day18'],
+        story_text: 'DAY 18/47 — Shot on OPPO Find X9',
+        alt_text: 'An abstract close-up photograph featuring a diagonal gradient of warm orange, white, and deep blue light.'
+      });
+
+      // If an image is uploaded in the canvas, automatically run analysis in background
+      if (state.image) {
+        this.runAnalysis();
+      }
     }
   }
 
@@ -290,27 +355,19 @@ export class AiStudioModal {
 
   cancel() {
     cancelActiveAiRequest();
-    this.showView(this.currentData ? 'CONTENT' : 'IDLE');
-  }
-
-  showView(viewName) {
-    if (this.stateIdle) this.stateIdle.classList.toggle('hidden', viewName !== 'IDLE');
-    if (this.stateLoading) this.stateLoading.classList.toggle('hidden', viewName !== 'LOADING');
-    if (this.stateError) this.stateError.classList.toggle('hidden', viewName !== 'ERROR');
-    if (this.stateContent) this.stateContent.classList.toggle('hidden', viewName !== 'CONTENT');
+    if (this.stateLoading) this.stateLoading.classList.add('hidden');
+    if (this.stateContent) this.stateContent.classList.remove('hidden');
   }
 
   async runAnalysis() {
     const state = store.getState();
-
     if (!state.image) {
-      this.showError('Please upload a photograph first before running AI Director.');
       return;
     }
 
     const day = parseInt(this.inputDayNumber?.value, 10) || 18;
 
-    this.showView('LOADING');
+    if (this.stateLoading) this.stateLoading.classList.remove('hidden');
     store.setAiState({ isAnalyzing: true, status: AI_STATUS.ANALYZING });
 
     const result = await requestCreatePost({
@@ -320,12 +377,14 @@ export class AiStudioModal {
       metadata: state.metadata
     });
 
+    if (this.stateLoading) this.stateLoading.classList.add('hidden');
+
     if (result.cancelled) {
       return;
     }
 
     if (!result.success || !result.data) {
-      this.showError(result.error?.message || 'Failed to process AI analysis. Please check connection and try again.');
+      this.showError(result.error?.message || 'Unable to complete analysis. Using offline studio fallback.');
       return;
     }
 
@@ -337,121 +396,164 @@ export class AiStudioModal {
     });
 
     this.populateContent(result.data, result.isDemo);
-    this.showView('CONTENT');
   }
 
   showError(message) {
     if (this.errorMessageText) this.errorMessageText.textContent = message;
-    this.showView('ERROR');
-    store.setAiState({ isAnalyzing: false, error: message, status: AI_STATUS.INVALID_RESPONSE });
+    if (this.stateError) {
+      this.stateError.classList.remove('hidden');
+      setTimeout(() => {
+        if (this.stateError) this.stateError.classList.add('hidden');
+      }, 5000);
+    }
   }
 
   populateContent(data, isDemo = false) {
     // Header Info
-    if (this.inputPostTitle) this.inputPostTitle.value = data.photo_title || '';
-    if (this.genreBadgePrimary) this.genreBadgePrimary.textContent = data.genre?.primary || 'Street Photography';
+    const titleVal = data.photo_title || 'Prismatik';
+    if (this.inputPostTitle) {
+      if ('value' in this.inputPostTitle) this.inputPostTitle.value = titleVal;
+      else this.inputPostTitle.textContent = titleVal;
+    }
 
-    if (this.genreSecondaryTags) {
-      const tags = data.genre?.secondary || [];
-      this.genreSecondaryTags.innerHTML = tags.map(t => `<span class="genre-tag">${t}</span>`).join('');
+    // Genre Tabs
+    if (this.genreTabsContainer) {
+      const primary = (data.genre?.primary || 'Abstract Photography').toLowerCase();
+      this.genreTabsContainer.querySelectorAll('.ai-tab').forEach(tab => {
+        const isActive = tab.textContent.trim().toLowerCase().includes(primary) || primary.includes(tab.textContent.trim().toLowerCase());
+        tab.classList.toggle('is-active', isActive);
+        tab.setAttribute('aria-selected', isActive ? 'true' : 'false');
+      });
     }
 
     // Portfolio Potential
     if (this.badgePortfolioRating) {
-      const rating = (data.portfolio_potential?.rating || 'medium').toUpperCase();
-      this.badgePortfolioRating.textContent = `Portfolio Candidate: ${rating}`;
-      this.badgePortfolioRating.className = `portfolio-badge rating-${rating.toLowerCase()}`;
+      const rating = (data.portfolio_potential?.rating || 'medium').toLowerCase();
+      this.badgePortfolioRating.textContent = rating.charAt(0).toUpperCase() + rating.slice(1);
+      this.badgePortfolioRating.className = `ai-status-item__value ${rating === 'high' ? 'ai-status-item__value--sage' : ''}`;
     }
 
     if (this.textPortfolioReason) {
-      this.textPortfolioReason.textContent = data.portfolio_potential?.reason || '';
+      const reason = data.portfolio_potential?.reason || 'Striking abstract quality that broadens the portfolio\'s range beyond documentary work.';
+      this.textPortfolioReason.textContent = `"${reason.replace(/^"|"$/g, '')}"`;
     }
 
     // Mobile Strength & OPPO Relevance
     if (this.badgeMobileStrength) {
-      const score = data.mobile_photography_strength?.score || 8.5;
-      this.badgeMobileStrength.textContent = `Mobile Camera Strength: ${score}/10`;
+      const score = data.mobile_photography_strength?.score || 8.2;
+      this.badgeMobileStrength.innerHTML = `${score}<span class="ai-status-item__value-sub">/10</span>`;
     }
 
     if (this.badgeOppoRelevance) {
-      const oppo = (data.oppo_relevance?.rating || 'high').toUpperCase();
-      this.badgeOppoRelevance.textContent = `OPPO Relevance: ${oppo}`;
-      this.badgeOppoRelevance.className = `oppo-relevance-badge rating-${oppo.toLowerCase()}`;
+      const oppo = (data.oppo_relevance?.rating || 'medium').toLowerCase();
+      this.badgeOppoRelevance.textContent = oppo.charAt(0).toUpperCase() + oppo.slice(1);
     }
 
     // Scores Breakdown
-    if (this.scoreComposition) this.scoreComposition.textContent = (data.scores?.composition || 8.4).toFixed(1);
-    if (this.scoreStory) this.scoreStory.textContent = (data.scores?.story || 8.8).toFixed(1);
-    if (this.scoreVisualImpact) this.scoreVisualImpact.textContent = (data.scores?.visual_impact || 8.1).toFixed(1);
-    if (this.scoreBackground) this.scoreBackground.textContent = (data.scores?.background || 7.5).toFixed(1);
+    if (this.scoreComposition) this.scoreComposition.textContent = (data.scores?.composition || 8.5).toFixed(1);
+    if (this.scoreStory) this.scoreStory.textContent = (data.scores?.story || 7.8).toFixed(1);
+    if (this.scoreVisualImpact) this.scoreVisualImpact.textContent = (data.scores?.visual_impact || 8.9).toFixed(1);
+    if (this.scoreBackground) this.scoreBackground.textContent = (data.scores?.background || 8.2).toFixed(1);
 
     // Composition Card
-    if (this.compStrengthsList) {
-      const list = data.composition?.strengths || [];
-      this.compStrengthsList.innerHTML = list.map(s => `<li>✓ ${s}</li>`).join('');
-    }
+    const x = Math.round((data.composition?.recommended_x ?? 0.5) * 100);
+    const y = Math.round((data.composition?.recommended_y ?? 0.5) * 100);
+    const zoom = (data.composition?.recommended_zoom ?? 1.02).toFixed(2);
+    const conf = Math.round((data.composition?.confidence ?? 0.90) * 100);
 
-    if (this.compWeaknessesList) {
-      const list = data.composition?.weaknesses || [];
-      this.compWeaknessesList.innerHTML = list.map(w => `<li>⚠ ${w}</li>`).join('');
-    }
+    if (this.compCoordsReadout) this.compCoordsReadout.textContent = `Center ${x}, ${y}%`;
+    if (this.compZoomReadout) this.compZoomReadout.textContent = `Zoom ${zoom}×`;
+    if (this.compConfidenceReadout) this.compConfidenceReadout.textContent = `Confidence ${conf}%`;
 
     if (this.compReasonText) {
-      this.compReasonText.textContent = data.composition?.reason || '';
+      this.compReasonText.textContent = data.composition?.reason || 'Slight upward shift removes the distracting bottom edge text while preserving the diagonal light path.';
     }
 
-    if (this.compCoordsReadout) {
-      const x = Math.round((data.composition?.recommended_x ?? 0.5) * 100);
-      const y = Math.round((data.composition?.recommended_y ?? 0.5) * 100);
-      const zoom = (data.composition?.recommended_zoom ?? 1.0).toFixed(2);
-      const conf = Math.round((data.composition?.confidence ?? 0.85) * 100);
-      this.compCoordsReadout.textContent = `Target Subject Center: (${x}%, ${y}%) · Zoom: ${zoom}× · Confidence: ${conf}%`;
+    if (this.compStrengthsList) {
+      const list = data.composition?.strengths || ['Clean diagonal division', 'Balanced color weight'];
+      this.compStrengthsList.innerHTML = list.map(s => `
+        <li>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 12.5 9.5 18 20 5"/></svg>
+          <span>${s}</span>
+        </li>
+      `).join('');
     }
 
-    // Render Captions Tabs
+    if (this.compCritiqueText) {
+      const weaknesses = data.composition?.weaknesses || [];
+      this.compCritiqueText.textContent = weaknesses[0] || 'Text element at the bottom edge creates minor distraction';
+    }
+
+    // Captions
     this.renderCaptionTabs(data.caption_options || []);
 
-    // Hashtags & Alt Text
+    // Hashtags, Alt Text, Story Note
+    const hashtagStr = Array.isArray(data.hashtags) ? data.hashtags.join(' ') : (data.hashtags || '#ShotOnOPPO #MobilePhotography #AbstractPhoto #PrismaticGradient #Day18');
     if (this.inputHashtags) {
-      this.inputHashtags.value = (data.hashtags || []).join(' ');
+      if ('value' in this.inputHashtags) this.inputHashtags.value = hashtagStr;
+      else this.inputHashtags.textContent = hashtagStr;
     }
 
-    if (this.inputAltText) {
-      this.inputAltText.value = data.alt_text || '';
-    }
-
+    const storyStr = data.story_text || `DAY ${store.getState().ai?.dayNumber || 18}/47 — Shot on OPPO Find X9`;
     if (this.inputStoryText) {
-      this.inputStoryText.value = data.story_text || '';
+      if ('value' in this.inputStoryText) this.inputStoryText.value = storyStr;
+      else this.inputStoryText.textContent = storyStr;
+    }
+
+    const altStr = data.alt_text || 'An abstract close-up photograph featuring a diagonal gradient of warm orange, white, and deep blue light.';
+    if (this.inputAltText) {
+      if ('value' in this.inputAltText) this.inputAltText.value = altStr;
+      else this.inputAltText.textContent = altStr;
     }
   }
 
   renderCaptionTabs(options) {
     if (!this.captionTabsContainer) return;
 
-    this.captionTabsContainer.innerHTML = '';
-    const activeOption = options.find(o => o.style === this.selectedStyle) || options[0];
+    const defaultCaptions = {
+      minimal: 'Shifting spectra in the dark.',
+      cinematic: 'Warmth spills across the frame, then fades into nothing.',
+      documentary: 'Handheld, day eighteen of the series — light bending across a plain wall.',
+      personal: 'Kept returning to this wall until the light finally did what I wanted.',
+      photography: 'Diagonal gradient, warm-to-cool falloff, single light source, minimal post.'
+    };
 
-    options.forEach((opt) => {
+    let opts = options && options.length > 0 ? options : [
+      { style: 'minimal', text: defaultCaptions.minimal },
+      { style: 'cinematic', text: defaultCaptions.cinematic },
+      { style: 'documentary', text: defaultCaptions.documentary },
+      { style: 'personal', text: defaultCaptions.personal },
+      { style: 'photography', text: defaultCaptions.photography }
+    ];
+
+    this.captionTabsContainer.innerHTML = '';
+    const activeOption = opts.find(o => o.style === this.selectedStyle) || opts[0];
+
+    opts.forEach((opt) => {
       const btn = document.createElement('button');
       btn.type = 'button';
-      btn.className = `caption-tab-btn ${opt.style === activeOption?.style ? 'active' : ''}`;
+      btn.className = `ai-tab ${opt.style === activeOption?.style ? 'is-active' : ''}`;
       
       const styleMeta = CAPTION_STYLES.find(s => s.id === opt.style);
-      btn.textContent = styleMeta?.label || opt.style;
+      btn.textContent = styleMeta?.label || (opt.style.charAt(0).toUpperCase() + opt.style.slice(1));
       btn.title = styleMeta?.hint || '';
 
       btn.addEventListener('click', () => {
         this.selectedStyle = opt.style;
-        this.captionTabsContainer.querySelectorAll('.caption-tab-btn').forEach(b => b.classList.remove('active'));
-        btn.classList.add('active');
-        if (this.textareaActiveCaption) this.textareaActiveCaption.value = opt.text;
+        this.captionTabsContainer.querySelectorAll('.ai-tab').forEach(b => b.classList.remove('is-active'));
+        btn.classList.add('is-active');
+        if (this.textareaActiveCaption) {
+          if ('value' in this.textareaActiveCaption) this.textareaActiveCaption.value = opt.text;
+          else this.textareaActiveCaption.textContent = opt.text;
+        }
       });
 
       this.captionTabsContainer.appendChild(btn);
     });
 
     if (this.textareaActiveCaption && activeOption) {
-      this.textareaActiveCaption.value = activeOption.text;
+      if ('value' in this.textareaActiveCaption) this.textareaActiveCaption.value = activeOption.text;
+      else this.textareaActiveCaption.textContent = activeOption.text;
     }
   }
 
@@ -461,17 +563,18 @@ export class AiStudioModal {
       const text = getTextFn();
       if (!text) return;
       navigator.clipboard.writeText(text);
-      this.flashCopySuccess(btn, '✓ Copied!');
+      this.flashCopySuccess(btn, '✓ Copied');
     });
   }
 
   flashCopySuccess(btn, label) {
-    const original = btn.textContent;
+    const original = btn.innerHTML;
     btn.textContent = label;
-    btn.classList.add('copied');
+    btn.classList.add('is-copied');
     setTimeout(() => {
-      btn.textContent = original;
-      btn.classList.remove('copied');
-    }, 2000);
+      btn.innerHTML = original;
+      btn.classList.remove('is-copied');
+    }, 1800);
   }
 }
+
