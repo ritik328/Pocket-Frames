@@ -1,7 +1,11 @@
 {
   "rewrites": [
     {
-      "source": "/((?!api/.*).*)",
+      "source": "/ai-director",
+      "destination": "/ai-director.html"
+    },
+    {
+      "source": "/((?!api/.*|ai-director\\.html).*)",
       "destination": "/index.html"
     }
   ]

@@ -13,6 +13,7 @@ import { loadUserImage } from './image/imageLoader.js';
 import { setupKeyboardShortcuts } from './shortcuts.js';
 import { loadProjectFromDB, clearProjectFromDB } from './storage/projectStorage.js';
 import { AiStudioModal } from './ai/aiStudioModal.js';
+import { applyAiComposition } from './ai/compositionApplier.js';
 
 // DOM Elements
 const previewCanvas = document.getElementById('previewCanvas');
@@ -514,6 +515,20 @@ async function tryRestoreSession() {
       store.setExport(saved.export);
       selectResolution.value = saved.export.resolution || '2160x2700';
       selectFormat.value = saved.export.format || 'image/jpeg';
+    }
+
+    // Check if AI recommendation was applied from AI Photography Director page
+    try {
+      const pendingComp = localStorage.getItem('pocket_frames_applied_composition');
+      if (pendingComp) {
+        const rec = JSON.parse(pendingComp);
+        localStorage.removeItem('pocket_frames_applied_composition');
+        if (rec) {
+          applyAiComposition(store, rec);
+        }
+      }
+    } catch (e) {
+      console.warn('Could not apply pending AI composition:', e);
     }
   } catch (err) {
     console.warn('Could not restore previous project session:', err);

@@ -1,4 +1,5 @@
 import { defineConfig, loadEnv } from 'vite';
+import { resolve } from 'path';
  
 export default defineConfig(({ command, mode }) => {
   if (command === 'serve') {
@@ -11,6 +12,14 @@ export default defineConfig(({ command, mode }) => {
     server: {
       port: 5173,
       host: true
+    },
+    build: {
+      rollupOptions: {
+        input: {
+          main: resolve(__dirname, 'index.html'),
+          aiDirector: resolve(__dirname, 'ai-director.html')
+        }
+      }
     },
     plugins: [
       {
