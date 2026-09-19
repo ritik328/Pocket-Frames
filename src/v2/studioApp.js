@@ -19,7 +19,7 @@ const toastEl      = document.getElementById('v2-toast');
 let v2Resizer      = null;
 
 // Sidebar tabs
-const tabBtns      = document.querySelectorAll('.v2-tab-btn');
+const tabBtns      = document.querySelectorAll('.rail button, .rail-btn, .v2-tab-btn');
 const tabPanels    = document.querySelectorAll('.v2-tab-panel');
 
 // Controls
@@ -277,12 +277,17 @@ function buildStickerPackTabs() {
   stickerPackBtns.innerHTML = '';
   STICKER_PACKS.forEach(pack => {
     const btn = document.createElement('button');
-    btn.className = `v2-pack-tab ${pack.id === _activePack ? 'is-active' : ''}`;
+    const isActive = pack.id === _activePack;
+    btn.className = `chip v2-pack-tab ${isActive ? 'active is-active' : ''}`;
     btn.dataset.pack = pack.id;
-    btn.innerHTML = `<span>${pack.emoji}</span><span>${pack.label}</span>`;
+    btn.innerHTML = `<span>${pack.emoji}</span> <span>${pack.label}</span>`;
     btn.addEventListener('click', () => {
       _activePack = pack.id;
-      stickerPackBtns.querySelectorAll('.v2-pack-tab').forEach(b => b.classList.toggle('is-active', b.dataset.pack === pack.id));
+      stickerPackBtns.querySelectorAll('.chip, .v2-pack-tab').forEach(b => {
+        const on = b.dataset.pack === pack.id;
+        b.classList.toggle('active', on);
+        b.classList.toggle('is-active', on);
+      });
       buildStickerGrid();
     });
     stickerPackBtns.appendChild(btn);
@@ -346,12 +351,17 @@ function buildFrameCategoryTabs() {
   frameCatBtns.innerHTML = '';
   FRAME_CATEGORIES.forEach(cat => {
     const btn = document.createElement('button');
-    btn.className = `v2-pack-tab ${cat.id === _activeFrameCat ? 'is-active' : ''}`;
+    const isActive = cat.id === _activeFrameCat;
+    btn.className = `chip v2-pack-tab ${isActive ? 'active is-active' : ''}`;
     btn.dataset.cat = cat.id;
     btn.textContent = cat.label;
     btn.addEventListener('click', () => {
       _activeFrameCat = cat.id;
-      frameCatBtns.querySelectorAll('.v2-pack-tab').forEach(b => b.classList.toggle('is-active', b.dataset.cat === cat.id));
+      frameCatBtns.querySelectorAll('.chip, .v2-pack-tab').forEach(b => {
+        const on = b.dataset.cat === cat.id;
+        b.classList.toggle('active', on);
+        b.classList.toggle('is-active', on);
+      });
       buildFrameGrid();
     });
     frameCatBtns.appendChild(btn);
@@ -398,12 +408,16 @@ function updateLayersPanel() {
     .sort((a, b) => (b.zIndex || 0) - (a.zIndex || 0));
 
   layersList.innerHTML = '';
+  if (!sorted.length) {
+    layersList.innerHTML = '<div class="v2-layers-empty">Add stickers or text to see layers here.</div>';
+    return;
+  }
   sorted.forEach(el => {
     const row = document.createElement('div');
-    row.className = `v2-layer-row ${el.id === _overlay?.selectedId ? 'is-selected' : ''}`;
+    const isSelected = el.id === _overlay?.selectedId;
+    row.className = `layer-row v2-layer-row ${isSelected ? 'active is-selected' : ''}`;
     row.dataset.id = el.id;
 
-    const icon = el.type === 'sticker' ? '◈' : el.type === 'text' ? 'T' : '▬';
     const name = el.type === 'sticker'
       ? (STICKER_CATALOG.find(s => s.id === el.assetId)?.name || el.assetId)
       : el.type === 'text'
@@ -411,10 +425,14 @@ function updateLayersPanel() {
       : 'Tape';
 
     row.innerHTML = `
-      <span class="v2-layer-icon">${icon}</span>
-      <span class="v2-layer-name">${name}</span>
-      <button class="v2-layer-vis" data-id="${el.id}" title="Toggle visibility">${el.visible ? '◉' : '○'}</button>
-      <button class="v2-layer-lock" data-id="${el.id}" title="Toggle lock">${el.locked ? '🔒' : '🔓'}</button>
+      <svg class="grip" viewBox="0 0 24 24" fill="currentColor"><circle cx="9" cy="6" r="1.4"/><circle cx="15" cy="6" r="1.4"/><circle cx="9" cy="12" r="1.4"/><circle cx="15" cy="12" r="1.4"/><circle cx="9" cy="18" r="1.4"/><circle cx="15" cy="18" r="1.4"/></svg>
+      <span>${name}</span>
+      <button class="v2-layer-vis" data-id="${el.id}" title="Toggle visibility" style="background:none;border:none;cursor:pointer;padding:0;display:flex;align-items:center;">
+        <svg class="eye" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" style="opacity:${el.visible ? '1' : '0.35'}"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z"/><circle cx="12" cy="12" r="3"/></svg>
+      </button>
+      <button class="v2-layer-lock" data-id="${el.id}" title="Toggle lock" style="background:none;border:none;cursor:pointer;padding:0;display:flex;align-items:center;color:var(--muted);font-size:11px;">
+        ${el.locked ? '🔒' : '🔓'}
+      </button>
     `;
 
     row.addEventListener('click', () => {
@@ -527,10 +545,16 @@ Object.entries(metaInputs).forEach(([key, el]) => {
 
 // ─── Tabs ─────────────────────────────────────────────────────────────────────
 function activateTab(id) {
-  tabBtns.forEach(b => b.classList.toggle('is-active', b.dataset.tab === id));
+  tabBtns.forEach(b => {
+    const active = b.dataset.tab === id;
+    b.classList.toggle('is-active', active);
+    b.classList.toggle('active', active);
+    b.setAttribute('aria-selected', active ? 'true' : 'false');
+  });
   tabPanels.forEach(p => {
     const active = p.dataset.panel === id;
     p.classList.toggle('is-active', active);
+    p.classList.toggle('active', active);
     p.style.display = active ? '' : 'none';
   });
 }
