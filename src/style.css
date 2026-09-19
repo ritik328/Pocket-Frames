@@ -1957,6 +1957,10 @@ body[data-theme="light"] .ai-btn--full:hover {
   white-space: nowrap;
 }
 
+.pf-mode-tab svg {
+  pointer-events: none;
+}
+
 .pf-mode-tab:hover {
   color: var(--text);
   background: var(--glass-bg-strong);
@@ -1972,20 +1976,25 @@ body[data-theme="light"] .ai-btn--full:hover {
 .pf-tab-panel {
   display: none;
   flex: 1;
-  /* Let each panel control its own scroll/overflow */
   min-height: 0;
+  width: 100%;
 }
 
 .pf-tab-panel--active {
-  display: flex;
+  display: flex !important;
   flex-direction: column;
   flex: 1;
+  min-height: 0;
   overflow: hidden;
+  width: 100%;
 }
 
 /* Hasselblad panel: existing workspace fills the space */
-.pf-tab-panel[data-panel="hasselblad"] {
-  /* Workspace inside needs height */
+.pf-tab-panel[data-panel="hasselblad"].pf-tab-panel--active {
+  display: flex !important;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
 }
 .pf-tab-panel[data-panel="hasselblad"] .workspace {
   flex: 1;
@@ -1993,8 +2002,12 @@ body[data-theme="light"] .ai-btn--full:hover {
 }
 
 /* Studio Frame panel: iframe fills full remaining height */
-.pf-tab-panel[data-panel="studio"] {
-  /* Already flex column from --active rule */
+.pf-tab-panel[data-panel="studio"].pf-tab-panel--active {
+  display: flex !important;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  height: 100%;
 }
 .pf-tab-panel[data-panel="studio"] iframe {
   flex: 1;
