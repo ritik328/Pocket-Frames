@@ -8,12 +8,15 @@ import { renderScene, renderFrameThumbnail } from './sceneRenderer.js';
 import { OverlayController } from './overlayController.js';
 import { FRAME_CATALOG, FRAME_CATEGORIES, getFrameById } from './frameDefinitions.js';
 import { STICKER_CATALOG, STICKER_PACKS, getStickersByPack, searchStickers } from './stickerCatalog.js';
+import { CanvasResizer } from '../editor/canvasResizer.js';
 
 // ─── DOM refs ─────────────────────────────────────────────────────────────────
 const canvas       = document.getElementById('v2-canvas');
 const overlayEl    = document.getElementById('v2-overlay');
 const fileInput    = document.getElementById('v2-file-input');
 const toastEl      = document.getElementById('v2-toast');
+
+let v2Resizer      = null;
 
 // Sidebar tabs
 const tabBtns      = document.querySelectorAll('.v2-tab-btn');
@@ -118,8 +121,13 @@ function renderLoop() {
 
 // ─── Canvas sizing ─────────────────────────────────────────────────────────────
 function sizeCanvas() {
+  if (v2Resizer && v2Resizer.isFitMode) {
+    v2Resizer.fitToScreen();
+    return;
+  }
   const area   = document.getElementById('v2-canvas-area');
-  const areaH  = area.clientHeight - 48;
+  if (!area) return;
+  const areaH  = area.clientHeight - 85;
   const areaW  = area.clientWidth  - 48;
   const aspect = LOGICAL_H / LOGICAL_W;
 
@@ -134,6 +142,12 @@ function sizeCanvas() {
   canvas.style.height = `${h}px`;
   overlayEl.style.width  = `${w}px`;
   overlayEl.style.height = `${h}px`;
+
+  const wrap = document.getElementById('v2-canvas-wrap');
+  if (wrap) {
+    wrap.style.width = `${w}px`;
+    wrap.style.height = `${h}px`;
+  }
 
   scheduleRender();
 }
@@ -753,6 +767,25 @@ async function init() {
   _overlay.onSelectionChange(id => {
     showPropsForSelected(id);
     scheduleRender();
+  });
+
+  // Set up liquid glass canvas resizer
+  const canvasWrap = document.getElementById('v2-canvas-wrap');
+  const canvasArea = document.getElementById('v2-canvas-area');
+
+  v2Resizer = new CanvasResizer(canvas, canvasWrap, () => {
+    scheduleRender();
+    if (_overlay) _overlay.onScaleChange();
+  }, {
+    prefix: 'v2',
+    canvasArea: canvasArea,
+    overlayEl: overlayEl,
+    aspectRatio: LOGICAL_H / LOGICAL_W,
+    storageKey: 'pocketframes-v2-canvas-width',
+    defaultWidth: 400,
+    defaultFit: true,
+    setHeight: true,
+    fitPaddingBottom: 90
   });
 
   // Canvas click → hit test elements

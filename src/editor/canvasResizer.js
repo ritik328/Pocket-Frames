@@ -3,61 +3,70 @@
  * Provides fluid, interactive canvas resizing via:
  *   - Liquid glass toggle presets (S, M, L, XL, Fit)
  *   - Liquid glass slider and - / + precision buttons
- *   - Corner drag handle on the Polaroid canvas
- * Synchronizes with renderFrame and positionManager seamlessly.
+ *   - Corner drag handle on the Polaroid/Studio canvas
+ * Supports both Hasselblad page and Studio Frame page.
  */
 
-const STORAGE_KEY = 'pocketframes-canvas-width';
 const DEFAULT_WIDTH = 400;
 const MIN_WIDTH = 260;
 
 export class CanvasResizer {
-  constructor(canvasElement, containerElement, onResizeCallback) {
+  constructor(canvasElement, containerElement, onResizeCallback, options = {}) {
     this.canvas = canvasElement;
     this.container = containerElement;
-    this.canvasArea = document.getElementById('canvasArea');
+    this.options = options;
     this.onResize = onResizeCallback || (() => {});
+    this.canvasArea = options.canvasArea || document.getElementById(options.canvasAreaId || 'canvasArea');
+    this.overlayEl = options.overlayEl || null;
+    this.aspectRatio = options.aspectRatio || (5 / 4); // height / width
+    this.storageKey = options.storageKey || 'pocketframes-canvas-width';
+    this.defaultWidth = options.defaultWidth || DEFAULT_WIDTH;
 
-    // Elements
-    this.dock = document.getElementById('canvasLiquidDock');
-    this.toggleGroup = document.getElementById('liquidToggleGroup');
-    this.toggleBtns = document.querySelectorAll('.liquid-toggle-btn');
-    this.togglePill = document.getElementById('liquidTogglePill');
-    this.slider = document.getElementById('canvasSizeSlider');
-    this.badge = document.getElementById('canvasSizeBadge');
-    this.btnZoomIn = document.getElementById('btnCanvasZoomIn');
-    this.btnZoomOut = document.getElementById('btnCanvasZoomOut');
-    this.btnReset = document.getElementById('btnCanvasResetSize');
-    this.dragHandle = document.getElementById('canvasResizeHandle');
+    const p = options.prefix || '';
+
+    this.dock = document.getElementById(options.dockId || (p ? `${p}CanvasLiquidDock` : 'canvasLiquidDock'));
+    this.toggleGroup = document.getElementById(options.toggleGroupId || (p ? `${p}LiquidToggleGroup` : 'liquidToggleGroup'));
+    this.toggleBtns = this.toggleGroup
+      ? this.toggleGroup.querySelectorAll('.liquid-toggle-btn')
+      : document.querySelectorAll(options.toggleBtnSelector || '.liquid-toggle-btn');
+    this.togglePill = document.getElementById(options.togglePillId || (p ? `${p}LiquidTogglePill` : 'liquidTogglePill'));
+    this.slider = document.getElementById(options.sliderId || (p ? `${p}CanvasSizeSlider` : 'canvasSizeSlider'));
+    this.badge = document.getElementById(options.badgeId || (p ? `${p}CanvasSizeBadge` : 'canvasSizeBadge'));
+    this.btnZoomIn = document.getElementById(options.btnZoomInId || (p ? `${p}BtnCanvasZoomIn` : 'btnCanvasZoomIn'));
+    this.btnZoomOut = document.getElementById(options.btnZoomOutId || (p ? `${p}BtnCanvasZoomOut` : 'btnCanvasZoomOut'));
+    this.btnReset = document.getElementById(options.btnResetId || (p ? `${p}BtnCanvasResetSize` : 'btnCanvasResetSize'));
+    this.dragHandle = document.getElementById(options.dragHandleId || (p ? `${p}CanvasResizeHandle` : 'canvasResizeHandle'));
 
     // State
-    this.currentWidth = DEFAULT_WIDTH;
+    this.currentWidth = this.defaultWidth;
     this.isDraggingHandle = false;
     this.dragStartData = null;
-    this.isFitMode = false;
+    this.isFitMode = options.defaultFit !== undefined ? options.defaultFit : false;
 
     this.init();
   }
 
   getMaxWidth() {
     const areaW = (this.canvasArea ? this.canvasArea.clientWidth : window.innerWidth) - 48;
-    return Math.min(680, Math.max(480, areaW));
+    return Math.min(720, Math.max(480, areaW));
   }
 
   init() {
     // Restore saved width if valid
     try {
-      const saved = localStorage.getItem(STORAGE_KEY);
+      const saved = localStorage.getItem(this.storageKey);
       if (saved) {
-        const parsed = parseInt(saved, 10);
-        if (!isNaN(parsed) && parsed >= MIN_WIDTH && parsed <= 720) {
-          this.currentWidth = parsed;
+        if (saved === 'fit') {
+          this.isFitMode = true;
+        } else {
+          const parsed = parseInt(saved, 10);
+          if (!isNaN(parsed) && parsed >= MIN_WIDTH && parsed <= 800) {
+            this.currentWidth = parsed;
+            this.isFitMode = false;
+          }
         }
       }
     } catch (e) {}
-
-    // Apply initial width
-    this.applyWidth(this.currentWidth, false);
 
     // Setup Event Listeners
     this.setupTogglePresets();
@@ -66,16 +75,24 @@ export class CanvasResizer {
     this.setupDragHandle();
     this.setupWindowResize();
 
-    // Initial pill position after layout pass
-    requestAnimationFrame(() => {
-      this.updatePillPosition();
-    });
+    // Apply initial width / fit
+    if (this.isFitMode) {
+      requestAnimationFrame(() => {
+        this.fitToScreen();
+      });
+    } else {
+      this.applyWidth(this.currentWidth, false);
+      requestAnimationFrame(() => {
+        this.updatePillPosition();
+      });
+    }
   }
 
   applyWidth(width, animate = true) {
     const maxW = this.getMaxWidth();
     const clamped = Math.max(MIN_WIDTH, Math.min(width, maxW));
     this.currentWidth = clamped;
+    const height = Math.round(clamped * this.aspectRatio);
 
     if (this.canvas) {
       if (!animate) {
@@ -84,10 +101,21 @@ export class CanvasResizer {
         this.canvas.classList.remove('is-resizing');
       }
       this.canvas.style.width = `${clamped}px`;
+      if (this.options.setHeight) {
+        this.canvas.style.height = `${height}px`;
+      }
     }
 
     if (this.container) {
       this.container.style.width = `${clamped}px`;
+      if (this.options.setHeight) {
+        this.container.style.height = `${height}px`;
+      }
+    }
+
+    if (this.overlayEl) {
+      this.overlayEl.style.width = `${clamped}px`;
+      this.overlayEl.style.height = `${height}px`;
     }
 
     // Update slider without re-triggering input event
@@ -106,12 +134,12 @@ export class CanvasResizer {
 
     // Persist
     try {
-      localStorage.setItem(STORAGE_KEY, String(clamped));
+      localStorage.setItem(this.storageKey, this.isFitMode ? 'fit' : String(clamped));
     } catch (e) {}
 
     // Trigger re-render
     if (this.onResize) {
-      this.onResize(clamped);
+      this.onResize(clamped, height);
     }
   }
 
@@ -137,10 +165,12 @@ export class CanvasResizer {
   fitToScreen() {
     this.isFitMode = true;
     if (!this.canvasArea) return;
-    // Available height in canvas area minus dock height and padding
-    const availH = Math.max(320, this.canvasArea.clientHeight - 130);
-    // 4:5 aspect ratio -> width = height * 0.8
-    const fitW = Math.round(availH * 0.8);
+    const padding = this.options.fitPaddingBottom || 110;
+    const availH = Math.max(300, this.canvasArea.clientHeight - padding);
+    const availW = Math.max(260, this.canvasArea.clientWidth - 48);
+    let fitW = Math.round(availH / this.aspectRatio);
+    if (fitW > availW) fitW = availW;
+
     this.applyWidth(fitW, true);
 
     // Highlight fit button
@@ -151,10 +181,15 @@ export class CanvasResizer {
   }
 
   updateActivePreset() {
-    if (this.isFitMode) return;
+    if (this.isFitMode) {
+      this.toggleBtns.forEach(b => {
+        b.classList.toggle('is-active', b.dataset.size === 'fit');
+      });
+      this.updatePillPosition();
+      return;
+    }
 
     let matchedBtn = null;
-    const presets = [300, 400, 480, 560];
 
     this.toggleBtns.forEach(btn => {
       const val = parseInt(btn.dataset.size, 10);
@@ -219,8 +254,12 @@ export class CanvasResizer {
 
     if (this.btnReset) {
       this.btnReset.addEventListener('click', () => {
-        this.isFitMode = false;
-        this.applyWidth(DEFAULT_WIDTH, true);
+        if (this.options.defaultFit) {
+          this.fitToScreen();
+        } else {
+          this.isFitMode = false;
+          this.applyWidth(this.defaultWidth, true);
+        }
       });
     }
   }
@@ -249,7 +288,7 @@ export class CanvasResizer {
       if (!this.isDraggingHandle || !this.dragStartData) return;
 
       const dx = e.clientX - this.dragStartData.startX;
-      const dy = (e.clientY - this.dragStartData.startY) * 0.8; // diagonal aspect-ratio tracking
+      const dy = (e.clientY - this.dragStartData.startY) / this.aspectRatio;
       const delta = Math.abs(dx) > Math.abs(dy) ? dx : dy;
       const targetW = Math.round(this.dragStartData.startW + delta);
 

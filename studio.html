@@ -240,6 +240,57 @@
     <div class="v2-canvas-wrap" id="v2-canvas-wrap">
       <canvas id="v2-canvas" title="Drag to pan photo. Click element to select."></canvas>
       <div id="v2-overlay" aria-hidden="true"></div>
+      <!-- Liquid Glass Corner Drag Handle -->
+      <div class="canvas-resize-handle" id="v2CanvasResizeHandle" role="button" aria-label="Resize canvas freely" title="Drag corner to resize canvas freely">
+        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
+          <line x1="20" y1="4" x2="4" y2="20"/>
+          <line x1="20" y1="12" x2="12" y2="20"/>
+        </svg>
+      </div>
+    </div>
+
+    <!-- Floating Glass Liquid Canvas Resizer Toggle Dock -->
+    <div class="canvas-liquid-dock" id="v2CanvasLiquidDock" role="toolbar" aria-label="Canvas size controls">
+      <div class="glass-liquid-bar">
+        <!-- Fluid Preset Toggle Pill Group -->
+        <div class="liquid-toggle-group" id="v2LiquidToggleGroup" role="radiogroup" aria-label="Canvas size preset">
+          <button type="button" class="liquid-toggle-btn" data-size="300" aria-label="Small size (300px)" title="Small (300px)">S</button>
+          <button type="button" class="liquid-toggle-btn" data-size="400" aria-label="Medium size (400px)" title="Medium (400px)">M</button>
+          <button type="button" class="liquid-toggle-btn" data-size="480" aria-label="Large size (480px)" title="Large (480px)">L</button>
+          <button type="button" class="liquid-toggle-btn" data-size="560" aria-label="Extra Large size (560px)" title="Extra Large (560px)">XL</button>
+          <button type="button" class="liquid-toggle-btn is-active" data-size="fit" aria-label="Fit canvas to viewport" title="Fit to viewport height">Fit</button>
+          <div class="liquid-toggle-pill" id="v2LiquidTogglePill" aria-hidden="true"></div>
+        </div>
+
+        <div class="liquid-bar-sep" aria-hidden="true"></div>
+
+        <!-- Decrement Size Button -->
+        <button type="button" class="liquid-icon-btn" id="v2BtnCanvasZoomOut" aria-label="Decrease canvas size" title="Zoom out (-25px)">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        </button>
+
+        <!-- Fluid Liquid Glass Slider -->
+        <div class="liquid-slider-wrap" title="Drag to smoothly adjust canvas width">
+          <input type="range" class="liquid-slider" id="v2CanvasSizeSlider" min="260" max="640" step="5" value="400" aria-label="Canvas size slider">
+        </div>
+
+        <!-- Increment Size Button -->
+        <button type="button" class="liquid-icon-btn" id="v2BtnCanvasZoomIn" aria-label="Increase canvas size" title="Zoom in (+25px)">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        </button>
+
+        <div class="liquid-bar-sep" aria-hidden="true"></div>
+
+        <!-- Live Dimension Readout Badge -->
+        <span class="liquid-badge" id="v2CanvasSizeBadge" title="Current preview canvas width">400px</span>
+
+        <!-- Reset to Standard/Fit Size -->
+        <button type="button" class="liquid-icon-btn liquid-icon-btn--reset" id="v2BtnCanvasResetSize" aria-label="Reset canvas size to default" title="Reset to Fit">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/>
+          </svg>
+        </button>
+      </div>
     </div>
   </main>
 
