@@ -474,49 +474,122 @@ function updateLayersPanel() {
 
   layersList.innerHTML = '';
   if (!sorted.length) {
-    layersList.innerHTML = '<div class="v2-layers-empty">Add stickers or text to see layers here.</div>';
-    return;
+    layersList.innerHTML = '<div class="v2-layers-empty" style="font-family:var(--hand);font-size:13px;padding:8px 4px;color:var(--muted);">No active elements on canvas.</div>';
+  } else {
+    sorted.forEach(el => {
+      const row = document.createElement('div');
+      const isSelected = el.id === _overlay?.selectedId;
+      row.className = `lay layer-row ${isSelected ? 'on is-selected' : ''}`;
+      row.dataset.id = el.id;
+
+      // Icon based on type
+      let icon = '✿';
+      let friendlyName = 'Element';
+      if (el.type === 'text') {
+        icon = '✎';
+        friendlyName = el.text ? `"${el.text.slice(0, 18)}"` : 'Text';
+      } else if (el.type === 'badge') {
+        icon = '🏷';
+        friendlyName = el.text ? `badge: ${el.text.slice(0, 16)}` : 'Badge';
+      } else if (el.type === 'tag') {
+        icon = '🔖';
+        friendlyName = el.text ? `tag: ${el.text.slice(0, 16)}` : 'Tag';
+      } else if (el.type === 'sticker') {
+        icon = '✿';
+        const st = STICKER_CATALOG.find(s => s.id === el.assetId);
+        friendlyName = st ? st.name : 'Sticker';
+      } else if (el.type === 'bow') {
+        icon = '🎀';
+        friendlyName = 'Bow';
+      } else if (el.type === 'envelope') {
+        icon = '✉';
+        friendlyName = 'Envelope';
+      } else if (el.type === 'clip') {
+        icon = '📎';
+        friendlyName = 'Clip';
+      } else if (el.type === 'seal' || el.type === 'stamp') {
+        icon = '⌗';
+        friendlyName = el.type === 'seal' ? 'Wax seal' : 'Stamp';
+      } else if (el.type === 'tape') {
+        icon = '▭';
+        friendlyName = 'Tape strip';
+      } else if (el.type === 'button-deco') {
+        icon = '🔘';
+        friendlyName = 'Button';
+      } else if (el.type === 'club-suit') {
+        icon = '♣';
+        friendlyName = 'Card suit';
+      } else if (el.type === 'crosshair') {
+        icon = '⌖';
+        friendlyName = 'Crosshair';
+      } else if (el.type === 'controls') {
+        icon = '⚙';
+        friendlyName = 'Controls';
+      } else if (el.type === 'vinyl') {
+        icon = '💿';
+        friendlyName = 'Vinyl disc';
+      }
+
+      row.innerHTML = `
+        <span class="lay-icon">${icon}</span>
+        <span class="nm">${friendlyName}</span>
+        <button type="button" class="v2-lay-btn v2-lay-up" data-id="${el.id}" title="Move forward">↑</button>
+        <button type="button" class="v2-lay-btn v2-lay-down" data-id="${el.id}" title="Move backward">↓</button>
+        <button type="button" class="v2-lay-btn v2-lay-vis" data-id="${el.id}" title="${el.visible ? 'Hide layer' : 'Show layer'}">${el.visible ? '◌' : '●'}</button>
+        <button type="button" class="v2-lay-btn v2-lay-lock" data-id="${el.id}" title="${el.locked ? 'Unlock' : 'Lock'}">${el.locked ? '🔒' : '🔓'}</button>
+      `;
+
+      row.addEventListener('click', (e) => {
+        if (e.target.closest('button')) return;
+        _overlay?.selectElement(el.id);
+        scheduleRender();
+      });
+
+      row.querySelector('.v2-lay-up').addEventListener('click', e => {
+        e.stopPropagation();
+        sceneStore.reorderElement(el.id, 'up');
+        scheduleRender();
+      });
+
+      row.querySelector('.v2-lay-down').addEventListener('click', e => {
+        e.stopPropagation();
+        sceneStore.reorderElement(el.id, 'down');
+        scheduleRender();
+      });
+
+      row.querySelector('.v2-lay-vis').addEventListener('click', e => {
+        e.stopPropagation();
+        sceneStore.updateElement(el.id, { visible: !el.visible });
+        scheduleRender();
+      });
+
+      row.querySelector('.v2-lay-lock').addEventListener('click', e => {
+        e.stopPropagation();
+        sceneStore.updateElement(el.id, { locked: !el.locked });
+        scheduleRender();
+      });
+
+      layersList.appendChild(row);
+    });
   }
-  sorted.forEach(el => {
-    const row = document.createElement('div');
-    const isSelected = el.id === _overlay?.selectedId;
-    row.className = `layer-row v2-layer-row ${isSelected ? 'active is-selected' : ''}`;
-    row.dataset.id = el.id;
 
-    const name = el.type === 'sticker'
-      ? (STICKER_CATALOG.find(s => s.id === el.assetId)?.name || el.assetId)
-      : el.type === 'text'
-      ? (el.text?.slice(0, 20) || 'Text')
-      : 'Tape';
-
-    row.innerHTML = `
-      <svg class="grip" viewBox="0 0 24 24" fill="currentColor"><circle cx="9" cy="6" r="1.4"/><circle cx="15" cy="6" r="1.4"/><circle cx="9" cy="12" r="1.4"/><circle cx="15" cy="12" r="1.4"/><circle cx="9" cy="18" r="1.4"/><circle cx="15" cy="18" r="1.4"/></svg>
-      <span>${name}</span>
-      <button class="v2-layer-vis" data-id="${el.id}" title="Toggle visibility" style="background:none;border:none;cursor:pointer;padding:0;display:flex;align-items:center;">
-        <svg class="eye" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" style="opacity:${el.visible ? '1' : '0.35'}"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z"/><circle cx="12" cy="12" r="3"/></svg>
-      </button>
-      <button class="v2-layer-lock" data-id="${el.id}" title="Toggle lock" style="background:none;border:none;cursor:pointer;padding:0;display:flex;align-items:center;color:var(--muted);font-size:11px;">
-        ${el.locked ? '🔒' : '🔓'}
-      </button>
-    `;
-
-    row.addEventListener('click', () => {
-      _overlay?.selectElement(el.id);
-      scheduleRender();
+  // Also show photo aperture slots in layers list
+  const frameDef = getFrameById(sceneStore.scene.frame.id);
+  const apertures = frameDef?.apertures || [];
+  apertures.forEach((ap, idx) => {
+    const slotRow = document.createElement('div');
+    const photo = sceneStore.scene.photos?.[idx];
+    slotRow.className = 'lay slot';
+    slotRow.innerHTML = `<span>📷</span><span class="nm">${photo ? `photo ${idx + 1}` : `photo slot ${idx + 1}`}</span>`;
+    slotRow.addEventListener('click', () => {
+      _targetApertureIndex = idx;
+      if (!photo) {
+        fileInput.click();
+      } else {
+        showToast(`Selected photo slot ${idx + 1}`);
+      }
     });
-
-    row.querySelector('.v2-layer-vis').addEventListener('click', e => {
-      e.stopPropagation();
-      sceneStore.updateElement(el.id, { visible: !el.visible });
-      scheduleRender();
-    });
-
-    row.querySelector('.v2-layer-lock').addEventListener('click', e => {
-      e.stopPropagation();
-      sceneStore.updateElement(el.id, { locked: !el.locked });
-    });
-
-    layersList.appendChild(row);
+    layersList.appendChild(slotRow);
   });
 }
 
@@ -614,6 +687,7 @@ function activateTab(id) {
     const active = b.dataset.tab === id;
     b.classList.toggle('is-active', active);
     b.classList.toggle('active', active);
+    b.classList.toggle('on', active);
     b.setAttribute('aria-selected', active ? 'true' : 'false');
   });
   tabPanels.forEach(p => {

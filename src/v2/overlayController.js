@@ -66,15 +66,16 @@ export class OverlayController {
     const box = document.createElement('div');
     box.className = 'v2-sel';
     box.innerHTML = `
-      <div class="v2-sel__rotate"  data-handle="rotate"></div>
-      <div class="v2-sel__scale"   data-handle="scale"></div>
-      <div class="v2-sel__toolbar">
+      <div class="v2-sel__rotate"  data-handle="rotate" title="Drag to rotate"></div>
+      <div class="v2-sel__scale"   data-handle="scale" title="Drag to scale"></div>
+      <div class="selbar v2-sel__toolbar" role="toolbar" aria-label="Element actions">
         <button class="v2-sel__btn" data-action="duplicate" title="Duplicate (⌘D)">⧉</button>
-        <button class="v2-sel__btn" data-action="bringFront" title="Bring front">↑</button>
-        <button class="v2-sel__btn" data-action="sendBack" title="Send back">↓</button>
-        <button class="v2-sel__btn" data-action="flipX" title="Flip H">⇆</button>
-        <button class="v2-sel__btn" data-action="shadow" title="Toggle shadow">◐</button>
-        <button class="v2-sel__btn v2-sel__btn--del" data-action="delete" title="Delete (Del)">✕</button>
+        <button class="v2-sel__btn" data-action="forward" title="Bring forward">⤒</button>
+        <button class="v2-sel__btn" data-action="back" title="Send back">⤓</button>
+        <button class="v2-sel__btn" data-action="flip" title="Flip horizontal">⇋</button>
+        <button class="v2-sel__btn" data-action="opacity" title="Adjust opacity">◐</button>
+        <button class="v2-sel__btn" data-action="lock" title="Lock / Unlock">🔓</button>
+        <button class="v2-sel__btn v2-sel__btn--del" data-action="delete" title="Delete (Del)">🗑</button>
       </div>
     `;
     box.style.display = 'none';
@@ -105,16 +106,35 @@ export class OverlayController {
         if (clone) this.selectElement(clone.id);
         break;
       }
-      case 'bringFront': sceneStore.reorderElement(id, 'front'); break;
-      case 'sendBack':   sceneStore.reorderElement(id, 'back');  break;
+      case 'forward':
+      case 'bringFront':
+        sceneStore.reorderElement(id, 'up');
+        break;
+      case 'back':
+      case 'sendBack':
+        sceneStore.reorderElement(id, 'down');
+        break;
+      case 'flip':
       case 'flipX': {
         const el = sceneStore.scene.elements.find(e => e.id === id);
         if (el) sceneStore.updateElementWithHistory(id, { flipX: !el.flipX });
         break;
       }
-      case 'shadow': {
+      case 'opacity': {
         const el = sceneStore.scene.elements.find(e => e.id === id);
-        if (el) sceneStore.updateElementWithHistory(id, { shadow: !el.shadow });
+        if (el) {
+          const current = el.opacity ?? 1;
+          const next = current <= 0.35 ? 1 : current <= 0.65 ? 0.35 : current <= 0.85 ? 0.65 : 0.85;
+          sceneStore.updateElementWithHistory(id, { opacity: next });
+        }
+        break;
+      }
+      case 'lock': {
+        const el = sceneStore.scene.elements.find(e => e.id === id);
+        if (el) {
+          sceneStore.updateElementWithHistory(id, { locked: !el.locked });
+          this._updateSelectionBox();
+        }
         break;
       }
     }
@@ -125,6 +145,12 @@ export class OverlayController {
 
     const el = sceneStore.scene.elements.find(e => e.id === this._selectedId);
     if (!el) { this.deselect(); return; }
+
+    const lockBtn = this._selBox.querySelector('[data-action="lock"]');
+    if (lockBtn) {
+      lockBtn.textContent = el.locked ? '🔒' : '🔓';
+      lockBtn.title = el.locked ? 'Unlock element' : 'Lock element';
+    }
 
     const scale = this._getScale();
     const vx    = el.x * scale;
@@ -143,6 +169,13 @@ export class OverlayController {
       transform: rotate(${el.rotation || 0}deg);
       pointer-events: auto;
     `;
+
+    // Keep floating selection toolbar upright alongside element
+    const toolbar = this._selBox.querySelector('.selbar, .v2-sel__toolbar');
+    if (toolbar) {
+      toolbar.style.transform = `rotate(-${el.rotation || 0}deg)`;
+      toolbar.style.transformOrigin = 'left top';
+    }
   }
 
   // ── Pointer events ──────────────────────────────────────────────────────────
@@ -178,7 +211,7 @@ export class OverlayController {
 
   _startInteraction(mode, e) {
     const el = sceneStore.scene.elements.find(el => el.id === this._selectedId);
-    if (!el) return;
+    if (!el || el.locked) return;
 
     this._mode     = mode;
     this._startPtr = { x: e.clientX, y: e.clientY };
@@ -305,7 +338,7 @@ export class OverlayController {
 
     // Test elements in reverse z-order (topmost first)
     const sorted = [...(sceneStore.scene.elements || [])]
-      .filter(e => e.visible && !e.locked)
+      .filter(e => e.visible)
       .sort((a, b) => (b.zIndex || 0) - (a.zIndex || 0));
 
     for (const el of sorted) {
