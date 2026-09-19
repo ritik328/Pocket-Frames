@@ -16,12 +16,15 @@ import { loadProjectFromDB, clearProjectFromDB } from './storage/projectStorage.
 import { AiStudioModal } from './ai/aiStudioModal.js';
 import { applyAiComposition } from './ai/compositionApplier.js';
 import { InteractiveDots } from './canvas/interactiveDots.js';
+import { CanvasResizer } from './editor/canvasResizer.js';
 
 // DOM Elements with Dual-Selector Support
 const previewCanvas = document.getElementById('previewCanvas');
 const previewContainer = document.getElementById('previewContainer') || document.getElementById('canvasArea');
 const fileInput = document.getElementById('fileInput');
 const btnUpload = document.getElementById('uploadBtn') || document.getElementById('btnUpload');
+
+let canvasResizer = null;
 
 const zoomSlider = document.getElementById('zoomSlider');
 const zoomReadout = document.getElementById('zoomValue') || document.getElementById('zoomReadout');
@@ -89,6 +92,9 @@ async function initApp() {
   // Setup sub-managers
   if (previewCanvas && previewContainer) {
     positionManager = new PositionManager(previewCanvas, previewContainer);
+    canvasResizer = new CanvasResizer(previewCanvas, previewContainer, () => {
+      updatePreview();
+    });
   }
   
   const panelDetails = document.getElementById('panelDetails') || document.querySelector('.sidebar--right');
