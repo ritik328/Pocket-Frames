@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <title>Pocket Frames Studio — Memory Editor</title>
+  <meta name="description" content="Pocket Frames V2 Studio — Create beautiful digital memories with frames, stickers, text, and scrapbook elements." />
+
+  <!-- Preconnect for fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+
+  <link rel="stylesheet" href="./src/v2/studio.css" />
+</head>
+<body>
+
+<div class="v2-shell">
+
+  <!-- ═══ TOPBAR ════════════════════════════════════════════════════════════ -->
+  <header class="v2-topbar">
+    <!-- Brand -->
+    <a href="/" class="v2-brand" title="Back to Pocket Frames">
+      <div class="v2-brand__icon">✦</div>
+      <span class="v2-brand__name">Pocket Frames</span>
+      <span class="v2-brand__badge">STUDIO</span>
+    </a>
+
+    <div class="v2-topbar__sep"></div>
+
+    <!-- Undo / Redo -->
+    <button class="v2-icon-btn" id="v2-undo" disabled aria-label="Undo (Ctrl+Z)" title="Undo (Ctrl+Z)">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M9 14 4 9l5-5"/><path d="M4 9h10a6 6 0 0 1 0 12h-2"/>
+      </svg>
+    </button>
+    <button class="v2-icon-btn" id="v2-redo" disabled aria-label="Redo (Ctrl+Y)" title="Redo (Ctrl+Shift+Z)">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M15 14l5-5-5-5"/><path d="M20 9H10a6 6 0 0 0 0 12h2"/>
+      </svg>
+    </button>
+
+    <div class="v2-topbar__sep"></div>
+
+    <!-- Export format chips -->
+    <div class="v2-format-chips" role="group" aria-label="Export format">
+      <button class="v2-chip is-active" data-export-format="2160x2700" title="High Quality 2×">4:5 HQ</button>
+      <button class="v2-chip" data-export-format="1080x1350" title="Instagram Portrait 1×">Instagram</button>
+      <button class="v2-chip" data-export-format="1080x1920" title="Instagram Story">Story</button>
+      <button class="v2-chip" data-export-format="1000x1500" title="Pinterest 2:3">Pinterest</button>
+    </div>
+
+    <div class="v2-topbar__fill"></div>
+
+    <!-- Controls right -->
+    <button class="v2-ghost-btn" id="v2-preview" title="Toggle clean preview (Space)">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+        <path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/>
+      </svg>
+      Preview
+    </button>
+
+    <button class="v2-ghost-btn" id="v2-new" title="New canvas">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+        <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+      </svg>
+      New
+    </button>
+
+    <button class="v2-accent-btn" id="v2-export">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M12 4v11M12 15l-4-4M12 15l4-4"/><path d="M4 18v1a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-1"/>
+      </svg>
+      ↓ Export
+    </button>
+  </header>
+
+  <!-- ═══ LEFT SIDEBAR ══════════════════════════════════════════════════════ -->
+  <aside class="v2-sidebar" aria-label="Editor tools">
+
+    <!-- Tab navigation -->
+    <nav class="v2-tabs" role="tablist">
+      <button class="v2-tab-btn" data-tab="photo"    role="tab" aria-selected="true"  title="Photo controls">Photo</button>
+      <button class="v2-tab-btn" data-tab="frame"    role="tab" aria-selected="false" title="Frame library">Frame</button>
+      <button class="v2-tab-btn" data-tab="stickers" role="tab" aria-selected="false" title="Sticker packs">Stickers</button>
+      <button class="v2-tab-btn" data-tab="text"     role="tab" aria-selected="false" title="Text & typography">Text</button>
+      <button class="v2-tab-btn" data-tab="layers"   role="tab" aria-selected="false" title="Layers">Layers</button>
+    </nav>
+
+    <!-- ── PHOTO TAB ────────────────────────────────────────────────────── -->
+    <div class="v2-tab-panel is-active" data-panel="photo" role="tabpanel">
+
+      <div class="v2-sb-section">
+        <span class="v2-eyebrow">Upload</span>
+        <button class="v2-upload-zone" id="v2-upload-zone" type="button" aria-label="Upload photograph">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 16V4M12 4 8 8M12 4l4 4"/><path d="M4 16v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3"/>
+          </svg>
+          <span class="v2-upload-zone__title">Upload photo</span>
+          <span class="v2-upload-zone__hint">JPG, PNG, WebP · drag & drop</span>
+        </button>
+      </div>
+
+      <hr class="v2-divider"/>
+
+      <div class="v2-sb-section">
+        <span class="v2-eyebrow">Guides</span>
+        <p class="v2-note">Drag to pan · Scroll to zoom · Shift+drag for precision. Click an element to select and transform it.</p>
+      </div>
+
+    </div>
+
+    <!-- ── FRAME TAB ────────────────────────────────────────────────────── -->
+    <div class="v2-tab-panel" data-panel="frame" role="tabpanel">
+      <div class="v2-sb-section">
+        <span class="v2-eyebrow">Style</span>
+        <div class="v2-pack-tabs" id="v2-frame-cats"></div>
+        <div class="v2-frame-grid" id="v2-frame-grid"></div>
+      </div>
+    </div>
+
+    <!-- ── STICKERS TAB ──────────────────────────────────────────────────── -->
+    <div class="v2-tab-panel" data-panel="stickers" role="tabpanel">
+      <div class="v2-sb-section">
+        <span class="v2-eyebrow">Sticker Packs</span>
+        <div class="v2-search">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+            <circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/>
+          </svg>
+          <input type="text" id="v2-sticker-search" placeholder="Search stickers…" aria-label="Search stickers" autocomplete="off">
+        </div>
+        <div class="v2-pack-tabs" id="v2-pack-tabs"></div>
+        <div class="v2-sticker-grid" id="v2-sticker-grid"></div>
+      </div>
+    </div>
+
+    <!-- ── TEXT TAB ─────────────────────────────────────────────────────── -->
+    <div class="v2-tab-panel" data-panel="text" role="tabpanel">
+      <div class="v2-sb-section">
+        <span class="v2-eyebrow">Add Text</span>
+        <button class="v2-add-text-btn" id="v2-add-text" type="button">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+            <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+          </svg>
+          Add text element
+        </button>
+      </div>
+
+      <div class="v2-sb-section">
+        <span class="v2-eyebrow">Font Style</span>
+        <div class="v2-font-grid">
+          <button class="v2-font-btn" data-font="Caveat" title="Handwritten" style="font-family:'Caveat',cursive">Aa</button>
+          <button class="v2-font-btn" data-font="Special Elite" title="Typewriter" style="font-family:'Special Elite',cursive">Aa</button>
+          <button class="v2-font-btn" data-font="Permanent Marker" title="Marker" style="font-family:'Permanent Marker',cursive">Aa</button>
+          <button class="v2-font-btn" data-font="Instrument Serif" title="Serif" style="font-family:'Instrument Serif',serif">Aa</button>
+          <button class="v2-font-btn" data-font="Inter" title="Minimal" style="font-family:'Inter',sans-serif;font-weight:600">Aa</button>
+          <button class="v2-font-btn" data-font="JetBrains Mono" title="Monospace" style="font-family:'JetBrains Mono',monospace">Aa</button>
+        </div>
+      </div>
+
+      <div class="v2-sb-section">
+        <span class="v2-eyebrow">Elements</span>
+        <div class="v2-element-grid">
+          <button class="v2-element-btn" id="v2-add-tape" type="button">
+            <span>📎</span><span>Washi Tape</span>
+          </button>
+          <button class="v2-element-btn" id="v2-add-tape-h" type="button">
+            <span>🩹</span><span>Tape Strip</span>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── LAYERS TAB ────────────────────────────────────────────────────── -->
+    <div class="v2-tab-panel" data-panel="layers" role="tabpanel">
+      <div class="v2-sb-section">
+        <span class="v2-eyebrow">Layers</span>
+        <div class="v2-layers-list" id="v2-layers-list">
+          <div class="v2-layers-empty">Add stickers or text to see layers here.</div>
+        </div>
+      </div>
+    </div>
+
+  </aside>
+
+  <!-- ═══ CANVAS AREA ═══════════════════════════════════════════════════════ -->
+  <main class="v2-canvas-area" id="v2-canvas-area" aria-label="Design canvas">
+    <div class="v2-canvas-wrap" id="v2-canvas-wrap">
+      <canvas id="v2-canvas" title="Drag to pan photo. Click element to select."></canvas>
+      <div id="v2-overlay" aria-hidden="true"></div>
+    </div>
+  </main>
+
+  <!-- ═══ RIGHT PROPERTIES PANEL ════════════════════════════════════════════ -->
+  <aside class="v2-props" aria-label="Element properties & Camera details">
+
+    <!-- Element properties (visible when element selected) -->
+    <div id="v2-prop-panel" style="display:none;">
+      <p class="v2-props-title">Element</p>
+
+      <div class="v2-prop-row">
+        <span class="v2-prop-label">Opacity</span>
+        <input type="range" class="v2-range" id="v2-prop-opacity" min="0" max="100" value="100" style="width:90px">
+        <span class="v2-prop-val" id="v2-prop-opacity-val">100%</span>
+      </div>
+
+      <div class="v2-prop-row">
+        <span class="v2-prop-label">Shadow</span>
+        <label class="v2-toggle">
+          <input type="checkbox" id="v2-prop-shadow">
+          <span class="v2-toggle-slider"></span>
+        </label>
+      </div>
+
+      <hr class="v2-divider"/>
+      <p class="v2-note">Arrow keys nudge · [ ] rotate · Delete · ⌘D duplicate · Shift+drag to scale.</p>
+    </div>
+
+    <!-- Camera metadata (visible when nothing selected) -->
+    <div id="v2-meta-panel">
+      <p class="v2-props-title">Camera Metadata</p>
+
+      <div class="v2-input-wrap">
+        <label for="v2-meta-brand">Brand / Studio</label>
+        <input class="v2-input" type="text" id="v2-meta-brand" placeholder="POCKET FRAMES" autocomplete="off">
+      </div>
+
+      <div class="v2-input-wrap">
+        <label for="v2-meta-device">Camera / Device</label>
+        <input class="v2-input" type="text" id="v2-meta-device" placeholder="OPPO Find X9" autocomplete="off">
+      </div>
+
+      <div class="v2-input-row">
+        <div class="v2-input-wrap">
+          <label for="v2-meta-fl">Focal Length</label>
+          <input class="v2-input" type="text" id="v2-meta-fl" placeholder="23mm" autocomplete="off">
+        </div>
+        <div class="v2-input-wrap">
+          <label for="v2-meta-ap">Aperture</label>
+          <input class="v2-input" type="text" id="v2-meta-ap" placeholder="f/1.8" autocomplete="off">
+        </div>
+      </div>
+
+      <div class="v2-input-row">
+        <div class="v2-input-wrap">
+          <label for="v2-meta-sh">Shutter</label>
+          <input class="v2-input" type="text" id="v2-meta-sh" placeholder="1/120s" autocomplete="off">
+        </div>
+        <div class="v2-input-wrap">
+          <label for="v2-meta-iso">ISO</label>
+          <input class="v2-input" type="text" id="v2-meta-iso" placeholder="200" autocomplete="off">
+        </div>
+      </div>
+
+      <hr class="v2-divider"/>
+
+      <div class="v2-input-wrap">
+        <label for="v2-meta-caption">Caption / Memory</label>
+        <input class="v2-input" type="text" id="v2-meta-caption" placeholder="summer '26" autocomplete="off">
+      </div>
+
+      <div class="v2-input-wrap">
+        <label for="v2-meta-location">Location</label>
+        <input class="v2-input" type="text" id="v2-meta-location" placeholder="Goa, India" autocomplete="off">
+      </div>
+
+      <hr class="v2-divider"/>
+      <p class="v2-note">Metadata renders live on the frame. Your original file is never modified.</p>
+    </div>
+
+  </aside>
+
+  <!-- ═══ STATUSBAR ═════════════════════════════════════════════════════════ -->
+  <footer class="v2-statusbar">
+    <div class="v2-statusbar__left">
+      <div class="v2-status-item">
+        <span class="v2-status-item__label">Canvas</span>
+        <span class="v2-status-item__val">2160 × 2700</span>
+      </div>
+      <div class="v2-status-item">
+        <span class="v2-status-item__label">Format</span>
+        <span class="v2-status-item__val">4:5 Portrait</span>
+      </div>
+      <div class="v2-status-item">
+        <span class="v2-status-item__label">Studio</span>
+        <span class="v2-status-item__val v2-status-item__val--sage">V2</span>
+      </div>
+    </div>
+    <div class="v2-statusbar__right">
+      <span style="font-size:0.72rem;color:var(--text-faint)">Pocket Frames — autosaved locally</span>
+    </div>
+  </footer>
+
+</div>
+
+<!-- Hidden file input -->
+<input type="file" id="v2-file-input" accept="image/*" hidden aria-hidden="true">
+
+<!-- Toast -->
+<div id="v2-toast" role="status" aria-live="polite"></div>
+
+<!-- Bootstrap -->
+<script type="module" src="./src/v2/studioApp.js"></script>
+
+</body>
+</html>
