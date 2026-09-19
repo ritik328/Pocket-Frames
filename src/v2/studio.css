@@ -1,42 +1,79 @@
 /**
  * Pocket Frames V2 — Studio CSS
- * Premium dark design system with glassmorphism and micro-animations.
+ * Uses the same design tokens and fonts as the Hasselblad tab.
+ * Theme (light/dark) is synced from the parent page via postMessage.
  */
 
-/* ─── Google Fonts ──────────────────────────────────────────────────────────── */
+/* Same fonts as main app — already loaded by parent, but re-declare for standalone use */
 @import url('https://fonts.googleapis.com/css2?family=Caveat:wght@400;600;700&family=Special+Elite&family=Instrument+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400&family=Instrument+Serif:ital@0;1&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&family=Permanent+Marker&display=swap');
 
 /* ─── Design Tokens ─────────────────────────────────────────────────────────── */
-:root {
-  --bg:          #0C0C0F;
-  --bg-2:        #111116;
-  --bg-3:        #18181F;
-  --surface:     rgba(255,255,255,0.04);
+/* ─── Design Tokens — matches main Hasselblad app exactly ───────────────────── */
+/* Dark mode (default) */
+:root,
+html[data-theme="dark"] {
+  --bg:          #0F1012;
+  --bg-2:        #17181B;
+  --bg-3:        #1D1F23;
+  --surface:     #1D1F23;
   --surface-2:   rgba(255,255,255,0.07);
-  --border:      rgba(255,255,255,0.08);
+  --border:      #2A2C31;
   --border-2:    rgba(255,255,255,0.13);
-  --text:        #F2F2F5;
-  --text-dim:    rgba(242,242,245,0.55);
-  --text-faint:  rgba(242,242,245,0.3);
-  --accent:      #B088FF;
-  --accent-2:    #7C55EE;
-  --accent-glow: rgba(176,136,255,0.18);
+  --text:        #F2EFE6;
+  --text-dim:    #9A9DA3;
+  --text-faint:  #5C5F66;
+  --accent:      #E2A468;
+  --accent-2:    #B87A3C;
+  --accent-glow: rgba(226,164,104,0.14);
   --danger:      #FF5C5C;
-  --sage:        #6EC99A;
-  --gold:        #F4C14A;
+  --sage:        #8FBF9F;
+  --glass-bg:    rgba(255,255,255,0.045);
+  --glass-bg-strong: rgba(255,255,255,0.085);
+  --glass-border: rgba(255,255,255,0.14);
+  --canvas-dot:  rgba(255,255,255,0.05);
+  --canvas-bg:   #0B0C0D;
   --radius:      12px;
-  --radius-sm:   8px;
-  --radius-lg:   18px;
+  --radius-sm:   10px;
+  --radius-lg:   22px;
   --topbar-h:    56px;
   --sidebar-w:   256px;
   --propbar-w:   240px;
   --status-h:    44px;
+  --ease:        cubic-bezier(0.4, 0, 0.2, 1);
   --transition:  all 0.18s cubic-bezier(0.4, 0, 0.2, 1);
   --shadow-sm:   0 2px 8px rgba(0,0,0,0.35);
   --shadow-md:   0 6px 24px rgba(0,0,0,0.5);
   --shadow-lg:   0 16px 48px rgba(0,0,0,0.6);
   --font-sans:   'Instrument Sans', 'Inter', system-ui, sans-serif;
   --font-mono:   'JetBrains Mono', monospace;
+  --font-serif:  'Instrument Serif', Georgia, serif;
+}
+
+/* Light mode */
+html[data-theme="light"] {
+  --bg:          #F4F0E6;
+  --bg-2:        #FBF9F3;
+  --bg-3:        #FFFFFF;
+  --surface:     #FFFFFF;
+  --surface-2:   rgba(20,18,13,0.04);
+  --border:      #E3DDCE;
+  --border-2:    rgba(20,18,13,0.12);
+  --text:        #1C1A14;
+  --text-dim:    #726B5D;
+  --text-faint:  #A79F8E;
+  --accent:      #B87A3C;
+  --accent-2:    #8B5E2A;
+  --accent-glow: rgba(184,122,60,0.13);
+  --danger:      #CC3333;
+  --sage:        #4C8567;
+  --glass-bg:    rgba(255,255,255,0.36);
+  --glass-bg-strong: rgba(255,255,255,0.64);
+  --glass-border: rgba(30,24,14,0.09);
+  --canvas-dot:  rgba(20,18,13,0.06);
+  --canvas-bg:   #EAE3D2;
+  --shadow-sm:   0 2px 8px rgba(60,48,26,0.12);
+  --shadow-md:   0 6px 24px rgba(60,48,26,0.18);
+  --shadow-lg:   0 16px 48px rgba(60,48,26,0.22);
 }
 
 /* ─── Reset ──────────────────────────────────────────────────────────────────── */
@@ -44,9 +81,10 @@
 html, body {
   height: 100%; overflow: hidden;
   font-family: var(--font-sans);
-  background: var(--bg); color: var(--text);
+  background: var(--bg-2); color: var(--text);
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
+  transition: background 0.25s var(--ease), color 0.25s var(--ease);
 }
 
 /* ─── Scrollbar ─────────────────────────────────────────────────────────────── */
@@ -57,11 +95,12 @@ html, body {
 
 /* ─── Glass utility ─────────────────────────────────────────────────────────── */
 .glass {
-  background: rgba(18,18,26,0.75);
-  backdrop-filter: blur(20px) saturate(180%);
-  -webkit-backdrop-filter: blur(20px) saturate(180%);
-  border: 1px solid var(--border);
+  background: linear-gradient(180deg, var(--glass-bg-strong), var(--glass-bg));
+  backdrop-filter: blur(22px) saturate(160%);
+  -webkit-backdrop-filter: blur(22px) saturate(160%);
+  border: 1px solid var(--glass-border);
 }
+
 
 /* ─── Shell layout ──────────────────────────────────────────────────────────── */
 .v2-shell {
@@ -82,10 +121,18 @@ html, body {
   grid-area: topbar;
   display: flex; align-items: center; gap: 12px;
   padding: 0 20px;
-  background: rgba(12,12,15,0.92);
+  background: var(--glass-bg-strong);
   backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
   border-bottom: 1px solid var(--border);
   z-index: 100;
+  transition: background 0.25s var(--ease), border-color 0.25s var(--ease);
+}
+
+/* Hide duplicate brand in embedded iframe mode */
+html.is-embedded .v2-brand,
+html.is-embedded .v2-brand + .v2-topbar__sep {
+  display: none;
 }
 
 .v2-brand {
@@ -99,6 +146,7 @@ html, body {
   border-radius: 8px;
   display: flex; align-items: center; justify-content: center;
   font-size: 14px;
+  color: #fff;
 }
 .v2-brand__name {
   font-weight: 700; font-size: 0.9rem; letter-spacing: 0.01em;
@@ -106,7 +154,7 @@ html, body {
 .v2-brand__badge {
   font-size: 0.65rem; font-weight: 600; letter-spacing: 0.08em;
   background: var(--accent-glow); color: var(--accent);
-  border: 1px solid rgba(176,136,255,0.3);
+  border: 1px solid var(--accent-glow);
   padding: 2px 7px; border-radius: 20px;
 }
 
@@ -126,7 +174,7 @@ html, body {
   cursor: pointer; transition: var(--transition);
 }
 .v2-chip:hover, .v2-chip.is-active {
-  background: var(--accent-glow); border-color: rgba(176,136,255,0.4); color: var(--accent);
+  background: var(--accent-glow); border-color: var(--accent); color: var(--accent);
 }
 
 /* ─── Icon / Ghost buttons ───────────────────────────────────────────────────── */
@@ -149,7 +197,7 @@ html, body {
   font-size: 0.82rem; font-weight: 500; white-space: nowrap;
 }
 .v2-ghost-btn:hover { background: var(--surface-2); color: var(--text); }
-.v2-ghost-btn.is-active { background: var(--accent-glow); border-color: rgba(176,136,255,0.3); color: var(--accent); }
+.v2-ghost-btn.is-active { background: var(--accent-glow); border-color: var(--accent); color: var(--accent); }
 
 .v2-accent-btn {
   display: inline-flex; align-items: center; gap: 7px;
@@ -158,9 +206,9 @@ html, body {
   border: none; color: #fff; cursor: pointer;
   font-size: 0.85rem; font-weight: 600;
   transition: var(--transition); white-space: nowrap;
-  box-shadow: 0 4px 16px rgba(124,85,238,0.35);
+  box-shadow: 0 4px 16px var(--accent-glow);
 }
-.v2-accent-btn:hover { transform: translateY(-1px); box-shadow: 0 6px 20px rgba(124,85,238,0.45); }
+.v2-accent-btn:hover { transform: translateY(-1px); box-shadow: 0 6px 20px var(--accent-glow); }
 .v2-accent-btn:active { transform: scale(0.97); }
 .v2-accent-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
 
@@ -240,7 +288,7 @@ html, body {
   cursor: pointer; transition: var(--transition);
 }
 .v2-pack-tab:hover { border-color: var(--border-2); color: var(--text); }
-.v2-pack-tab.is-active { background: var(--accent-glow); border-color: rgba(176,136,255,0.4); color: var(--accent); }
+.v2-pack-tab.is-active { background: var(--accent-glow); border-color: var(--accent); color: var(--accent); }
 
 /* ─── Sticker grid ───────────────────────────────────────────────────────────── */
 .v2-sticker-grid {
@@ -332,7 +380,7 @@ html, body {
 .v2-canvas-area {
   grid-area: canvas;
   position: relative; display: flex; align-items: center; justify-content: center;
-  background: radial-gradient(ellipse at 50% 50%, #1A1A2E 0%, #0C0C0F 100%);
+  background: var(--canvas-bg);
   overflow: hidden;
 }
 
@@ -340,7 +388,7 @@ html, body {
 .v2-canvas-area::before {
   content: '';
   position: absolute; inset: 0;
-  background-image: radial-gradient(rgba(255,255,255,0.06) 1px, transparent 1px);
+  background-image: radial-gradient(var(--canvas-dot) 1px, transparent 1px);
   background-size: 24px 24px;
   pointer-events: none;
 }
@@ -406,11 +454,12 @@ html, body {
   position: absolute;
   top: -56px; left: 50%; transform: translateX(-50%);
   display: flex; gap: 4px;
-  background: rgba(12,12,15,0.95);
+  background: var(--bg-3);
   backdrop-filter: blur(12px);
   border: 1px solid var(--border-2);
   border-radius: 10px; padding: 5px;
   white-space: nowrap; z-index: 20;
+  box-shadow: var(--shadow-sm);
 }
 
 .v2-sel__btn {
@@ -456,7 +505,7 @@ html, body {
 .v2-range::-webkit-slider-thumb {
   -webkit-appearance: none; width: 14px; height: 14px;
   border-radius: 50%; background: var(--accent);
-  cursor: pointer; box-shadow: 0 0 6px rgba(176,136,255,0.5);
+  cursor: pointer; box-shadow: 0 0 6px var(--accent-glow);
 }
 
 .v2-prop-val {
@@ -489,10 +538,12 @@ html, body {
   grid-area: status;
   display: flex; align-items: center; justify-content: space-between;
   padding: 0 20px; gap: 16px;
-  background: rgba(12,12,15,0.92);
+  background: var(--glass-bg-strong);
   backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
   border-top: 1px solid var(--border);
   font-size: 0.72rem; color: var(--text-faint);
+  transition: background 0.25s var(--ease), border-color 0.25s var(--ease);
 }
 .v2-statusbar__left  { display: flex; gap: 20px; align-items: center; }
 .v2-statusbar__right { display: flex; gap: 8px; align-items: center; }
@@ -504,8 +555,8 @@ html, body {
 /* ─── Toast ──────────────────────────────────────────────────────────────────── */
 #v2-toast {
   position: fixed; bottom: 64px; left: 50%; transform: translateX(-50%) translateY(12px);
-  background: rgba(18,18,26,0.95); backdrop-filter: blur(16px);
-  border: 1px solid var(--border-2); border-radius: 24px;
+  background: var(--surface); backdrop-filter: blur(16px);
+  border: 1px solid var(--border); border-radius: 24px;
   padding: 9px 22px; font-size: 0.82rem; font-weight: 500;
   color: var(--text); pointer-events: none;
   opacity: 0; transition: opacity 0.22s, transform 0.22s;

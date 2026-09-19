@@ -6,12 +6,37 @@
   <title>Pocket Frames Studio — Memory Editor</title>
   <meta name="description" content="Pocket Frames V2 Studio — Create beautiful digital memories with frames, stickers, text, and scrapbook elements." />
 
+  <!-- Theme bootstrap — reads same localStorage key as main app -->
+  <script>
+    (function(){
+      try {
+        if (window.self !== window.top) {
+          document.documentElement.classList.add('is-embedded');
+        }
+        var choice = localStorage.getItem('pocketframes-theme') || 'auto';
+        var resolved = choice === 'auto'
+          ? (window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark')
+          : choice;
+        document.documentElement.setAttribute('data-theme', resolved);
+      } catch(e) {
+        document.documentElement.setAttribute('data-theme', 'dark');
+      }
+      // Listen for theme changes posted from parent tab
+      window.addEventListener('message', function(e) {
+        if (e.data && e.data.type === 'pf-theme') {
+          document.documentElement.setAttribute('data-theme', e.data.theme);
+        }
+      });
+    })();
+  </script>
+
   <!-- Preconnect for fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 
   <link rel="stylesheet" href="./src/v2/studio.css" />
 </head>
+
 <body>
 
 <div class="v2-shell">

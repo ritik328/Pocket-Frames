@@ -1917,3 +1917,105 @@ body[data-theme="light"] .ai-btn--full:hover {
     animation-duration: 0.001ms !important;
   }
 }
+
+/* ==========================================================================
+   Mode Tab Switcher  —  Hasselblad / Studio Frame
+   ========================================================================== */
+
+/* Shell must fill viewport so the iframe tab stretches fully */
+.shell {
+  height: 100vh;
+  overflow: hidden;
+}
+
+/* Tab pill group */
+.pf-mode-tabs {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  border-radius: 999px;
+  padding: 3px;
+  flex-shrink: 0;
+}
+
+.pf-mode-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 14px;
+  border-radius: 999px;
+  border: none;
+  background: transparent;
+  color: var(--text-dim);
+  font-size: 0.76rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  cursor: pointer;
+  transition: background 0.18s var(--ease), color 0.18s var(--ease);
+  white-space: nowrap;
+}
+
+.pf-mode-tab:hover {
+  color: var(--text);
+  background: var(--glass-bg-strong);
+}
+
+.pf-mode-tab--active {
+  background: var(--accent-soft);
+  color: var(--accent);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.12);
+}
+
+/* Tab panels — stacked, only active is visible */
+.pf-tab-panel {
+  display: none;
+  flex: 1;
+  /* Let each panel control its own scroll/overflow */
+  min-height: 0;
+}
+
+.pf-tab-panel--active {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  overflow: hidden;
+}
+
+/* Hasselblad panel: existing workspace fills the space */
+.pf-tab-panel[data-panel="hasselblad"] {
+  /* Workspace inside needs height */
+}
+.pf-tab-panel[data-panel="hasselblad"] .workspace {
+  flex: 1;
+  min-height: 0;
+}
+
+/* Studio Frame panel: iframe fills full remaining height */
+.pf-tab-panel[data-panel="studio"] {
+  /* Already flex column from --active rule */
+}
+.pf-tab-panel[data-panel="studio"] iframe {
+  flex: 1;
+  width: 100%;
+  height: 100%;
+  border: none;
+  display: block;
+}
+
+/* Shell needs to be a flex column for panels to fill height */
+.shell {
+  display: flex;
+  flex-direction: column;
+}
+
+/* When on Studio Frame tab, hide Hasselblad-specific topbar controls so the UI is uncluttered and clean */
+body.pf-mode--studio #undoBtn,
+body.pf-mode--studio #redoBtn,
+body.pf-mode--studio #newFrameBtn,
+body.pf-mode--studio #previewBtn,
+body.pf-mode--studio #aiDirectorBtn,
+body.pf-mode--studio #helpBtn {
+  display: none !important;
+}
