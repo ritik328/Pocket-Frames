@@ -699,8 +699,49 @@ if (addTapeHBtn) addTapeHBtn.addEventListener('click', () => addTapeElement('v')
 // ─── Resize observer ─────────────────────────────────────────────────────────
 new ResizeObserver(sizeCanvas).observe(document.getElementById('v2-canvas-area'));
 
+// ─── Theme Switcher (Light / Dark / Auto) ────────────────────────────────────
+function initThemeSwitcher() {
+  const THEME_KEY = 'pocketframes-theme';
+  let currentChoice = document.documentElement.getAttribute('data-theme-choice') || localStorage.getItem(THEME_KEY) || 'auto';
+
+  function systemPrefersLight() {
+    return window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches;
+  }
+
+  function applyTheme(choice) {
+    currentChoice = choice;
+    const resolved = choice === 'auto' ? (systemPrefersLight() ? 'light' : 'dark') : choice;
+    document.documentElement.setAttribute('data-theme', resolved);
+    document.documentElement.setAttribute('data-theme-choice', choice);
+    document.body.setAttribute('data-theme', resolved);
+
+    document.querySelectorAll('.theme-switch__btn').forEach(btn => {
+      btn.classList.toggle('is-active', btn.dataset.themeChoice === choice);
+    });
+
+    try {
+      localStorage.setItem(THEME_KEY, choice);
+    } catch (e) {}
+
+    scheduleRender();
+  }
+
+  applyTheme(currentChoice);
+
+  document.querySelectorAll('.theme-switch__btn').forEach(btn => {
+    btn.addEventListener('click', () => applyTheme(btn.dataset.themeChoice));
+  });
+
+  if (window.matchMedia) {
+    window.matchMedia('(prefers-color-scheme: light)').addEventListener('change', () => {
+      if (currentChoice === 'auto') applyTheme('auto');
+    });
+  }
+}
+
 // ─── Bootstrap ────────────────────────────────────────────────────────────────
 async function init() {
+  initThemeSwitcher();
   sizeCanvas();
 
   // Restore session
@@ -749,3 +790,4 @@ async function init() {
 }
 
 init().catch(console.error);
+
