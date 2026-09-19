@@ -289,8 +289,13 @@ export class OverlayController {
     }
   }
 
+  startDrag(e) {
+    if (!this._selectedId) return;
+    this._startInteraction('drag', e);
+  }
+
   // ── Hit testing — click on canvas to select element ─────────────────────────
-  hitTestCanvas(clientX, clientY) {
+  hitTest(clientX, clientY) {
     const rect  = this._canvas.getBoundingClientRect();
     const scale = this._getScale();
 
@@ -299,19 +304,25 @@ export class OverlayController {
     const ly = (clientY - rect.top)   / scale;
 
     // Test elements in reverse z-order (topmost first)
-    const sorted = [...sceneStore.scene.elements]
+    const sorted = [...(sceneStore.scene.elements || [])]
       .filter(e => e.visible && !e.locked)
       .sort((a, b) => (b.zIndex || 0) - (a.zIndex || 0));
 
     for (const el of sorted) {
       if (this._pointInElement(lx, ly, el)) {
-        this.selectElement(el.id);
-        this._startInteraction('drag', { clientX, clientY, pointerId: -1 });
-        try { this._overlay.setPointerCapture(-1); } catch {}
-        return el.id;
+        return el;
       }
     }
 
+    return null;
+  }
+
+  hitTestCanvas(clientX, clientY) {
+    const el = this.hitTest(clientX, clientY);
+    if (el) {
+      this.selectElement(el.id);
+      return el.id;
+    }
     this.deselect();
     return null;
   }

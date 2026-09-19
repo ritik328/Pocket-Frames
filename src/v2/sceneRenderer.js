@@ -66,8 +66,8 @@ export function renderScene(ctx, scene, assets, options = {}) {
   // 4. Frame decorations — in front of photo
   renderFrameDecorations(ctx, frameDef, scale, 'front');
 
-  // 5. Metadata text block
-  if (frameDef.metadata?.visible !== false) {
+  // 5. Metadata text block (only if enabled by frame)
+  if (frameDef.capabilities?.metadata === true || (frameDef.metadata && frameDef.metadata.visible !== false)) {
     renderMetadata(ctx, scene, frameDef, scale);
   }
 
@@ -87,14 +87,315 @@ export function renderScene(ctx, scene, assets, options = {}) {
 // ─── Background ───────────────────────────────────────────────────────────────
 function renderBackground(ctx, scene, frameDef, scale) {
   ctx.save();
-  ctx.fillStyle = frameDef.background || '#FFFFFF';
-  ctx.fillRect(0, 0, ctx.canvas.width, ctx.canvas.height);
 
-  // Paper texture noise for vintage frames
-  if (frameDef.id === 'vintage-cream') {
-    addNoiseTexture(ctx, scale, 0.03);
+  // 1. Base Fill or Gradient
+  if (frameDef.pattern === 'citrus-gradient') {
+    const grad = ctx.createLinearGradient(0, 0, 0, ctx.canvas.height);
+    grad.addColorStop(0, '#FFF7ED');
+    grad.addColorStop(0.45, '#FDE5BE');
+    grad.addColorStop(1, '#F6C9A3');
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+  } else {
+    ctx.fillStyle = frameDef.background || '#FFFFFF';
+    ctx.fillRect(0, 0, ctx.canvas.width, ctx.canvas.height);
   }
 
+  // 2. Pattern Variations
+  switch (frameDef.pattern) {
+    case 'ticket-stub':
+      renderTicketStubPattern(ctx, frameDef, scale);
+      break;
+    case 'dots':
+    case 'dots-dense':
+      renderDotsPattern(ctx, frameDef, scale);
+      break;
+    case 'gingham':
+      renderGinghamPattern(ctx, frameDef, scale);
+      break;
+    case 'weave':
+      renderWeavePattern(ctx, frameDef, scale);
+      break;
+    case 'grid':
+      renderGridPattern(ctx, frameDef, scale);
+      break;
+    case 'playing-card':
+      renderPlayingCardPattern(ctx, frameDef, scale);
+      break;
+    case 'camera-cutout':
+      renderCameraCutoutPattern(ctx, frameDef, scale);
+      break;
+    case 'sprockets':
+      renderFilmSprocketsPattern(ctx, frameDef, scale);
+      break;
+    case 'digicam':
+      renderDigicamPattern(ctx, frameDef, scale);
+      break;
+    case 'editor-toolbar':
+      renderEditorToolbarPattern(ctx, frameDef, scale);
+      break;
+  }
+
+  // 3. Inner Card Layer (if specified in frame definition)
+  if (frameDef.innerFrame) {
+    renderInnerFrame(ctx, frameDef.innerFrame, scale);
+  }
+
+  // Paper texture noise for vintage styles
+  if (frameDef.id === 'vintage-lace' || frameDef.id === 'postcard' || frameDef.id === 'ticket-stub') {
+    addNoiseTexture(ctx, scale, 0.025);
+  }
+
+  ctx.restore();
+}
+
+function renderTicketStubPattern(ctx, frameDef, scale) {
+  const cx = ctx.canvas.width / 2;
+  const nr = 60 * scale;
+
+  // Notch cutouts at top and bottom center
+  ctx.fillStyle = '#E9E2D2';
+  ctx.beginPath(); ctx.arc(cx, 0, nr, 0, Math.PI); ctx.fill();
+  ctx.beginPath(); ctx.arc(cx, ctx.canvas.height, nr, Math.PI, 0); ctx.fill();
+
+  // Subtle perforation dashed line across bottom section
+  ctx.strokeStyle = 'rgba(244,227,200,0.22)';
+  ctx.lineWidth = 2 * scale;
+  ctx.setLineDash([8 * scale, 8 * scale]);
+  ctx.beginPath();
+  ctx.moveTo(80 * scale, 2300 * scale);
+  ctx.lineTo(ctx.canvas.width - 80 * scale, 2300 * scale);
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  // Barcode in bottom left
+  const bx = 160 * scale, by = 2360 * scale, bw = 460 * scale, bh = 140 * scale;
+  ctx.fillStyle = '#F4E3C8';
+  const bars = [3, 1, 2, 4, 1, 3, 2, 1, 4, 2, 1, 3, 4, 2, 1, 2, 3, 1, 4, 2, 2, 1, 3, 1, 2, 4, 1];
+  let curX = bx;
+  for (let i = 0; i < bars.length; i++) {
+    const w = bars[i] * 3.2 * scale;
+    if (i % 2 === 0) {
+      ctx.fillRect(curX, by, w, bh);
+    }
+    curX += w + 2.5 * scale;
+    if (curX > bx + bw) break;
+  }
+}
+
+function renderDotsPattern(ctx, frameDef, scale) {
+  const isDense = frameDef.pattern === 'dots-dense';
+  const step = (isDense ? 48 : 80) * scale;
+  const rad  = (isDense ? 3 : 5) * scale;
+  ctx.fillStyle = frameDef.patColor || 'rgba(0,0,0,0.08)';
+  for (let y = step / 2; y < ctx.canvas.height; y += step) {
+    for (let x = step / 2; x < ctx.canvas.width; x += step) {
+      ctx.beginPath();
+      ctx.arc(x, y, rad, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+}
+
+function renderGinghamPattern(ctx, frameDef, scale) {
+  const gStep = 64 * scale;
+  ctx.fillStyle = frameDef.patColor || 'rgba(230,170,180,0.3)';
+  for (let x = 0; x < ctx.canvas.width; x += gStep * 2) {
+    ctx.fillRect(x, 0, gStep, ctx.canvas.height);
+  }
+  for (let y = 0; y < ctx.canvas.height; y += gStep * 2) {
+    ctx.fillRect(0, y, ctx.canvas.width, gStep);
+  }
+}
+
+function renderWeavePattern(ctx, frameDef, scale) {
+  ctx.strokeStyle = frameDef.patColor || 'rgba(255,255,255,0.06)';
+  ctx.lineWidth = 1 * scale;
+  const wStep = 24 * scale;
+  for (let x = 0; x < ctx.canvas.width; x += wStep) {
+    ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, ctx.canvas.height); ctx.stroke();
+  }
+  for (let y = 0; y < ctx.canvas.height; y += wStep) {
+    ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(ctx.canvas.width, y); ctx.stroke();
+  }
+}
+
+function renderGridPattern(ctx, frameDef, scale) {
+  ctx.strokeStyle = frameDef.patColor || 'rgba(0,0,0,0.06)';
+  ctx.lineWidth = 1 * scale;
+  const gSize = 60 * scale;
+  for (let x = 0; x < ctx.canvas.width; x += gSize) {
+    ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, ctx.canvas.height); ctx.stroke();
+  }
+  for (let y = 0; y < ctx.canvas.height; y += gSize) {
+    ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(ctx.canvas.width, y); ctx.stroke();
+  }
+}
+
+function renderPlayingCardPattern(ctx, frameDef, scale) {
+  const bw = 90 * scale;
+  ctx.save();
+  ctx.fillStyle = '#FFFFFF';
+  ctx.fillRect(0, 0, ctx.canvas.width, bw);
+  ctx.fillRect(0, ctx.canvas.height - bw, ctx.canvas.width, bw);
+  ctx.fillRect(0, 0, bw, ctx.canvas.height);
+  ctx.fillRect(ctx.canvas.width - bw, 0, bw, ctx.canvas.height);
+
+  // Red diagonal stripes in borders
+  ctx.strokeStyle = '#B3273A';
+  ctx.lineWidth = 14 * scale;
+  for (let x = -ctx.canvas.height; x < ctx.canvas.width + ctx.canvas.height; x += 36 * scale) {
+    ctx.beginPath();
+    ctx.moveTo(x, 0);
+    ctx.lineTo(x + ctx.canvas.height, ctx.canvas.height);
+    ctx.stroke();
+  }
+  ctx.restore();
+}
+
+function renderCameraCutoutPattern(ctx, frameDef, scale) {
+  ctx.save();
+  // Flash unit at top left
+  const fx = 240 * scale, fy = 180 * scale, fw = 280 * scale, fh = 140 * scale;
+  ctx.fillStyle = '#5A0F0F';
+  ctx.beginPath(); ctx.roundRect(fx, fy, fw, fh, 12 * scale); ctx.fill();
+  ctx.fillStyle = '#E6A83A';
+  ctx.beginPath(); ctx.roundRect(fx + 20 * scale, fy + 20 * scale, fw - 40 * scale, fh - 40 * scale, 6 * scale); ctx.fill();
+
+  // Camera lens assembly in center
+  const lcx = ctx.canvas.width / 2, lcy = 280 * scale;
+  ctx.fillStyle = '#4A0D0D';
+  ctx.beginPath(); ctx.arc(lcx, lcy, 180 * scale, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = '#260606';
+  ctx.beginPath(); ctx.arc(lcx, lcy, 130 * scale, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = '#110202';
+  ctx.beginPath(); ctx.arc(lcx, lcy, 80 * scale, 0, Math.PI * 2); ctx.fill();
+  // Blue/violet optical reflection arc
+  ctx.strokeStyle = 'rgba(100, 200, 255, 0.4)';
+  ctx.lineWidth = 6 * scale;
+  ctx.beginPath(); ctx.arc(lcx, lcy, 100 * scale, -Math.PI * 0.7, -Math.PI * 0.2); ctx.stroke();
+
+  // Optical viewfinder at top right
+  const vx = ctx.canvas.width - 240 * scale - fw, vy = 180 * scale;
+  ctx.fillStyle = '#5A0F0F';
+  ctx.beginPath(); ctx.roundRect(vx, vy, fw, fh, 12 * scale); ctx.fill();
+  ctx.fillStyle = '#110202';
+  ctx.beginPath(); ctx.roundRect(vx + 16 * scale, vy + 16 * scale, fw - 32 * scale, fh - 32 * scale, 6 * scale); ctx.fill();
+  ctx.restore();
+}
+
+function renderFilmSprocketsPattern(ctx, frameDef, scale) {
+  const sw = 80 * scale;
+  const sh = 110 * scale;
+  const sr = 18 * scale;
+  const leftX = 70 * scale;
+  const rightX = ctx.canvas.width - 70 * scale - sw;
+  const step = 170 * scale;
+
+  ctx.fillStyle = '#080808';
+  ctx.strokeStyle = 'rgba(255,255,255,0.1)';
+  ctx.lineWidth = 1.5 * scale;
+
+  let frameNum = 24;
+  for (let y = 80 * scale; y < ctx.canvas.height - 100 * scale; y += step) {
+    // Left sprocket
+    ctx.beginPath();
+    ctx.roundRect(leftX, y, sw, sh, sr);
+    ctx.fill(); ctx.stroke();
+
+    // Right sprocket
+    ctx.beginPath();
+    ctx.roundRect(rightX, y, sw, sh, sr);
+    ctx.fill(); ctx.stroke();
+
+    // Film edge markings in amber mono
+    ctx.save();
+    ctx.fillStyle = '#E8A83A';
+    ctx.font = `600 ${Math.round(24 * scale)}px ${FONTS.mono}`;
+    ctx.fillText(`${frameNum}A`, leftX + sw + 16 * scale, y + sh * 0.7);
+    ctx.fillText(`KODAK 400`, rightX - 140 * scale, y + sh * 0.7);
+    ctx.restore();
+    frameNum++;
+  }
+}
+
+function renderDigicamPattern(ctx, frameDef, scale) {
+  ctx.save();
+  ctx.fillStyle = '#FFFFFF';
+  ctx.font = `600 ${Math.round(36 * scale)}px ${FONTS.mono}`;
+
+  // Rec dot
+  ctx.fillStyle = '#FF3333';
+  ctx.beginPath(); ctx.arc(100 * scale, 120 * scale, 12 * scale, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = '#FFFFFF';
+  ctx.fillText('REC', 130 * scale, 132 * scale);
+  ctx.fillText('00:04:18', 250 * scale, 132 * scale);
+
+  // Battery icon top right
+  const bx = ctx.canvas.width - 240 * scale, by = 100 * scale;
+  ctx.strokeStyle = '#FFFFFF';
+  ctx.lineWidth = 3 * scale;
+  ctx.strokeRect(bx, by, 70 * scale, 34 * scale);
+  ctx.fillRect(bx + 72 * scale, by + 10 * scale, 6 * scale, 14 * scale);
+  ctx.fillStyle = '#44FF44';
+  ctx.fillRect(bx + 6 * scale, by + 6 * scale, 58 * scale, 22 * scale);
+
+  // Bottom OSD
+  ctx.fillStyle = '#FFFFFF';
+  ctx.fillText('ISO 400   F2.8   1/125', 100 * scale, ctx.canvas.height - 100 * scale);
+  ctx.fillText('[ 4:3 ]   RAW', ctx.canvas.width - 340 * scale, ctx.canvas.height - 100 * scale);
+  ctx.restore();
+}
+
+function renderEditorToolbarPattern(ctx, frameDef, scale) {
+  const pw = 300 * scale;
+  ctx.fillStyle = '#EDE8DE';
+  ctx.fillRect(0, 0, pw, ctx.canvas.height);
+  ctx.strokeStyle = '#D5CEBF';
+  ctx.lineWidth = 2 * scale;
+  ctx.beginPath(); ctx.moveTo(pw, 0); ctx.lineTo(pw, ctx.canvas.height); ctx.stroke();
+
+  // Classic window dots
+  ctx.fillStyle = '#FF5F56'; ctx.beginPath(); ctx.arc(40 * scale, 50 * scale, 10 * scale, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = '#FFBD2E'; ctx.beginPath(); ctx.arc(75 * scale, 50 * scale, 10 * scale, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = '#27C93F'; ctx.beginPath(); ctx.arc(110 * scale, 50 * scale, 10 * scale, 0, Math.PI * 2); ctx.fill();
+
+  // Tool buttons
+  const tools = ['↖', '▢', 'T', '✎', '⌕', '✂'];
+  let ty = 110 * scale;
+  for (const t of tools) {
+    ctx.fillStyle = '#FAF7F0';
+    ctx.fillRect(36 * scale, ty, 100 * scale, 100 * scale);
+    ctx.strokeStyle = '#D0C7B6';
+    ctx.strokeRect(36 * scale, ty, 100 * scale, 100 * scale);
+    ctx.fillStyle = '#2A2A2A';
+    ctx.font = `600 ${Math.round(44 * scale)}px ${FONTS.sans}`;
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText(t, 86 * scale, ty + 50 * scale);
+    ty += 125 * scale;
+  }
+}
+
+function renderInnerFrame(ctx, inf, scale) {
+  ctx.save();
+  if (inf.rotation) {
+    const cx = (inf.x + inf.w / 2) * scale;
+    const cy = (inf.y + inf.h / 2) * scale;
+    ctx.translate(cx, cy);
+    ctx.rotate((inf.rotation * Math.PI) / 180);
+    ctx.translate(-cx, -cy);
+  }
+  ctx.shadowColor = 'rgba(0,0,0,0.18)';
+  ctx.shadowBlur = 24 * scale;
+  ctx.shadowOffsetY = 8 * scale;
+  ctx.fillStyle = inf.color || '#FFFFFF';
+  ctx.beginPath();
+  if (inf.radius) {
+    ctx.roundRect(inf.x * scale, inf.y * scale, inf.w * scale, inf.h * scale, inf.radius * scale);
+  } else {
+    ctx.rect(inf.x * scale, inf.y * scale, inf.w * scale, inf.h * scale);
+  }
+  ctx.fill();
   ctx.restore();
 }
 
@@ -477,9 +778,21 @@ function renderElement(ctx, el, assets, scale) {
   const hh = (el.h / 2) * scale;
 
   switch (el.type) {
-    case 'sticker': renderStickerEl(ctx, el, assets, scale, hw, hh); break;
-    case 'text':    renderTextEl(ctx, el, scale, hw, hh);            break;
-    case 'tape':    renderTapeEl(ctx, el, scale, hw, hh);            break;
+    case 'sticker':     renderStickerEl(ctx, el, assets, scale, hw, hh); break;
+    case 'text':        renderTextEl(ctx, el, scale, hw, hh);            break;
+    case 'tape':        renderTapeEl(ctx, el, scale, hw, hh);            break;
+    case 'badge':       renderBadgeEl(ctx, el, scale, hw, hh);           break;
+    case 'tag':         renderTagEl(ctx, el, scale, hw, hh);             break;
+    case 'bow':         renderBowEl(ctx, el, scale, hw, hh);             break;
+    case 'envelope':    renderEnvelopeEl(ctx, el, scale, hw, hh);        break;
+    case 'clip':        renderClipEl(ctx, el, scale, hw, hh);            break;
+    case 'seal':        renderSealEl(ctx, el, scale, hw, hh);            break;
+    case 'stamp':       renderStampEl(ctx, el, scale, hw, hh);           break;
+    case 'button-deco': renderButtonEl(ctx, el, scale, hw, hh);          break;
+    case 'club-suit':   renderClubSuitEl(ctx, el, scale, hw, hh);        break;
+    case 'controls':    renderControlsEl(ctx, el, scale, hw, hh);        break;
+    case 'crosshair':   renderCrosshairEl(ctx, el, scale, hw, hh);       break;
+    case 'vinyl':       renderVinylEl(ctx, el, scale, hw, hh);           break;
   }
 
   ctx.restore();
@@ -505,7 +818,7 @@ function renderTextEl(ctx, el, scale, hw, hh) {
   ctx.fillStyle = style.color || '#1a1a1a';
   ctx.textAlign = style.align || 'center';
   ctx.textBaseline = 'middle';
-  ctx.font = `${style.fontWeight || '600'} ${Math.round(fontSize)}px '${font}', cursive, sans-serif`;
+  ctx.font = `${style.fontStyle || ''} ${style.fontWeight || '600'} ${Math.round(fontSize)}px '${font}', cursive, sans-serif`.trim();
 
   if ('letterSpacing' in ctx) {
     ctx.letterSpacing = `${(style.letterSpacing || 0) * scale}px`;
@@ -517,7 +830,8 @@ function renderTextEl(ctx, el, scale, hw, hh) {
   let startY = -totalH / 2 + lineH / 2;
 
   for (const line of lines) {
-    ctx.fillText(line, style.align === 'center' ? 0 : style.align === 'right' ? hw : -hw, startY);
+    const xPos = style.align === 'center' ? 0 : style.align === 'right' ? hw : -hw;
+    ctx.fillText(line, xPos, startY);
     startY += lineH;
   }
 }
@@ -531,6 +845,269 @@ function renderTapeEl(ctx, el, scale, hw, hh) {
   for (let x = -hw; x < hw; x += 6 * scale) {
     ctx.beginPath(); ctx.moveTo(x, -hh); ctx.lineTo(x, hh); ctx.stroke();
   }
+}
+
+function renderBadgeEl(ctx, el, scale, hw, hh) {
+  ctx.fillStyle = el.bg || '#B3273A';
+  ctx.beginPath();
+  ctx.roundRect(-hw, -hh, hw * 2, hh * 2, Math.min(hw, hh));
+  ctx.fill();
+
+  if (el.borderColor) {
+    ctx.strokeStyle = el.borderColor;
+    ctx.lineWidth = 2 * scale;
+    ctx.stroke();
+  }
+
+  ctx.fillStyle = el.textColor || '#FFFFFF';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.font = `700 ${Math.round(hh * 0.95)}px ${FONTS.sans}`;
+  if ('letterSpacing' in ctx) ctx.letterSpacing = `${3 * scale}px`;
+  ctx.fillText((el.text || '').toUpperCase(), 0, 0);
+}
+
+function renderTagEl(ctx, el, scale, hw, hh) {
+  if (el.bg) {
+    ctx.fillStyle = el.bg;
+    ctx.fillRect(-hw, -hh, hw * 2, hh * 2);
+  }
+  if (el.borderColor) {
+    ctx.strokeStyle = el.borderColor;
+    ctx.lineWidth = 1.5 * scale;
+    ctx.strokeRect(-hw, -hh, hw * 2, hh * 2);
+  }
+
+  ctx.fillStyle = el.color || '#333333';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  const fSize = (el.fontSize || 48) * scale;
+  const font = el.font === 'Caveat' ? FONTS.hand : FONTS.sans;
+  ctx.font = `600 ${Math.round(fSize)}px ${font}`;
+
+  if (el.vertical) {
+    const chars = (el.text || '').split('');
+    const chH = fSize * 1.05;
+    let sy = -((chars.length - 1) * chH) / 2;
+    for (const c of chars) {
+      ctx.fillText(c, 0, sy);
+      sy += chH;
+    }
+  } else {
+    ctx.fillText(el.text || '', 0, 0);
+  }
+}
+
+function renderBowEl(ctx, el, scale, hw, hh) {
+  ctx.fillStyle = el.color || '#B3273A';
+  ctx.strokeStyle = el.knotColor || '#7A1C26';
+  ctx.lineWidth = 2 * scale;
+
+  // Left loop
+  ctx.beginPath();
+  ctx.moveTo(0, 0);
+  ctx.bezierCurveTo(-hw * 0.9, -hh * 0.9, -hw, hh * 0.1, -hw * 0.4, hh * 0.3);
+  ctx.bezierCurveTo(-hw * 0.6, hh * 0.8, -hw * 0.2, hh * 0.6, 0, 0);
+  ctx.fill(); ctx.stroke();
+
+  // Right loop
+  ctx.beginPath();
+  ctx.moveTo(0, 0);
+  ctx.bezierCurveTo(hw * 0.9, -hh * 0.9, hw, hh * 0.1, hw * 0.4, hh * 0.3);
+  ctx.bezierCurveTo(hw * 0.6, hh * 0.8, hw * 0.2, hh * 0.6, 0, 0);
+  ctx.fill(); ctx.stroke();
+
+  // Center knot
+  ctx.fillStyle = el.knotColor || '#7A1C26';
+  ctx.beginPath();
+  ctx.ellipse(0, 0, hw * 0.22, hh * 0.32, 0, 0, Math.PI * 2);
+  ctx.fill();
+}
+
+function renderEnvelopeEl(ctx, el, scale, hw, hh) {
+  ctx.fillStyle = el.color || '#F4E9D8';
+  ctx.strokeStyle = 'rgba(0,0,0,0.14)';
+  ctx.lineWidth = 2 * scale;
+  ctx.fillRect(-hw, -hh, hw * 2, hh * 2);
+  ctx.strokeRect(-hw, -hh, hw * 2, hh * 2);
+
+  // Top triangular fold lines
+  ctx.beginPath();
+  ctx.moveTo(-hw, -hh);
+  ctx.lineTo(0, hh * 0.2);
+  ctx.lineTo(hw, -hh);
+  ctx.stroke();
+
+  // Wax seal on envelope
+  ctx.fillStyle = el.waxColor || '#B3273A';
+  ctx.beginPath();
+  ctx.arc(0, hh * 0.2, Math.min(hw, hh) * 0.28, 0, Math.PI * 2);
+  ctx.fill();
+}
+
+function renderClipEl(ctx, el, scale, hw, hh) {
+  ctx.strokeStyle = el.color || '#C9A24A';
+  ctx.lineWidth = 5 * scale;
+  ctx.lineCap = 'round';
+  ctx.beginPath();
+  ctx.moveTo(-hw * 0.35, hh * 0.8);
+  ctx.lineTo(-hw * 0.35, -hh * 0.6);
+  ctx.arc(0, -hh * 0.6, hw * 0.35, Math.PI, 0);
+  ctx.lineTo(hw * 0.35, hh * 0.5);
+  ctx.arc(hw * 0.12, hh * 0.5, hw * 0.23, 0, Math.PI);
+  ctx.lineTo(-hw * 0.1, -hh * 0.3);
+  ctx.stroke();
+}
+
+function renderSealEl(ctx, el, scale, hw, hh) {
+  const r = Math.min(hw, hh);
+  ctx.fillStyle = el.color || '#8F1D1D';
+  ctx.beginPath();
+  for (let i = 0; i < 24; i++) {
+    const ang = (i * Math.PI * 2) / 24;
+    const curR = r * (i % 2 === 0 ? 1 : 0.88);
+    const px = Math.cos(ang) * curR;
+    const py = Math.sin(ang) * curR;
+    if (i === 0) ctx.moveTo(px, py);
+    else ctx.lineTo(px, py);
+  }
+  ctx.closePath();
+  ctx.fill();
+
+  // Inner ring
+  ctx.fillStyle = el.innerColor || '#B3273A';
+  ctx.beginPath(); ctx.arc(0, 0, r * 0.65, 0, Math.PI * 2); ctx.fill();
+
+  // Star emblem
+  ctx.fillStyle = 'rgba(255,255,255,0.75)';
+  ctx.font = `600 ${Math.round(r * 0.55)}px ${FONTS.serif}`;
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillText('★', 0, 0);
+}
+
+function renderStampEl(ctx, el, scale, hw, hh) {
+  ctx.fillStyle = el.bg || '#F4E9D8';
+  ctx.fillRect(-hw, -hh, hw * 2, hh * 2);
+  ctx.strokeStyle = el.borderColor || '#B98A55';
+  ctx.lineWidth = 1.5 * scale;
+  ctx.strokeRect(-hw + 6 * scale, -hh + 6 * scale, (hw - 6 * scale) * 2, (hh - 6 * scale) * 2);
+
+  // Perforation dots
+  ctx.fillStyle = '#0D0D0E';
+  const nr = 4 * scale;
+  for (let x = -hw + nr * 3; x < hw - nr * 2; x += nr * 4) {
+    ctx.beginPath(); ctx.arc(x, -hh, nr, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.arc(x, hh, nr, 0, Math.PI * 2); ctx.fill();
+  }
+  for (let y = -hh + nr * 3; y < hh - nr * 2; y += nr * 4) {
+    ctx.beginPath(); ctx.arc(-hw, y, nr, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.arc(hw, y, nr, 0, Math.PI * 2); ctx.fill();
+  }
+
+  // Wavy cancellation line
+  ctx.strokeStyle = 'rgba(0,0,0,0.3)';
+  ctx.lineWidth = 1.5 * scale;
+  ctx.beginPath();
+  ctx.arc(-hw * 0.2, 0, hw * 0.5, 0, Math.PI * 2);
+  ctx.stroke();
+}
+
+function renderButtonEl(ctx, el, scale, hw, hh) {
+  const r = Math.min(hw, hh);
+  ctx.fillStyle = el.color || '#E6AAB4';
+  ctx.beginPath(); ctx.arc(0, 0, r, 0, Math.PI * 2); ctx.fill();
+
+  ctx.strokeStyle = 'rgba(0,0,0,0.12)';
+  ctx.lineWidth = 2 * scale;
+  ctx.beginPath(); ctx.arc(0, 0, r * 0.8, 0, Math.PI * 2); ctx.stroke();
+
+  const hr = r * 0.12;
+  const d = r * 0.35;
+  ctx.fillStyle = '#4A2A2E';
+  const holes = [[-d, -d], [d, -d], [-d, d], [d, d]];
+  for (const [hx, hy] of holes) {
+    ctx.beginPath(); ctx.arc(hx, hy, hr, 0, Math.PI * 2); ctx.fill();
+  }
+  ctx.strokeStyle = '#FFFFFF';
+  ctx.lineWidth = 2 * scale;
+  ctx.beginPath(); ctx.moveTo(-d, -d); ctx.lineTo(d, d); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(d, -d); ctx.lineTo(-d, d); ctx.stroke();
+}
+
+function renderClubSuitEl(ctx, el, scale, hw, hh) {
+  const s = Math.min(hw, hh);
+  ctx.fillStyle = el.color || '#B3273A';
+
+  const r = s * 0.36;
+  ctx.beginPath(); ctx.arc(0, -s * 0.28, r, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.arc(-s * 0.32, s * 0.15, r, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.arc(s * 0.32, s * 0.15, r, 0, Math.PI * 2); ctx.fill();
+
+  ctx.beginPath();
+  ctx.moveTo(-s * 0.12, s * 0.2);
+  ctx.lineTo(-s * 0.25, s * 0.8);
+  ctx.lineTo(s * 0.25, s * 0.8);
+  ctx.lineTo(s * 0.12, s * 0.2);
+  ctx.closePath();
+  ctx.fill();
+}
+
+function renderControlsEl(ctx, el, scale, hw, hh) {
+  const r = Math.min(hw, hh);
+  ctx.fillStyle = 'rgba(255,255,255,0.2)';
+  ctx.strokeStyle = el.color || 'rgba(255,255,255,0.75)';
+  ctx.lineWidth = 2 * scale;
+  ctx.beginPath(); ctx.arc(0, 0, r, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+
+  ctx.fillStyle = el.color || 'rgba(255,255,255,0.75)';
+  ctx.beginPath(); ctx.arc(0, 0, r * 0.38, 0, Math.PI * 2); ctx.fill();
+
+  ctx.fillStyle = el.color || 'rgba(255,255,255,0.75)';
+  ctx.font = `600 ${Math.round(r * 0.3)}px ${FONTS.sans}`;
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillText('▲', 0, -r * 0.65);
+  ctx.fillText('▼', 0, r * 0.65);
+  ctx.fillText('◀', -r * 0.65, 0);
+  ctx.fillText('▶', r * 0.65, 0);
+}
+
+function renderCrosshairEl(ctx, el, scale, hw, hh) {
+  const s = Math.min(hw, hh);
+  ctx.strokeStyle = el.color || '#181818';
+  ctx.lineWidth = 2 * scale;
+
+  // Center cross
+  ctx.beginPath(); ctx.moveTo(-s * 0.35, 0); ctx.lineTo(s * 0.35, 0); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(0, -s * 0.35); ctx.lineTo(0, s * 0.35); ctx.stroke();
+
+  // Corner brackets
+  const b = s * 0.75;
+  const len = s * 0.22;
+  ctx.beginPath(); ctx.moveTo(-b, -b + len); ctx.lineTo(-b, -b); ctx.lineTo(-b + len, -b); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(b - len, -b); ctx.lineTo(b, -b); ctx.lineTo(b, -b + len); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(-b, b - len); ctx.lineTo(-b, b); ctx.lineTo(-b + len, b); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(b - len, b); ctx.lineTo(b, b); ctx.lineTo(b, b - len); ctx.stroke();
+}
+
+function renderVinylEl(ctx, el, scale, hw, hh) {
+  const r = Math.min(hw, hh);
+  ctx.fillStyle = '#111111';
+  ctx.beginPath(); ctx.arc(0, 0, r, 0, Math.PI * 2); ctx.fill();
+
+  // Grooves
+  ctx.strokeStyle = 'rgba(255,255,255,0.08)';
+  ctx.lineWidth = 1 * scale;
+  for (let gr = r * 0.45; gr < r * 0.95; gr += 8 * scale) {
+    ctx.beginPath(); ctx.arc(0, 0, gr, 0, Math.PI * 2); ctx.stroke();
+  }
+
+  // Label
+  ctx.fillStyle = '#E8A83A';
+  ctx.beginPath(); ctx.arc(0, 0, r * 0.35, 0, Math.PI * 2); ctx.fill();
+
+  // Center hole
+  ctx.fillStyle = '#1C1C1C';
+  ctx.beginPath(); ctx.arc(0, 0, r * 0.08, 0, Math.PI * 2); ctx.fill();
 }
 
 // ─── Grid overlay ─────────────────────────────────────────────────────────────
@@ -589,7 +1166,12 @@ export function renderFrameThumbnail(canvas, frameId) {
   const mockScene = {
     frame: { id: frameId },
     photos: [],
-    elements: [],
+    elements: (frameDef.defaultElements || []).map((el, idx) => ({
+      ...JSON.parse(JSON.stringify(el)),
+      id: `thumb-el-${idx}`,
+      zIndex: idx + 1,
+      visible: true
+    })),
     metadata: {
       brand: 'POCKET',
       device: frameDef.name.toUpperCase(),

@@ -8,6 +8,8 @@
  * All element x, y, w, h are in this space. Renderers scale to viewport.
  */
 
+import { getFrameById } from './frameDefinitions.js';
+
 export const SCHEMA_VERSION = 1;
 export const LOGICAL_W = 2160;
 export const LOGICAL_H = 2700;
@@ -27,12 +29,30 @@ export const DEFAULT_METADATA = {
 
 // ─── Default scene ────────────────────────────────────────────────────────────
 export function createDefaultScene() {
+  const initialFrame = getFrameById('plain-strip') || { id: 'plain-strip', defaultElements: [] };
+  const initialElements = (initialFrame.defaultElements || []).map((el, idx) => ({
+    ...JSON.parse(JSON.stringify(el)),
+    id: `el-${initialFrame.id}-${idx}-${Date.now()}`,
+    isFrameElement: true,
+    frameId: initialFrame.id,
+    zIndex: idx + 1,
+    rotation: el.rotation || 0,
+    scaleX: 1,
+    scaleY: 1,
+    opacity: el.opacity ?? 1,
+    visible: true,
+    locked: false,
+    flipX: false,
+    flipY: false,
+    shadow: false,
+  }));
+
   return {
     schemaVersion: SCHEMA_VERSION,
     canvas: { width: LOGICAL_W, height: LOGICAL_H, background: '#F8F8F8' },
-    frame: { id: 'classic-white' },
-    photos: [],        // PhotoEntry[]
-    elements: [],      // SceneElement[]
+    frame: { id: initialFrame.id },
+    photos: [],        // PhotoEntry[] - one per aperture index
+    elements: initialElements, // SceneElement[]
     metadata: { ...DEFAULT_METADATA },
     settings: {
       snap: true,
@@ -164,6 +184,32 @@ export class SceneStore {
   setFrame(id) {
     this._pushHistory();
     this._scene.frame.id = id;
+
+    // Remove previous default frame elements, preserving user-added custom stickers/elements
+    this._scene.elements = (this._scene.elements || []).filter(el => !el.isFrameElement);
+
+    // Populate new frame default elements
+    const frameDef = getFrameById(id);
+    if (frameDef && frameDef.defaultElements?.length) {
+      const cloned = frameDef.defaultElements.map((el, idx) => ({
+        ...JSON.parse(JSON.stringify(el)),
+        id: `el-${id}-${idx}-${Date.now()}`,
+        isFrameElement: true,
+        frameId: id,
+        zIndex: idx + 1,
+        rotation: el.rotation || 0,
+        scaleX: 1,
+        scaleY: 1,
+        opacity: el.opacity ?? 1,
+        visible: true,
+        locked: false,
+        flipX: false,
+        flipY: false,
+        shadow: false,
+      }));
+      this._scene.elements.push(...cloned);
+    }
+
     this._emit('frame');
   }
 
@@ -228,15 +274,32 @@ export class SceneStore {
   }
 
   setPhoto(photoEntry) {
+    this.setPhotoAt(0, photoEntry);
+  }
+
+  setPhotoAt(index, photoEntry) {
     this._pushHistory();
-    this._scene.photos = [photoEntry];
+    if (!Array.isArray(this._scene.photos)) {
+      this._scene.photos = [];
+    }
+    this._scene.photos[index] = photoEntry;
     this._emit('photo');
   }
 
   updatePhoto(id, partial) {
-    const p = this._scene.photos.find(p => p.id === id);
-    if (p) Object.assign(p, partial);
-    this._emit('photo');
+    const p = this._scene.photos?.find(p => p && p.id === id);
+    if (p) {
+      Object.assign(p, partial);
+      this._emit('photo');
+    }
+  }
+
+  updatePhotoAt(index, partial) {
+    const p = this._scene.photos?.[index];
+    if (p) {
+      Object.assign(p, partial);
+      this._emit('photo');
+    }
   }
 
   setMetadata(partial) {

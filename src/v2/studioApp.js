@@ -64,6 +64,8 @@ const propPanel      = document.getElementById('v2-prop-panel');
 const propOpacity    = document.getElementById('v2-prop-opacity');
 const propOpacityVal = document.getElementById('v2-prop-opacity-val');
 const propShadow     = document.getElementById('v2-prop-shadow');
+const propTextGroup  = document.getElementById('v2-prop-text-group');
+const propTextInput  = document.getElementById('v2-prop-text-input');
 const metaPanel      = document.getElementById('v2-meta-panel');
 
 // ─── State ────────────────────────────────────────────────────────────────────
@@ -75,6 +77,7 @@ let _exportPreset   = '2160x2700';
 let _currentFont    = 'Caveat';
 let _activePack     = 'all';
 let _activeFrameCat = 'all';
+let _targetApertureIndex = 0;
 
 // ─── Scale helpers ────────────────────────────────────────────────────────────
 function getScale() {
@@ -165,20 +168,22 @@ async function handleFile(file) {
     const asset = sceneStore.getAsset(assetId);
     const entry = createPhotoEntry(assetId, asset.w, asset.h);
 
-    // Auto-fit scale
-    const ap = getFrameById(sceneStore.scene.frame.id)?.apertures?.[0];
+    // Auto-fit scale to the targeted aperture
+    const frameDef = getFrameById(sceneStore.scene.frame.id);
+    const targetIdx = _targetApertureIndex >= 0 ? _targetApertureIndex : 0;
+    const ap = frameDef?.apertures?.[targetIdx] || frameDef?.apertures?.[0];
     if (ap && asset) {
       const fitScaleX = ap.w / asset.w;
       const fitScaleY = ap.h / asset.h;
       entry.scale = Math.max(fitScaleX, fitScaleY);
     }
 
-    sceneStore.setPhoto(entry);
+    sceneStore.setPhotoAt(targetIdx, entry);
 
     // Parse EXIF if available
     tryReadExif(file);
     scheduleRender();
-    showToast('Photo loaded ✓');
+    showToast(`Photo loaded for slot ${targetIdx + 1} ✓`);
   } catch (err) {
     console.error(err);
     showToast('Failed to load image');
@@ -218,36 +223,71 @@ function extractSimpleStr(text, brand) {
   return idx !== -1 ? text.slice(idx, idx + 32).split('\0')[0] : null;
 }
 
-// ─── Photo pan interaction ────────────────────────────────────────────────────
+// ─── Photo pan & element interaction ──────────────────────────────────────────
 let _panState = null;
 
 canvas.addEventListener('pointerdown', e => {
-  if (_overlay?.selectedId) return;  // element selected — overlay handles it
-
-  const scene = sceneStore.scene;
-  if (!scene.photos?.[0]) {
-    // No photo — trigger upload
-    fileInput.click();
+  // 1. First priority: Check if an element was clicked!
+  const hitEl = _overlay?.hitTest(e.clientX, e.clientY);
+  if (hitEl) {
+    _overlay.selectElement(hitEl.id);
+    _overlay.startDrag(e);
+    scheduleRender();
     return;
   }
 
-  _panState = {
-    startX: e.clientX,
-    startY: e.clientY,
-    startPX: scene.photos[0].x,
-    startPY: scene.photos[0].y
-  };
-  canvas.setPointerCapture(e.pointerId);
+  // 2. Clicked empty space or aperture -> deselect element
+  _overlay?.deselect();
+
+  // 3. Find aperture under pointer
+  const rect = canvas.getBoundingClientRect();
+  const scale = getScale();
+  const lx = (e.clientX - rect.left) / scale;
+  const ly = (e.clientY - rect.top) / scale;
+
+  const frameDef = getFrameById(sceneStore.scene.frame.id);
+  const apertures = frameDef?.apertures || [];
+  const apIdx = apertures.findIndex(ap => 
+    lx >= ap.x && lx <= ap.x + ap.w && ly >= ap.y && ly <= ap.y + ap.h
+  );
+
+  if (apIdx !== -1) {
+    _targetApertureIndex = apIdx;
+    const photo = sceneStore.scene.photos?.[apIdx];
+    if (!photo) {
+      // Empty aperture slot -> open file picker
+      fileInput.click();
+      return;
+    }
+
+    // Existing photo -> pan
+    _panState = {
+      apertureIndex: apIdx,
+      photoId: photo.id,
+      startX: e.clientX,
+      startY: e.clientY,
+      startPX: photo.x || 0,
+      startPY: photo.y || 0
+    };
+    canvas.setPointerCapture(e.pointerId);
+  } else {
+    // Outside apertures: if first aperture empty, trigger upload
+    if (!sceneStore.scene.photos?.length || !sceneStore.scene.photos[0]) {
+      _targetApertureIndex = 0;
+      fileInput.click();
+    }
+  }
 });
 
 canvas.addEventListener('pointermove', e => {
   if (!_panState) return;
   const scale = getScale();
-  const photo = sceneStore.scene.photos?.[0];
-  if (!photo) return;
   const dx = (e.clientX - _panState.startX) / scale;
   const dy = (e.clientY - _panState.startY) / scale;
-  sceneStore.updatePhoto(photo.id, { x: _panState.startPX + dx, y: _panState.startPY + dy });
+  sceneStore.updatePhotoAt(_panState.apertureIndex, {
+    x: _panState.startPX + dx,
+    y: _panState.startPY + dy
+  });
   scheduleRender();
 });
 
@@ -256,12 +296,37 @@ canvas.addEventListener('pointercancel', () => { _panState = null; });
 
 canvas.addEventListener('wheel', e => {
   e.preventDefault();
-  const photo = sceneStore.scene.photos?.[0];
+  const rect = canvas.getBoundingClientRect();
+  const scale = getScale();
+  const lx = (e.clientX - rect.left) / scale;
+  const ly = (e.clientY - rect.top) / scale;
+
+  const frameDef = getFrameById(sceneStore.scene.frame.id);
+  const apertures = frameDef?.apertures || [];
+  let apIdx = apertures.findIndex(ap => 
+    lx >= ap.x && lx <= ap.x + ap.w && ly >= ap.y && ly <= ap.y + ap.h
+  );
+  if (apIdx === -1) apIdx = _targetApertureIndex || 0;
+
+  const photo = sceneStore.scene.photos?.[apIdx];
   if (!photo) return;
   const delta = e.deltaY < 0 ? 0.05 : -0.05;
-  sceneStore.updatePhoto(photo.id, { scale: Math.max(0.1, Math.min(10, (photo.scale || 1) + delta)) });
+  sceneStore.updatePhotoAt(apIdx, {
+    scale: Math.max(0.1, Math.min(10, (photo.scale || 1) + delta))
+  });
   scheduleRender();
 }, { passive: false });
+
+canvas.addEventListener('dblclick', e => {
+  const hitEl = _overlay?.hitTest(e.clientX, e.clientY);
+  if (hitEl) {
+    _overlay.selectElement(hitEl.id);
+    if (hitEl.text !== undefined || hitEl.type === 'text' || hitEl.type === 'badge' || hitEl.type === 'tag') {
+      propTextInput?.focus();
+      propTextInput?.select();
+    }
+  }
+});
 
 // ─── Sticker panel ────────────────────────────────────────────────────────────
 // Pre-load all SVGs as assets once
@@ -777,6 +842,7 @@ function initThemeSwitcher() {
   }
 }
 
+
 // ─── Bootstrap ────────────────────────────────────────────────────────────────
 async function init() {
   initThemeSwitcher();
@@ -814,17 +880,6 @@ async function init() {
     setHeight: true,
     fitPaddingBottom: 90
   });
-
-  // Canvas click → hit test elements
-  canvas.addEventListener('pointerdown', e => {
-    if (_panState) return;
-    const hit = _overlay.hitTestCanvas(e.clientX, e.clientY);
-    if (!hit) _panState = {   // start pan if no element hit
-      startX: e.clientX, startY: e.clientY,
-      startPX: sceneStore.scene.photos?.[0]?.x || 0,
-      startPY: sceneStore.scene.photos?.[0]?.y || 0
-    };
-  }, { capture: true });
 
   // Sticker preload + panels
   await preloadStickers();
