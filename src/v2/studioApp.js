@@ -799,7 +799,10 @@ async function init() {
 
   v2Resizer = new CanvasResizer(canvas, canvasWrap, () => {
     scheduleRender();
-    if (_overlay) _overlay.onScaleChange();
+    if (_overlay) {
+      if (typeof _overlay.refresh === 'function') _overlay.refresh();
+      else if (typeof _overlay.onScaleChange === 'function') _overlay.onScaleChange();
+    }
   }, {
     prefix: 'v2',
     canvasArea: canvasArea,

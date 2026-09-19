@@ -1364,8 +1364,9 @@ details summary svg.icon {
 
 /* ─── Toast ──────────────────────────────────────────────────────────────────── */
 #v2-toast {
-  position: fixed; bottom: 64px; left: 50%; transform: translateX(-50%) translateY(12px);
+  position: fixed; top: 68px; left: 50%; transform: translateX(-50%) translateY(-10px);
   background: var(--surface); backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
   border: 1px solid var(--border); border-radius: 24px;
   padding: 9px 22px; font-size: 0.82rem; font-weight: 500;
   color: var(--text); pointer-events: none;

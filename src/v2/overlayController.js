@@ -57,6 +57,10 @@ export class OverlayController {
     this._updateSelectionBox();
   }
 
+  onScaleChange() {
+    this.refresh();
+  }
+
   // ── Selection box DOM ───────────────────────────────────────────────────────
   _buildSelectionBox() {
     const box = document.createElement('div');
