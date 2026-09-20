@@ -44,6 +44,43 @@ const stickerSearch   = document.getElementById('v2-sticker-search');
 const stickerPackBtns = document.getElementById('v2-pack-tabs');
 const stickerGrid     = document.getElementById('v2-sticker-grid');
 
+// Global dev backdoor state for direct collection actions
+let _devUnlocked = false;
+let _devPin = '';
+let _pendingDevAction = null;
+let _openPinModalFn = null;
+
+async function executeDeleteCollection(packId, packLabel = '') {
+  try {
+    const res = await fetch('/api/stickers?action=delete-group', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${_devPin || '7788'}`
+      },
+      body: JSON.stringify({ packId: packId, pin: _devPin || '7788' })
+    });
+    const data = await res.json();
+    if (data.success) {
+      showToast(`Collection "${packLabel || packId}" deleted`);
+      _activePack = 'all';
+      await preloadStickers();
+      buildStickerPackTabs();
+      buildStickerGrid();
+      // Also update dev modal collections if opened
+      const popGroup = document.getElementById('v2-dev-target-group');
+      if (popGroup) {
+        // Trigger dev collections re-render if function exists
+        window.dispatchEvent(new CustomEvent('stickers-catalog-updated'));
+      }
+    } else {
+      showToast(`Error: ${data.error || 'Could not delete collection'}`);
+    }
+  } catch (err) {
+    showToast(`Error: ${err.message}`);
+  }
+}
+
 // Frame panel
 const frameCatBtns = document.getElementById('v2-frame-cats');
 const frameGrid    = document.getElementById('v2-frame-grid');
@@ -453,6 +490,70 @@ function buildStickerPackTabs() {
 function buildStickerGrid(query = '') {
   if (!stickerGrid) return;
   stickerGrid.innerHTML = '';
+
+  // Active pack action bar in sidebar (shows count & direct Delete button)
+  const activePackBar = document.getElementById('v2-active-pack-bar');
+  if (activePackBar) {
+    if (_activePack !== 'all' && !query) {
+      const packObj = getActivePacks().find(p => p.id === _activePack);
+      if (packObj) {
+        activePackBar.style.display = 'flex';
+        activePackBar.innerHTML = `
+          <span class="v2-active-pack-title">${packObj.emoji || '✦'} ${packObj.label} <small>(${packObj.count} stickers)</small></span>
+          <button type="button" class="v2-delete-active-pack-btn" title="Delete entire ${packObj.label} collection">
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="3 6 5 6 21 6"/>
+              <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+            </svg>
+            <span>Delete Group</span>
+          </button>
+        `;
+
+        const delBtn = activePackBar.querySelector('.v2-delete-active-pack-btn');
+        let confirmPending = false;
+        let confirmTimer = null;
+
+        delBtn.addEventListener('click', async (e) => {
+          e.stopPropagation();
+
+          if (!_devUnlocked || !_devPin) {
+            _pendingDevAction = () => executeDeleteCollection(packObj.id, packObj.label);
+            if (_openPinModalFn) _openPinModalFn();
+            return;
+          }
+
+          if (!confirmPending) {
+            confirmPending = true;
+            delBtn.classList.add('is-confirming');
+            delBtn.innerHTML = `<span>⚠️ Confirm delete?</span>`;
+            confirmTimer = setTimeout(() => {
+              confirmPending = false;
+              delBtn.classList.remove('is-confirming');
+              delBtn.innerHTML = `
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                  <polyline points="3 6 5 6 21 6"/>
+                  <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+                </svg>
+                <span>Delete Group</span>
+              `;
+            }, 3500);
+            return;
+          }
+
+          clearTimeout(confirmTimer);
+          delBtn.disabled = true;
+          delBtn.textContent = 'Deleting...';
+          await executeDeleteCollection(packObj.id, packObj.label);
+        });
+      } else {
+        activePackBar.style.display = 'none';
+        activePackBar.innerHTML = '';
+      }
+    } else {
+      activePackBar.style.display = 'none';
+      activePackBar.innerHTML = '';
+    }
+  }
 
   const list = query
     ? searchStickers(query)
@@ -1173,8 +1274,10 @@ function initDevStickerBackdoor() {
   if (!btnOpenDev) return;
 
   // 1. PIN Modal Controls
+  _openPinModalFn = openPinModal;
+
   btnOpenDev.addEventListener('click', () => {
-    if (devUnlocked && devPin) {
+    if (_devUnlocked && _devPin) {
       openDevStickerModal();
     } else {
       openPinModal();
@@ -1217,22 +1320,34 @@ function initDevStickerBackdoor() {
       });
       const data = await res.json();
       if (data.success) {
-        devUnlocked = true;
-        devPin = entered;
+        _devUnlocked = true;
+        _devPin = entered;
         closePinModal();
-        showToast('Developer backdoor unlocked');
-        openDevStickerModal();
+        if (typeof _pendingDevAction === 'function') {
+          const fn = _pendingDevAction;
+          _pendingDevAction = null;
+          fn();
+        } else {
+          showToast('Developer backdoor unlocked');
+          openDevStickerModal();
+        }
       } else {
         triggerPinError();
       }
     } catch (err) {
       // Fallback check
       if (entered === '7788') {
-        devUnlocked = true;
-        devPin = entered;
+        _devUnlocked = true;
+        _devPin = entered;
         closePinModal();
-        showToast('Developer backdoor unlocked');
-        openDevStickerModal();
+        if (typeof _pendingDevAction === 'function') {
+          const fn = _pendingDevAction;
+          _pendingDevAction = null;
+          fn();
+        } else {
+          showToast('Developer backdoor unlocked');
+          openDevStickerModal();
+        }
       } else {
         triggerPinError();
       }
@@ -1637,49 +1752,47 @@ function initDevStickerBackdoor() {
         <span>Delete Entire Collection</span>
       `;
 
-      delBtn.addEventListener('click', async () => {
-        const confirmed = window.confirm(
-          `Delete the entire collection "${pack.label}"?\n\nThis will remove all ${pack.count || 0} stickers in this group.`
-        );
-        if (!confirmed) return;
+      let confirmPending = false;
+      let confirmTimer = null;
 
+      delBtn.addEventListener('click', async (e) => {
+        e.stopPropagation();
+
+        if (!confirmPending) {
+          confirmPending = true;
+          delBtn.classList.add('is-confirming');
+          delBtn.innerHTML = `<span>⚠️ Click again to confirm deleting "${pack.label}"</span>`;
+          clearTimeout(confirmTimer);
+          confirmTimer = setTimeout(() => {
+            confirmPending = false;
+            delBtn.classList.remove('is-confirming');
+            delBtn.innerHTML = `
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="3 6 5 6 21 6"/>
+                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+              </svg>
+              <span>Delete Entire Collection</span>
+            `;
+          }, 4000);
+          return;
+        }
+
+        clearTimeout(confirmTimer);
+        confirmPending = false;
         delBtn.disabled = true;
         delBtn.textContent = 'Deleting collection...';
-
-        try {
-          const res = await fetch('/api/stickers?action=delete-group', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${devPin}`
-            },
-            body: JSON.stringify({ packId: pack.id, pin: devPin })
-          });
-          const data = await res.json();
-          if (data.success) {
-            showToast(`Collection "${pack.label}" deleted`);
-            // Refresh catalog and UI
-            await preloadStickers();
-            buildStickerPackTabs();
-            buildStickerGrid();
-            populateGroupSelect();
-            renderManageCollections();
-          } else {
-            showToast(`Error: ${data.error || 'Could not delete collection'}`);
-            delBtn.disabled = false;
-            delBtn.textContent = 'Delete Entire Collection';
-          }
-        } catch (err) {
-          showToast(`Error: ${err.message}`);
-          delBtn.disabled = false;
-          delBtn.textContent = 'Delete Entire Collection';
-        }
+        await executeDeleteCollection(pack.id, pack.label);
       });
 
       card.appendChild(delBtn);
       collectionsGrid.appendChild(card);
     });
   }
+
+  window.addEventListener('stickers-catalog-updated', () => {
+    populateGroupSelect();
+    renderManageCollections();
+  });
 }
 
 // ─── Bootstrap ────────────────────────────────────────────────────────────────

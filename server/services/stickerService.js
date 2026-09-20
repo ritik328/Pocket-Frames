@@ -56,9 +56,7 @@ function loadStore() {
  */
 function saveStore(store) {
   try {
-    const tmp = `${DATA_FILE}.tmp`;
-    fs.writeFileSync(tmp, JSON.stringify(store, null, 2), 'utf8');
-    fs.renameSync(tmp, DATA_FILE);
+    fs.writeFileSync(DATA_FILE, JSON.stringify(store, null, 2), 'utf8');
   } catch (err) {
     console.error('[StickerService] Failed to save store:', err);
     throw err;
@@ -100,22 +98,44 @@ export async function deleteCollection(packId, pin) {
   }
 
   const store = loadStore();
-  const normalizedId = packId.toLowerCase().trim();
+  const rawLower = String(packId).toLowerCase().trim();
+  const slug = rawLower.replace(/[\s_]+/g, '-').replace(/[^a-z0-9-]/g, '');
 
-  // 1. If it's a built-in pack, mark as deleted
+  const matchesPack = (id, label) => {
+    if (!id && !label) return false;
+    const idLower = String(id || '').toLowerCase().trim();
+    const idSlug = idLower.replace(/[\s_]+/g, '-').replace(/[^a-z0-9-]/g, '');
+    const labelLower = String(label || '').toLowerCase().trim();
+    const labelSlug = labelLower.replace(/[\s_]+/g, '-').replace(/[^a-z0-9-]/g, '');
+
+    return (
+      idLower === rawLower ||
+      idSlug === slug ||
+      idLower === slug ||
+      idSlug === rawLower ||
+      labelLower === rawLower ||
+      labelSlug === slug ||
+      (rawLower && idLower.includes(rawLower))
+    );
+  };
+
+  // 1. If it matches a built-in pack, mark as deleted
   const BUILTIN_PACKS = ['ocean', 'summer', 'photography', 'floral', 'vintage'];
-  if (BUILTIN_PACKS.includes(normalizedId)) {
-    if (!store.deletedBuiltinPacks.includes(normalizedId)) {
-      store.deletedBuiltinPacks.push(normalizedId);
+  for (const b of BUILTIN_PACKS) {
+    if (matchesPack(b, b)) {
+      if (!store.deletedBuiltinPacks.includes(b)) {
+        store.deletedBuiltinPacks.push(b);
+      }
     }
   }
 
   // 2. Remove all custom stickers belonging to this pack
-  const toDelete = store.stickers.filter(s => s.pack === normalizedId);
-  store.stickers = store.stickers.filter(s => s.pack !== normalizedId);
+  const toDelete = store.stickers.filter(s => matchesPack(s.pack, s.pack));
+  store.stickers = store.stickers.filter(s => !matchesPack(s.pack, s.pack));
 
   // 3. Remove from custom packs list
-  store.packs = store.packs.filter(p => p.id !== normalizedId);
+  const removedPacks = store.packs.filter(p => matchesPack(p.id, p.label));
+  store.packs = store.packs.filter(p => !matchesPack(p.id, p.label));
 
   // 4. Delete physical files from disk
   for (const item of toDelete) {
