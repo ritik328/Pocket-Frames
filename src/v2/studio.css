@@ -116,17 +116,83 @@ html[data-theme="light"] {
 html, body {
   height: 100%; overflow: hidden;
   font-family: var(--serif);
-  background: var(--bg-2); color: var(--ink);
+  background-color: var(--desk);
+  color: var(--ink);
   font-size: 13px;
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
-  transition: background 0.25s var(--ease), color 0.25s var(--ease);
 }
 
-html[data-theme="light"] body {
+body {
+  position: relative;
+  transition: background-color 0.45s cubic-bezier(0.16, 1, 0.3, 1), color 0.45s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* Warm ambient radial gradient overlay that smoothly dissolves between themes */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
   background: radial-gradient(circle at 20% 10%, #f3ecdf 0, transparent 55%),
-              radial-gradient(circle at 85% 90%, #e0d4bf 0, transparent 50%),
-              var(--desk);
+              radial-gradient(circle at 85% 90%, #e0d4bf 0, transparent 50%);
+  opacity: 0;
+  transition: opacity 0.45s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+html[data-theme="light"] body::before {
+  opacity: 1;
+}
+
+/* ─── Fluid Theme Transition System ────────────────────────────────────────── */
+.shell,
+.rail,
+.rb,
+.rail-btn,
+.panel,
+.v2-tab-panel,
+.v2-prop-panel,
+.v2-meta-panel,
+.topbar,
+.v2-topbar,
+.v2-canvas-area,
+.v2-statusbar,
+.theme-switch,
+.theme-switch__btn,
+.chip,
+.v2-pack-tab,
+.v2-chip,
+.v2-frame-tile,
+.v2-sticker-tile,
+.glass-liquid-bar,
+.liquid-toggle-group,
+.liquid-toggle-btn,
+.liquid-slider,
+.liquid-badge,
+.btn,
+.v2-ghost-btn,
+.v2-primary-btn,
+.v2-card,
+.prop-row,
+.layer-row,
+.v2-upload-zone,
+.selbar,
+.v2-sel__toolbar,
+.v2-sel__btn,
+input, select, textarea {
+  transition:
+    background-color 0.4s cubic-bezier(0.16, 1, 0.3, 1),
+    border-color 0.4s cubic-bezier(0.16, 1, 0.3, 1),
+    color 0.4s cubic-bezier(0.16, 1, 0.3, 1),
+    box-shadow 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* Fluid cross-fade for document.startViewTransition */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation-duration: 0.38s;
+  animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .label {
@@ -258,6 +324,7 @@ html[data-theme="light"] body {
   border: 1px solid var(--border);
   background: var(--surface);
   flex-shrink: 0;
+  box-shadow: inset 0 1px 3px rgba(0,0,0,0.08);
 }
 
 .theme-switch__btn {
@@ -271,16 +338,23 @@ html[data-theme="light"] body {
   border: none;
   color: var(--text-faint);
   cursor: pointer;
-  transition: background 0.15s var(--ease), color 0.15s var(--ease);
+  transition:
+    background-color 0.28s cubic-bezier(0.34, 1.56, 0.64, 1),
+    color 0.2s ease,
+    transform 0.28s cubic-bezier(0.34, 1.56, 0.64, 1),
+    box-shadow 0.28s ease;
 }
 
 .theme-switch__btn:hover:not(.is-active) {
   color: var(--text);
+  transform: scale(1.08);
 }
 
 .theme-switch__btn.is-active {
   background: var(--accent);
   color: #1a1510;
+  transform: scale(1.08);
+  box-shadow: 0 2px 10px var(--accent-glow);
 }
 
 .v2-topbar__sep {

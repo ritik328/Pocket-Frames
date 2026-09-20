@@ -125,8 +125,8 @@ function renderLoop() {
         }
       );
       _overlay?.refresh();
-      updateLayersPanel();
-      updateUndoRedo();
+      // NOTE: updateLayersPanel() & updateUndoRedo() moved to sceneStore.subscribe
+      // so continuous 60fps pan/zoom never causes DOM layout thrashing.
     } catch (renderErr) {
       console.error('Studio render loop error:', renderErr);
     }
@@ -282,11 +282,13 @@ canvas.addEventListener('pointerdown', e => {
     // Existing photo -> pan
     _panState = {
       apertureIndex: apIdx,
+      photo: photo,
       photoId: photo.id,
       startX: e.clientX,
       startY: e.clientY,
       startPX: photo.x || 0,
-      startPY: photo.y || 0
+      startPY: photo.y || 0,
+      hasMoved: false
     };
     canvas.setPointerCapture(e.pointerId);
   } else {
@@ -303,15 +305,42 @@ canvas.addEventListener('pointermove', e => {
   const scale = getScale();
   const dx = (e.clientX - _panState.startX) / scale;
   const dy = (e.clientY - _panState.startY) / scale;
-  sceneStore.updatePhotoAt(_panState.apertureIndex, {
-    x: _panState.startPX + dx,
-    y: _panState.startPY + dy
-  });
+
+  // Ultra-fast direct mutation for buttery-smooth 60-120fps drag
+  _panState.photo.x = _panState.startPX + dx;
+  _panState.photo.y = _panState.startPY + dy;
+  _panState.hasMoved = true;
   scheduleRender();
 });
 
-canvas.addEventListener('pointerup',   () => { _panState = null; });
-canvas.addEventListener('pointercancel', () => { _panState = null; });
+function finishPhotoPan() {
+  if (_panState && _panState.hasMoved) {
+    // Commit final position to store history & autosave
+    sceneStore.updatePhotoAt(_panState.apertureIndex, {
+      x: _panState.photo.x,
+      y: _panState.photo.y
+    });
+  }
+  _panState = null;
+}
+
+canvas.addEventListener('pointerup', finishPhotoPan);
+canvas.addEventListener('pointercancel', finishPhotoPan);
+
+let _wheelSaveTimer = null;
+function debouncedWheelSave(apIdx) {
+  clearTimeout(_wheelSaveTimer);
+  _wheelSaveTimer = setTimeout(() => {
+    const photo = sceneStore.scene.photos?.[apIdx];
+    if (photo) {
+      sceneStore.updatePhotoAt(apIdx, {
+        scale: photo.scale,
+        x: photo.x,
+        y: photo.y
+      });
+    }
+  }, 200);
+}
 
 canvas.addEventListener('wheel', e => {
   e.preventDefault();
@@ -329,11 +358,31 @@ canvas.addEventListener('wheel', e => {
 
   const photo = sceneStore.scene.photos?.[apIdx];
   if (!photo) return;
-  const delta = e.deltaY < 0 ? 0.05 : -0.05;
-  sceneStore.updatePhotoAt(apIdx, {
-    scale: Math.max(0.1, Math.min(10, (photo.scale || 1) + delta))
-  });
-  scheduleRender();
+  const ap = apertures[apIdx] || apertures[0];
+
+  // Silky smooth exponential zoom (handles trackpads & mouse wheels gracefully)
+  const clampedDelta = Math.max(-120, Math.min(120, e.deltaY));
+  const zoomFactor = Math.exp(-clampedDelta * 0.0035);
+  const oldScale = photo.scale || 1;
+  const newScale = Math.max(0.05, Math.min(15, oldScale * zoomFactor));
+
+  if (Math.abs(newScale - oldScale) > 0.0001) {
+    if (ap) {
+      // Zoom centered at cursor focal point (lx, ly)
+      const acx = ap.x + ap.w / 2;
+      const acy = ap.y + ap.h / 2;
+      const curPX = photo.x || 0;
+      const curPY = photo.y || 0;
+      const relX = lx - (acx + curPX);
+      const relY = ly - (acy + curPY);
+      const ratio = newScale / oldScale;
+      photo.x = curPX - relX * (ratio - 1);
+      photo.y = curPY - relY * (ratio - 1);
+    }
+    photo.scale = newScale;
+    scheduleRender();
+    debouncedWheelSave(apIdx);
+  }
 }, { passive: false });
 
 canvas.addEventListener('dblclick', e => {
@@ -457,9 +506,7 @@ function addSticker(sticker) {
   _overlay?.selectElement(el.id);
   scheduleRender();
   showToast(`${sticker.name} added`);
-
-  // Switch to photo tab so user sees the result
-  activateTab('photo');
+  // Stay on sticker tab so user can add multiple stickers seamlessly
 }
 
 // ─── Frame picker ─────────────────────────────────────────────────────────────
@@ -952,21 +999,40 @@ function initThemeSwitcher() {
   }
 
   function applyTheme(choice) {
-    currentChoice = choice;
-    const resolved = choice === 'auto' ? (systemPrefersLight() ? 'light' : 'dark') : choice;
-    document.documentElement.setAttribute('data-theme', resolved);
-    document.documentElement.setAttribute('data-theme-choice', choice);
-    document.body.setAttribute('data-theme', resolved);
+    const updateDom = () => {
+      currentChoice = choice;
+      const resolved = choice === 'auto' ? (systemPrefersLight() ? 'light' : 'dark') : choice;
+      document.documentElement.setAttribute('data-theme', resolved);
+      document.documentElement.setAttribute('data-theme-choice', choice);
+      document.body.setAttribute('data-theme', resolved);
 
-    document.querySelectorAll('.theme-switch__btn').forEach(btn => {
-      btn.classList.toggle('is-active', btn.dataset.themeChoice === choice);
-    });
+      document.querySelectorAll('.theme-switch__btn').forEach(btn => {
+        btn.classList.toggle('is-active', btn.dataset.themeChoice === choice);
+      });
 
-    try {
-      localStorage.setItem(THEME_KEY, choice);
-    } catch (e) {}
+      try {
+        localStorage.setItem(THEME_KEY, choice);
+      } catch (e) {}
 
-    scheduleRender();
+      scheduleRender();
+    };
+
+    // Smooth fluid motion: use View Transitions API if supported
+    if (document.startViewTransition && !window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      document.documentElement.classList.add('theme-transitioning');
+      const transition = document.startViewTransition(() => {
+        updateDom();
+      });
+      transition.finished.finally(() => {
+        document.documentElement.classList.remove('theme-transitioning');
+      });
+    } else {
+      document.documentElement.classList.add('theme-transitioning');
+      updateDom();
+      setTimeout(() => {
+        document.documentElement.classList.remove('theme-transitioning');
+      }, 450);
+    }
   }
 
   applyTheme(currentChoice);
@@ -1031,8 +1097,18 @@ async function init() {
   // Metadata
   updateMetaInputs();
 
-  // Subscribe to scene changes → re-render
-  sceneStore.subscribe(() => { scheduleRender(); });
+  // Subscribe to scene changes → re-render & update UI
+  sceneStore.subscribe((scene, changeType) => {
+    scheduleRender();
+    if (!changeType || changeType === 'elements' || changeType === 'frame' || changeType === 'undo' || changeType === 'redo' || changeType === 'reset') {
+      updateLayersPanel();
+      updateUndoRedo();
+    }
+  });
+
+  // Initial layer & undo/redo sync
+  updateLayersPanel();
+  updateUndoRedo();
 
   // Start render loop
   renderLoop();

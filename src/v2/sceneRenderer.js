@@ -477,7 +477,9 @@ function renderPhoto(ctx, photo, assets, aperture, scale, isExport, editorState)
       ctx.rotate((photo.rotation * Math.PI) / 180);
       ctx.translate(-acx, -acy);
     }
-    ctx.drawImage(img, drawX, drawY, drawW, drawH);
+    const renderImg = (!isExport && asset.displayImg) ? asset.displayImg : img;
+    ctx.imageSmoothingQuality = isExport ? 'high' : 'medium';
+    ctx.drawImage(renderImg, drawX, drawY, drawW, drawH);
     ctx.restore();
   }
 
@@ -1153,19 +1155,39 @@ function renderGrid(ctx, frameDef, scale) {
 }
 
 // ─── Noise texture ────────────────────────────────────────────────────────────
-function addNoiseTexture(ctx, scale, alpha) {
-  const w = ctx.canvas.width, h = ctx.canvas.height;
-  const step = Math.max(2, Math.round(2 * scale));
-  ctx.save();
-  ctx.globalAlpha = alpha;
+let _cachedNoisePattern = null;
+let _cachedNoiseCanvas = null;
 
-  for (let y = 0; y < h; y += step) {
-    for (let x = 0; x < w; x += step) {
-      const v = Math.random() > 0.5 ? 255 : 0;
-      ctx.fillStyle = `rgb(${v},${v},${v})`;
-      ctx.fillRect(x, y, step, step);
+function getCachedNoisePattern(ctx) {
+  if (!_cachedNoiseCanvas) {
+    _cachedNoiseCanvas = document.createElement('canvas');
+    _cachedNoiseCanvas.width = 128;
+    _cachedNoiseCanvas.height = 128;
+    const nCtx = _cachedNoiseCanvas.getContext('2d');
+    if (nCtx) {
+      const imgData = nCtx.createImageData(128, 128);
+      const buf = new Uint32Array(imgData.data.buffer);
+      for (let i = 0; i < buf.length; i++) {
+        const v = Math.random() > 0.5 ? 255 : 0;
+        buf[i] = (255 << 24) | (v << 16) | (v << 8) | v;
+      }
+      nCtx.putImageData(imgData, 0, 0);
     }
   }
+  if (!_cachedNoisePattern && _cachedNoiseCanvas) {
+    _cachedNoisePattern = ctx.createPattern(_cachedNoiseCanvas, 'repeat');
+  }
+  return _cachedNoisePattern;
+}
+
+function addNoiseTexture(ctx, scale, alpha) {
+  const w = ctx.canvas.width, h = ctx.canvas.height;
+  const pat = getCachedNoisePattern(ctx);
+  if (!pat) return;
+  ctx.save();
+  ctx.globalAlpha = alpha;
+  ctx.fillStyle = pat;
+  ctx.fillRect(0, 0, w, h);
   ctx.restore();
 }
 

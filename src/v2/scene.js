@@ -324,7 +324,29 @@ export class SceneStore {
       const url = URL.createObjectURL(blob);
       const img = new Image();
       img.onload = () => {
-        this._assets.set(assetId, { blob, url, img, w: img.naturalWidth, h: img.naturalHeight, filename });
+        let displayImg = img;
+        const maxDim = 1800;
+        if (img.naturalWidth > maxDim || img.naturalHeight > maxDim) {
+          try {
+            const oc = document.createElement('canvas');
+            const ratio = Math.min(maxDim / img.naturalWidth, maxDim / img.naturalHeight);
+            oc.width = Math.max(1, Math.round(img.naturalWidth * ratio));
+            oc.height = Math.max(1, Math.round(img.naturalHeight * ratio));
+            const octx = oc.getContext('2d');
+            if (octx) {
+              octx.imageSmoothingEnabled = true;
+              octx.imageSmoothingQuality = 'medium';
+              octx.drawImage(img, 0, 0, oc.width, oc.height);
+              displayImg = oc;
+            }
+          } catch (e) {
+            displayImg = img;
+          }
+        }
+        this._assets.set(assetId, {
+          blob, url, img, displayImg,
+          w: img.naturalWidth, h: img.naturalHeight, filename
+        });
         resolve(assetId);
       };
       img.onerror = reject;

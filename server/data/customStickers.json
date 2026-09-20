@@ -4,11 +4,299 @@
       "id": "summer-vibes",
       "label": "Summer Vibes",
       "emoji": "✦",
-      "count": 30
+      "count": 45
     }
   ],
   "deletedBuiltinPacks": [],
   "stickers": [
+    {
+      "id": "custom-1789888903911-ofkis",
+      "name": "Vintage Pink Floral Stamp",
+      "pack": "summer-vibes",
+      "tags": [
+        "stamp",
+        "flower",
+        "botanical",
+        "vintage",
+        "pink",
+        "retro"
+      ],
+      "url": "/custom-stickers/custom-1789888903911-ofkis.png",
+      "filename": "custom-1789888903911-ofkis.png",
+      "defaultSize": 200,
+      "width": 447,
+      "height": 512,
+      "createdAt": 1789888903918,
+      "bgCleanedVia": "smart-alpha-matting"
+    },
+    {
+      "id": "custom-1789888901902-l6vmj",
+      "name": "Beige Lily",
+      "pack": "summer-vibes",
+      "tags": [
+        "flower",
+        "lily",
+        "floral",
+        "botanical",
+        "bloom"
+      ],
+      "url": "/custom-stickers/custom-1789888901902-l6vmj.png",
+      "filename": "custom-1789888901902-l6vmj.png",
+      "defaultSize": 200,
+      "width": 512,
+      "height": 488,
+      "createdAt": 1789888901907,
+      "bgCleanedVia": "smart-alpha-matting"
+    },
+    {
+      "id": "custom-1789888897323-9v6jp",
+      "name": "I Love You",
+      "pack": "summer-vibes",
+      "tags": [
+        "i love you",
+        "sticker",
+        "typography",
+        "love",
+        "retro"
+      ],
+      "url": "/custom-stickers/custom-1789888897323-9v6jp.png",
+      "filename": "custom-1789888897323-9v6jp.png",
+      "defaultSize": 200,
+      "width": 301,
+      "height": 512,
+      "createdAt": 1789888897324,
+      "bgCleanedVia": "smart-alpha-matting"
+    },
+    {
+      "id": "custom-1789888894635-vgio2",
+      "name": "Red Stars",
+      "pack": "summer-vibes",
+      "tags": [
+        "star",
+        "stars",
+        "red",
+        "patch",
+        "embroidery"
+      ],
+      "url": "/custom-stickers/custom-1789888894635-vgio2.png",
+      "filename": "custom-1789888894635-vgio2.png",
+      "defaultSize": 200,
+      "width": 510,
+      "height": 512,
+      "createdAt": 1789888894639,
+      "bgCleanedVia": "smart-alpha-matting"
+    },
+    {
+      "id": "custom-1789888890491-09tyg",
+      "name": "Lipstick Kisses Pattern",
+      "pack": "summer-vibes",
+      "tags": [
+        "kiss",
+        "lips",
+        "lipstick",
+        "makeup",
+        "pattern"
+      ],
+      "url": "/custom-stickers/custom-1789888890491-09tyg.png",
+      "filename": "custom-1789888890491-09tyg.png",
+      "defaultSize": 200,
+      "width": 376,
+      "height": 512,
+      "createdAt": 1789888890493,
+      "bgCleanedVia": "smart-alpha-matting"
+    },
+    {
+      "id": "custom-1789888887896-w8rsy",
+      "name": "Blue Flower Quote",
+      "pack": "summer-vibes",
+      "tags": [
+        "flower",
+        "blue flower",
+        "quote",
+        "perfect is boring",
+        "sticker"
+      ],
+      "url": "/custom-stickers/custom-1789888887896-w8rsy.png",
+      "filename": "custom-1789888887896-w8rsy.png",
+      "defaultSize": 200,
+      "width": 506,
+      "height": 512,
+      "createdAt": 1789888887900,
+      "bgCleanedVia": "smart-alpha-matting"
+    },
+    {
+      "id": "custom-1789888882631-jroyx",
+      "name": "Dark Red Lily",
+      "pack": "summer-vibes",
+      "tags": [
+        "flower",
+        "lily",
+        "red",
+        "dark",
+        "botanical",
+        "petal"
+      ],
+      "url": "/custom-stickers/custom-1789888882631-jroyx.png",
+      "filename": "custom-1789888882631-jroyx.png",
+      "defaultSize": 200,
+      "width": 443,
+      "height": 453,
+      "createdAt": 1789888882633,
+      "bgCleanedVia": "smart-alpha-matting"
+    },
+    {
+      "id": "custom-1789888880746-gkfty",
+      "name": "Blue Lily",
+      "pack": "summer-vibes",
+      "tags": [
+        "flower",
+        "lily",
+        "blue",
+        "botanical",
+        "nature"
+      ],
+      "url": "/custom-stickers/custom-1789888880746-gkfty.png",
+      "filename": "custom-1789888880746-gkfty.png",
+      "defaultSize": 200,
+      "width": 512,
+      "height": 467,
+      "createdAt": 1789888880751,
+      "bgCleanedVia": "smart-alpha-matting"
+    },
+    {
+      "id": "custom-1789888878711-t9vym",
+      "name": "1094304409477368042",
+      "pack": "summer-vibes",
+      "tags": [
+        "sticker"
+      ],
+      "url": "/custom-stickers/custom-1789888878711-t9vym.png",
+      "filename": "custom-1789888878711-t9vym.png",
+      "defaultSize": 200,
+      "width": 506,
+      "height": 512,
+      "createdAt": 1789888878718,
+      "bgCleanedVia": "smart-alpha-matting"
+    },
+    {
+      "id": "custom-1789888877023-0m6uh",
+      "name": "Bratz Drama Queen",
+      "pack": "summer-vibes",
+      "tags": [
+        "bratz",
+        "doll",
+        "fashion",
+        "drama",
+        "blonde",
+        "sticker"
+      ],
+      "url": "/custom-stickers/custom-1789888877023-0m6uh.png",
+      "filename": "custom-1789888877023-0m6uh.png",
+      "defaultSize": 200,
+      "width": 393,
+      "height": 512,
+      "createdAt": 1789888877030,
+      "bgCleanedVia": "smart-alpha-matting"
+    },
+    {
+      "id": "custom-1789888872835-arbrw",
+      "name": "Tulip Bouquet",
+      "pack": "summer-vibes",
+      "tags": [
+        "tulips",
+        "bouquet",
+        "flowers",
+        "pink",
+        "floral",
+        "gift"
+      ],
+      "url": "/custom-stickers/custom-1789888872835-arbrw.png",
+      "filename": "custom-1789888872835-arbrw.png",
+      "defaultSize": 200,
+      "width": 369,
+      "height": 512,
+      "createdAt": 1789888872838,
+      "bgCleanedVia": "smart-alpha-matting"
+    },
+    {
+      "id": "custom-1789888870495-fvtb6",
+      "name": "Broken Heart with Safety Pin",
+      "pack": "summer-vibes",
+      "tags": [
+        "broken heart",
+        "safety pin",
+        "grunge",
+        "punk",
+        "love"
+      ],
+      "url": "/custom-stickers/custom-1789888870495-fvtb6.png",
+      "filename": "custom-1789888870495-fvtb6.png",
+      "defaultSize": 200,
+      "width": 462,
+      "height": 344,
+      "createdAt": 1789888870499,
+      "bgCleanedVia": "smart-alpha-matting"
+    },
+    {
+      "id": "custom-1789888867118-mzcgx",
+      "name": "Pink Lily",
+      "pack": "summer-vibes",
+      "tags": [
+        "flower",
+        "lily",
+        "pink",
+        "botanical",
+        "petal",
+        "nature"
+      ],
+      "url": "/custom-stickers/custom-1789888867118-mzcgx.png",
+      "filename": "custom-1789888867118-mzcgx.png",
+      "defaultSize": 200,
+      "width": 492,
+      "height": 459,
+      "createdAt": 1789888867128,
+      "bgCleanedVia": "smart-alpha-matting"
+    },
+    {
+      "id": "custom-1789888862558-dtxrn",
+      "name": "Black and White Cats",
+      "pack": "summer-vibes",
+      "tags": [
+        "cats",
+        "black cat",
+        "white cat",
+        "pets",
+        "felines",
+        "illustration"
+      ],
+      "url": "/custom-stickers/custom-1789888862558-dtxrn.png",
+      "filename": "custom-1789888862558-dtxrn.png",
+      "defaultSize": 200,
+      "width": 512,
+      "height": 482,
+      "createdAt": 1789888862564,
+      "bgCleanedVia": "smart-alpha-matting"
+    },
+    {
+      "id": "custom-1789888858659-4zbwj",
+      "name": "Hot Mess",
+      "pack": "summer-vibes",
+      "tags": [
+        "hot wheels",
+        "funny",
+        "pink",
+        "car",
+        "parody",
+        "vintage"
+      ],
+      "url": "/custom-stickers/custom-1789888858659-4zbwj.png",
+      "filename": "custom-1789888858659-4zbwj.png",
+      "defaultSize": 200,
+      "width": 512,
+      "height": 212,
+      "createdAt": 1789888858662,
+      "bgCleanedVia": "smart-alpha-matting"
+    },
     {
       "id": "custom-1789888635652-mjzvt",
       "name": "white flower off white flower  flower sticker",
