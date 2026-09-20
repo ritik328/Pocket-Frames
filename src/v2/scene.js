@@ -349,6 +349,33 @@ export class SceneStore {
     });
   }
 
+  registerImageAsset(assetId, srcUrl, width = 200, height = 200) {
+    return new Promise((resolve) => {
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      img.onload = () => {
+        this._assets.set(assetId, {
+          url: srcUrl,
+          img,
+          w: img.naturalWidth || width,
+          h: img.naturalHeight || height
+        });
+        resolve(assetId);
+      };
+      img.onerror = () => {
+        // Fallback placeholder
+        this._assets.set(assetId, {
+          url: srcUrl,
+          img: null,
+          w: width,
+          h: height
+        });
+        resolve(assetId);
+      };
+      img.src = srcUrl;
+    });
+  }
+
   getAsset(assetId) {
     return this._assets.get(assetId) || null;
   }

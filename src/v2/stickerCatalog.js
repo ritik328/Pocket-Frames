@@ -1142,8 +1142,8 @@ const VINTAGE = [
   }
 ];
 
-// ─── Master catalog export ─────────────────────────────────────────────────────
-export const STICKER_CATALOG = [
+// ─── Base Built-In Catalog ───────────────────────────────────────────────────
+export const BUILTIN_STICKERS = [
   ...OCEAN.map(s => ({ ...s, pack: 'ocean' })),
   ...SUMMER.map(s => ({ ...s, pack: 'summer' })),
   ...PHOTOGRAPHY.map(s => ({ ...s, pack: 'photography' })),
@@ -1151,8 +1151,7 @@ export const STICKER_CATALOG = [
   ...VINTAGE.map(s => ({ ...s, pack: 'vintage' }))
 ];
 
-export const STICKER_PACKS = [
-  { id: 'all',         label: 'All',          emoji: '✦',  count: STICKER_CATALOG.length },
+const BUILTIN_PACKS = [
   { id: 'ocean',       label: 'Ocean',        emoji: '🌊', count: OCEAN.length },
   { id: 'summer',      label: 'Summer',       emoji: '☀️', count: SUMMER.length },
   { id: 'photography', label: 'Photography',  emoji: '📷', count: PHOTOGRAPHY.length },
@@ -1160,22 +1159,84 @@ export const STICKER_PACKS = [
   { id: 'vintage',     label: 'Vintage',      emoji: '🕰️', count: VINTAGE.length }
 ];
 
+// Runtime dynamic store
+let _customStickers = [];
+let _customPacks = [];
+let _deletedBuiltinPacks = new Set();
+
+/**
+ * Sync dynamic stickers from backend (/api/stickers)
+ */
+export function setCustomStickerData({ stickers = [], packs = [], deletedBuiltinPacks = [] } = {}) {
+  _customStickers = Array.isArray(stickers) ? stickers : [];
+  _customPacks = Array.isArray(packs) ? packs : [];
+  _deletedBuiltinPacks = new Set(Array.isArray(deletedBuiltinPacks) ? deletedBuiltinPacks : []);
+
+  // Update STICKER_CATALOG and STICKER_PACKS arrays in place for backwards compatibility
+  STICKER_CATALOG.length = 0;
+  STICKER_CATALOG.push(...getAllStickers());
+
+  STICKER_PACKS.length = 0;
+  STICKER_PACKS.push(...getActivePacks());
+}
+
+/**
+ * Get all active stickers (built-ins not in deletedBuiltinPacks + custom stickers)
+ */
+export function getAllStickers() {
+  const activeBuiltins = BUILTIN_STICKERS.filter(s => !_deletedBuiltinPacks.has(s.pack));
+  return [...activeBuiltins, ..._customStickers];
+}
+
+/**
+ * Get all active packs
+ */
+export function getActivePacks() {
+  const allStickers = getAllStickers();
+  const activeBuiltinPacks = BUILTIN_PACKS
+    .filter(p => !_deletedBuiltinPacks.has(p.id))
+    .map(p => ({
+      ...p,
+      count: allStickers.filter(s => s.pack === p.id).length
+    }));
+
+  const activeCustomPacks = _customPacks.map(p => ({
+    ...p,
+    count: allStickers.filter(s => s.pack === p.id).length
+  }));
+
+  return [
+    { id: 'all', label: 'All', emoji: '✦', count: allStickers.length },
+    ...activeBuiltinPacks,
+    ...activeCustomPacks
+  ];
+}
+
+// Mutable arrays for initial load & backwards compatibility
+export const STICKER_CATALOG = [...BUILTIN_STICKERS];
+export const STICKER_PACKS = [
+  { id: 'all', label: 'All', emoji: '✦', count: BUILTIN_STICKERS.length },
+  ...BUILTIN_PACKS
+];
+
 /**
  * Get stickers for a given pack (or all)
  */
 export function getStickersByPack(packId) {
-  if (packId === 'all') return STICKER_CATALOG;
-  return STICKER_CATALOG.filter(s => s.pack === packId);
+  const all = getAllStickers();
+  if (!packId || packId === 'all') return all;
+  return all.filter(s => s.pack === packId);
 }
 
 /**
  * Search stickers by query
  */
 export function searchStickers(query) {
-  const q = query.toLowerCase().trim();
-  if (!q) return STICKER_CATALOG;
-  return STICKER_CATALOG.filter(s =>
-    s.name.toLowerCase().includes(q) || s.tags.some(t => t.includes(q))
+  const all = getAllStickers();
+  const q = (query || '').toLowerCase().trim();
+  if (!q) return all;
+  return all.filter(s =>
+    s.name.toLowerCase().includes(q) || (s.tags && s.tags.some(t => t.toLowerCase().includes(q)))
   );
 }
 
@@ -1183,5 +1244,5 @@ export function searchStickers(query) {
  * Get sticker by id
  */
 export function getStickerById(id) {
-  return STICKER_CATALOG.find(s => s.id === id);
+  return getAllStickers().find(s => s.id === id);
 }

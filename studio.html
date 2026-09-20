@@ -184,8 +184,17 @@
 
       <!-- ── STICKERS TAB ──────────────────────────────────────────────────── -->
       <div class="v2-tab-panel" data-panel="stickers" role="tabpanel" style="display:none;">
-        <div>
-          <h2>Stickers</h2>
+        <div class="v2-stickers-header">
+          <div class="v2-stickers-title-row">
+            <h2>Stickers</h2>
+            <button class="v2-dev-upload-btn" id="v2-open-dev-stickers" type="button" title="Developer Backdoor Sticker Studio (PIN Protected)">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+                <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+              </svg>
+              <span>✦ Dev Upload</span>
+            </button>
+          </div>
           <div class="search">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
             <input id="v2-sticker-search" placeholder="Search stickers" autocomplete="off" />
@@ -455,11 +464,206 @@
 
 </div>
 
-<!-- Hidden file input -->
+<!-- Hidden file input for single photo -->
 <input type="file" id="v2-file-input" accept="image/*" hidden aria-hidden="true">
+
+<!-- Hidden file input for batch sticker upload (up to 50) -->
+<input type="file" id="v2-dev-stickers-file-input" accept="image/png,image/jpeg,image/webp,image/svg+xml" multiple hidden aria-hidden="true">
 
 <!-- Toast -->
 <div id="v2-toast" role="status" aria-live="polite"></div>
+
+<!-- ═══ DEVELOPER PIN MODAL ═════════════════════════════════════════════ -->
+<div class="v2-modal-backdrop" id="v2-dev-pin-modal" style="display:none;" role="dialog" aria-modal="true" aria-labelledby="v2-pin-modal-title">
+  <div class="v2-pin-modal-card">
+    <button class="v2-modal-close-btn" id="v2-pin-modal-close" type="button" aria-label="Close PIN prompt">✕</button>
+    
+    <div class="v2-pin-header">
+      <div class="v2-pin-badge">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+          <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+        </svg>
+      </div>
+      <h3 id="v2-pin-modal-title">Developer Access</h3>
+      <p class="v2-pin-subtitle">Enter your 4-digit developer PIN to unlock batch sticker uploads, Gemini background cleaning, and collection management.</p>
+    </div>
+
+    <!-- PIN dots display -->
+    <div class="v2-pin-display" id="v2-pin-display">
+      <span class="v2-pin-dot"></span>
+      <span class="v2-pin-dot"></span>
+      <span class="v2-pin-dot"></span>
+      <span class="v2-pin-dot"></span>
+    </div>
+
+    <!-- Hidden native PIN input for keyboard typing -->
+    <input type="password" id="v2-pin-hidden-input" maxlength="4" pattern="[0-9]*" inputmode="numeric" autocomplete="off" style="position:absolute;opacity:0;pointer-events:none;" />
+
+    <div class="v2-pin-error" id="v2-pin-error" style="display:none;">Invalid developer PIN. Please try again.</div>
+
+    <!-- Numeric Keypad -->
+    <div class="v2-pin-keypad">
+      <button class="v2-keypad-btn" type="button" data-num="1">1</button>
+      <button class="v2-keypad-btn" type="button" data-num="2">2</button>
+      <button class="v2-keypad-btn" type="button" data-num="3">3</button>
+      <button class="v2-keypad-btn" type="button" data-num="4">4</button>
+      <button class="v2-keypad-btn" type="button" data-num="5">5</button>
+      <button class="v2-keypad-btn" type="button" data-num="6">6</button>
+      <button class="v2-keypad-btn" type="button" data-num="7">7</button>
+      <button class="v2-keypad-btn" type="button" data-num="8">8</button>
+      <button class="v2-keypad-btn" type="button" data-num="9">9</button>
+      <button class="v2-keypad-btn v2-keypad-btn--clear" type="button" id="v2-pin-btn-clear">C</button>
+      <button class="v2-keypad-btn" type="button" data-num="0">0</button>
+      <button class="v2-keypad-btn v2-keypad-btn--del" type="button" id="v2-pin-btn-del" aria-label="Backspace">⌫</button>
+    </div>
+
+    <div class="v2-pin-footer">
+      <span class="v2-pin-hint">Default Dev PIN: <code>7788</code></span>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ DEVELOPER STICKER STUDIO MODAL ═══════════════════════════════════ -->
+<div class="v2-modal-backdrop" id="v2-dev-sticker-modal" style="display:none;" role="dialog" aria-modal="true" aria-labelledby="v2-dev-modal-title">
+  <div class="v2-dev-modal-card">
+    <!-- Header -->
+    <div class="v2-dev-modal-header">
+      <div class="v2-dev-title-block">
+        <div class="v2-dev-header-badge">
+          <span>🔒 Backdoor</span>
+          <span class="v2-badge-pill">Gemini Flash 2.5 Image</span>
+        </div>
+        <h2 id="v2-dev-modal-title">Developer Sticker Studio</h2>
+        <p class="v2-dev-modal-desc">Directly upload up to 50 stickers per batch, automatically clean backgrounds with Gemini, assign custom groups (e.g. <em>summer vibes</em>), or let AI categorize.</p>
+      </div>
+      <button class="v2-modal-close-btn" id="v2-dev-modal-close" type="button" aria-label="Close modal">✕</button>
+    </div>
+
+    <!-- Navigation Tabs -->
+    <div class="v2-dev-nav-tabs">
+      <button class="v2-dev-nav-tab is-active" id="v2-tab-dev-upload" type="button">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+          <polyline points="17 8 12 3 7 8"/>
+          <line x1="12" y1="3" x2="12" y2="15"/>
+        </svg>
+        <span>Batch Upload (Max 50)</span>
+      </button>
+      <button class="v2-dev-nav-tab" id="v2-tab-dev-manage" type="button">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="3" y="3" width="7" height="7"/>
+          <rect x="14" y="3" width="7" height="7"/>
+          <rect x="14" y="14" width="7" height="7"/>
+          <rect x="3" y="14" width="7" height="7"/>
+        </svg>
+        <span>Manage & Delete Collections</span>
+      </button>
+    </div>
+
+    <!-- SECTION 1: Batch Upload -->
+    <div class="v2-dev-section" id="v2-dev-section-upload">
+      
+      <!-- Group / Collection Destination Selection -->
+      <div class="v2-dev-field-card">
+        <label class="v2-dev-label">Target Collection / Group</label>
+        <div class="v2-dev-group-select-row">
+          <select id="v2-dev-group-select" class="v2-dev-select">
+            <option value="__new__">+ Create New Group (e.g. Summer Vibes)</option>
+            <option value="__auto__">🤖 AI Auto-Categorize with Gemini (detects floral, mirrors, ocean, etc.)</option>
+            <!-- Dynamically populated options -->
+          </select>
+          <input type="text" id="v2-dev-new-group-name" class="v2-dev-input" placeholder="Enter group name (e.g. summer vibes)" value="summer vibes" />
+        </div>
+        <span class="v2-dev-hint">You can create custom groups specifically for themes like <em>summer vibes</em>, <em>botanicals</em>, or <em>mirrors</em>.</span>
+      </div>
+
+      <!-- Dropzone (Max 50 files) -->
+      <div class="v2-dev-dropzone" id="v2-dev-dropzone" role="button" tabindex="0">
+        <div class="v2-dev-dropzone-inner">
+          <div class="v2-dev-dropzone-icon">
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+              <polyline points="17 8 12 3 7 8"/>
+              <line x1="12" y1="3" x2="12" y2="15"/>
+            </svg>
+          </div>
+          <div class="v2-dev-dropzone-text">
+            <span class="v2-dev-dropzone-title">Click to select files or drag & drop here</span>
+            <span class="v2-dev-dropzone-subtitle">PNG, JPG, WebP, SVG · <strong>Maximum 50 stickers in one batch</strong></span>
+          </div>
+          <span class="v2-dev-dropzone-count-badge" id="v2-dev-file-count">0 / 50 selected</span>
+        </div>
+      </div>
+
+      <!-- File Previews Grid -->
+      <div class="v2-dev-preview-box" id="v2-dev-preview-box" style="display:none;">
+        <div class="v2-dev-preview-header">
+          <span class="v2-dev-preview-title" id="v2-dev-preview-title">Selected Stickers</span>
+          <button class="v2-dev-clear-btn" id="v2-dev-clear-selected" type="button">Clear All</button>
+        </div>
+        <div class="v2-dev-file-grid" id="v2-dev-file-grid"></div>
+      </div>
+
+      <!-- Background removal options -->
+      <div class="v2-dev-options-card">
+        <label class="v2-dev-checkbox-row">
+          <input type="checkbox" id="v2-dev-chk-bg-removal" checked />
+          <span class="v2-dev-checkbox-box"></span>
+          <div class="v2-dev-checkbox-text">
+            <strong>Clean background in backend via Gemini Flash 2.5 Image API</strong>
+            <p>Automatically isolates foreground subjects and produces clean transparent PNG stickers with feathered antialiased edges.</p>
+          </div>
+        </label>
+        
+        <label class="v2-dev-checkbox-row" style="margin-top:10px;">
+          <input type="checkbox" id="v2-dev-chk-auto-cat" />
+          <span class="v2-dev-checkbox-box"></span>
+          <div class="v2-dev-checkbox-text">
+            <strong>Use Gemini Vision to auto-tag and name each sticker</strong>
+            <p>Generates crisp titles and semantic tags for easy search in the studio sidebar.</p>
+          </div>
+        </label>
+      </div>
+
+      <!-- Action & Progress -->
+      <div class="v2-dev-action-row">
+        <button class="v2-dev-submit-btn" id="v2-dev-btn-upload-submit" type="button" disabled>
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="20 6 9 17 4 12"/>
+          </svg>
+          <span id="v2-dev-btn-submit-label">Upload & Process 0 Stickers</span>
+        </button>
+      </div>
+
+      <!-- Live progress status -->
+      <div class="v2-dev-progress-container" id="v2-dev-progress-container" style="display:none;">
+        <div class="v2-dev-progress-bar-wrap">
+          <div class="v2-dev-progress-bar" id="v2-dev-progress-bar" style="width:0%;"></div>
+        </div>
+        <div class="v2-dev-progress-text-row">
+          <span id="v2-dev-progress-status">Preparing batch upload...</span>
+          <span id="v2-dev-progress-percent">0%</span>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- SECTION 2: Manage & Delete Collections -->
+    <div class="v2-dev-section" id="v2-dev-section-manage" style="display:none;">
+      <div class="v2-dev-manage-intro">
+        <h3>Manage Collections</h3>
+        <p>Delete entire collections at once. You can delete custom uploaded groups (e.g. <em>summer vibes</em>) as well as built-in groups (e.g. <em>ocean</em>, <em>floral</em>). Deleting a collection removes all its stickers and hides its pack tab from the studio sidebar.</p>
+      </div>
+
+      <!-- Collections List -->
+      <div class="v2-dev-collections-grid" id="v2-dev-collections-grid">
+        <!-- Rendered dynamically -->
+      </div>
+    </div>
+
+  </div>
+</div>
 
 <!-- Bootstrap -->
 <script type="module" src="./src/v2/studioApp.js"></script>

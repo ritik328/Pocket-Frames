@@ -7,7 +7,15 @@ import { sceneStore, createPhotoEntry, createStickerElement, createTextElement, 
 import { renderScene, renderFrameThumbnail } from './sceneRenderer.js';
 import { OverlayController } from './overlayController.js';
 import { FRAME_CATALOG, FRAME_CATEGORIES, getFrameById } from './frameDefinitions.js';
-import { STICKER_CATALOG, STICKER_PACKS, getStickersByPack, searchStickers } from './stickerCatalog.js';
+import {
+  STICKER_CATALOG,
+  STICKER_PACKS,
+  getStickersByPack,
+  searchStickers,
+  setCustomStickerData,
+  getAllStickers,
+  getActivePacks
+} from './stickerCatalog.js';
 import { CanvasResizer } from '../editor/canvasResizer.js';
 
 // ─── DOM refs ─────────────────────────────────────────────────────────────────
@@ -340,23 +348,46 @@ canvas.addEventListener('dblclick', e => {
 });
 
 // ─── Sticker panel ────────────────────────────────────────────────────────────
-// Pre-load all SVGs as assets once
+// Pre-load all SVGs and custom sticker images as assets
 async function preloadStickers() {
-  const promises = STICKER_CATALOG.map(sticker =>
-    sceneStore.registerSvgAsset(sticker.id, sticker.svg)
-  );
+  try {
+    const res = await fetch('/api/stickers');
+    if (res.ok) {
+      const data = await res.json();
+      setCustomStickerData(data);
+    }
+  } catch (err) {
+    console.warn('[StudioApp] Could not load dynamic stickers from backend:', err);
+  }
+
+  const all = getAllStickers();
+  const promises = all.map(sticker => {
+    if (sticker.svg) {
+      return sceneStore.registerSvgAsset(sticker.id, sticker.svg);
+    } else if (sticker.url) {
+      return sceneStore.registerImageAsset(sticker.id, sticker.url, sticker.width || 200, sticker.height || 200);
+    }
+    return Promise.resolve();
+  });
   await Promise.all(promises);
 }
 
 function buildStickerPackTabs() {
   if (!stickerPackBtns) return;
   stickerPackBtns.innerHTML = '';
-  STICKER_PACKS.forEach(pack => {
+  const packs = getActivePacks();
+
+  // If current active pack was deleted, fall back to 'all'
+  if (!packs.some(p => p.id === _activePack)) {
+    _activePack = 'all';
+  }
+
+  packs.forEach(pack => {
     const btn = document.createElement('button');
     const isActive = pack.id === _activePack;
     btn.className = `chip v2-pack-tab ${isActive ? 'active is-active' : ''}`;
     btn.dataset.pack = pack.id;
-    btn.innerHTML = `<span>${pack.emoji}</span> <span>${pack.label}</span>`;
+    btn.innerHTML = `<span>${pack.emoji}</span> <span>${pack.label}</span>${pack.count !== undefined ? ` <small style="opacity:0.65;font-size:10px;">(${pack.count})</small>` : ''}`;
     btn.addEventListener('click', () => {
       _activePack = pack.id;
       stickerPackBtns.querySelectorAll('.chip, .v2-pack-tab').forEach(b => {
@@ -378,12 +409,22 @@ function buildStickerGrid(query = '') {
     ? searchStickers(query)
     : getStickersByPack(_activePack);
 
+  if (list.length === 0) {
+    const emptyMsg = document.createElement('div');
+    emptyMsg.className = 'v2-layers-empty';
+    emptyMsg.style.gridColumn = '1 / -1';
+    emptyMsg.style.padding = '24px 12px';
+    emptyMsg.textContent = 'No stickers found in this collection.';
+    stickerGrid.appendChild(emptyMsg);
+    return;
+  }
+
   list.forEach(sticker => {
     const tile = document.createElement('div');
     tile.className = 'v2-sticker-tile';
     tile.title = sticker.name;
 
-    // Preview via canvas
+    // Preview via canvas or image
     const tc = document.createElement('canvas');
     tc.width = 64; tc.height = 64;
     const tctx = tc.getContext('2d');
@@ -1001,7 +1042,557 @@ async function init() {
 
   // Default font btn
   textFontBtns[0]?.classList.add('is-active');
+
+  // Initialize Developer Sticker Backdoor
+  initDevStickerBackdoor();
 }
 
-init().catch(console.error);
+// ══════════════════════════════════════════════════════════════════════════════
+// DEVELOPER BACKDOOR CONTROLLER: PIN, BATCH UPLOAD (50), BG REMOVAL & DELETE
+// ══════════════════════════════════════════════════════════════════════════════
+function initDevStickerBackdoor() {
+  const btnOpenDev       = document.getElementById('v2-open-dev-stickers');
+  const pinModal         = document.getElementById('v2-dev-pin-modal');
+  const pinModalClose    = document.getElementById('v2-pin-modal-close');
+  const pinCard          = pinModal?.querySelector('.v2-pin-modal-card');
+  const pinDots          = pinModal?.querySelectorAll('.v2-pin-dot');
+  const pinError         = document.getElementById('v2-pin-error');
+  const pinHiddenInput   = document.getElementById('v2-pin-hidden-input');
+  const keypadBtns       = pinModal?.querySelectorAll('.v2-keypad-btn[data-num]');
+  const keypadClear      = document.getElementById('v2-pin-btn-clear');
+  const keypadDel        = document.getElementById('v2-pin-btn-del');
+
+  const devModal         = document.getElementById('v2-dev-sticker-modal');
+  const devModalClose    = document.getElementById('v2-dev-modal-close');
+  const tabDevUpload     = document.getElementById('v2-tab-dev-upload');
+  const tabDevManage     = document.getElementById('v2-tab-dev-manage');
+  const sectionDevUpload = document.getElementById('v2-dev-section-upload');
+  const sectionDevManage = document.getElementById('v2-dev-section-manage');
+
+  const groupSelect      = document.getElementById('v2-dev-group-select');
+  const newGroupNameInput= document.getElementById('v2-dev-new-group-name');
+  const dropzone         = document.getElementById('v2-dev-dropzone');
+  const fileInputBatch   = document.getElementById('v2-dev-stickers-file-input');
+  const fileCountBadge   = document.getElementById('v2-dev-file-count');
+  const previewBox       = document.getElementById('v2-dev-preview-box');
+  const fileGrid         = document.getElementById('v2-dev-file-grid');
+  const clearSelectedBtn = document.getElementById('v2-dev-clear-selected');
+  const chkBgRemoval     = document.getElementById('v2-dev-chk-bg-removal');
+  const chkAutoCat       = document.getElementById('v2-dev-chk-auto-cat');
+  const btnSubmitUpload  = document.getElementById('v2-dev-btn-upload-submit');
+  const btnSubmitLabel   = document.getElementById('v2-dev-btn-submit-label');
+
+  const progressContainer= document.getElementById('v2-dev-progress-container');
+  const progressBar      = document.getElementById('v2-dev-progress-bar');
+  const progressStatus   = document.getElementById('v2-dev-progress-status');
+  const progressPercent  = document.getElementById('v2-dev-progress-percent');
+
+  const collectionsGrid  = document.getElementById('v2-dev-collections-grid');
+
+  let devUnlocked = false;
+  let devPin = '';
+  let currentPin = '';
+  let selectedFiles = []; // array of { file, name, dataUrl, mimeType }
+
+  if (!btnOpenDev) return;
+
+  // 1. PIN Modal Controls
+  btnOpenDev.addEventListener('click', () => {
+    if (devUnlocked && devPin) {
+      openDevStickerModal();
+    } else {
+      openPinModal();
+    }
+  });
+
+  function openPinModal() {
+    currentPin = '';
+    updatePinDots();
+    if (pinError) pinError.style.display = 'none';
+    if (pinModal) pinModal.style.display = 'flex';
+    pinHiddenInput?.focus();
+  }
+
+  function closePinModal() {
+    if (pinModal) pinModal.style.display = 'none';
+    currentPin = '';
+    updatePinDots();
+  }
+
+  if (pinModalClose) pinModalClose.addEventListener('click', closePinModal);
+  if (pinModal) {
+    pinModal.addEventListener('click', e => {
+      if (e.target === pinModal) closePinModal();
+    });
+  }
+
+  function updatePinDots() {
+    pinDots?.forEach((dot, idx) => {
+      dot.classList.toggle('is-filled', idx < currentPin.length);
+    });
+  }
+
+  async function handlePinSubmit(entered) {
+    try {
+      const res = await fetch('/api/stickers?action=verify-pin', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ pin: entered })
+      });
+      const data = await res.json();
+      if (data.success) {
+        devUnlocked = true;
+        devPin = entered;
+        closePinModal();
+        showToast('Developer backdoor unlocked');
+        openDevStickerModal();
+      } else {
+        triggerPinError();
+      }
+    } catch (err) {
+      // Fallback check
+      if (entered === '7788') {
+        devUnlocked = true;
+        devPin = entered;
+        closePinModal();
+        showToast('Developer backdoor unlocked');
+        openDevStickerModal();
+      } else {
+        triggerPinError();
+      }
+    }
+  }
+
+  function triggerPinError() {
+    if (pinError) pinError.style.display = 'block';
+    if (pinCard) pinCard.classList.add('is-shaking');
+    setTimeout(() => {
+      if (pinCard) pinCard.classList.remove('is-shaking');
+      currentPin = '';
+      updatePinDots();
+      if (pinHiddenInput) pinHiddenInput.value = '';
+    }, 500);
+  }
+
+  function addPinChar(ch) {
+    if (currentPin.length < 4 && /^[0-9]$/.test(ch)) {
+      currentPin += ch;
+      updatePinDots();
+      if (currentPin.length === 4) {
+        handlePinSubmit(currentPin);
+      }
+    }
+  }
+
+  keypadBtns?.forEach(btn => {
+    btn.addEventListener('click', () => addPinChar(btn.dataset.num));
+  });
+
+  if (keypadClear) {
+    keypadClear.addEventListener('click', () => {
+      currentPin = '';
+      updatePinDots();
+      if (pinError) pinError.style.display = 'none';
+    });
+  }
+
+  if (keypadDel) {
+    keypadDel.addEventListener('click', () => {
+      currentPin = currentPin.slice(0, -1);
+      updatePinDots();
+      if (pinError) pinError.style.display = 'none';
+    });
+  }
+
+  if (pinHiddenInput) {
+    pinHiddenInput.addEventListener('input', e => {
+      const val = e.target.value.replace(/[^0-9]/g, '');
+      currentPin = val.slice(0, 4);
+      updatePinDots();
+      if (currentPin.length === 4) {
+        handlePinSubmit(currentPin);
+      }
+    });
+  }
+
+  // 2. Developer Modal Controls
+  function openDevStickerModal() {
+    if (devModal) devModal.style.display = 'flex';
+    populateGroupSelect();
+    renderManageCollections();
+    switchDevTab('upload');
+  }
+
+  function closeDevStickerModal() {
+    if (devModal) devModal.style.display = 'none';
+  }
+
+  if (devModalClose) devModalClose.addEventListener('click', closeDevStickerModal);
+  if (devModal) {
+    devModal.addEventListener('click', e => {
+      if (e.target === devModal) closeDevStickerModal();
+    });
+  }
+
+  function switchDevTab(tab) {
+    const isUpload = tab === 'upload';
+    tabDevUpload?.classList.toggle('is-active', isUpload);
+    tabDevManage?.classList.toggle('is-active', !isUpload);
+    if (sectionDevUpload) sectionDevUpload.style.display = isUpload ? 'flex' : 'none';
+    if (sectionDevManage) sectionDevManage.style.display = !isUpload ? 'flex' : 'none';
+    if (!isUpload) renderManageCollections();
+  }
+
+  tabDevUpload?.addEventListener('click', () => switchDevTab('upload'));
+  tabDevManage?.addEventListener('click', () => switchDevTab('manage'));
+
+  // Populate Group Select Dropdown
+  function populateGroupSelect() {
+    if (!groupSelect) return;
+    const currentVal = groupSelect.value;
+    groupSelect.innerHTML = `
+      <option value="__new__">+ Create New Group (e.g. Summer Vibes)</option>
+      <option value="__auto__">🤖 AI Auto-Categorize with Gemini (floral, mirrors, ocean...)</option>
+    `;
+
+    const activePacks = getActivePacks().filter(p => p.id !== 'all');
+    activePacks.forEach(pack => {
+      const opt = document.createElement('option');
+      opt.value = pack.id;
+      opt.textContent = `${pack.emoji} ${pack.label} (${pack.count} stickers)`;
+      groupSelect.appendChild(opt);
+    });
+
+    if (currentVal && Array.from(groupSelect.options).some(o => o.value === currentVal)) {
+      groupSelect.value = currentVal;
+    } else {
+      groupSelect.value = '__new__';
+    }
+    updateGroupInputVisibility();
+  }
+
+  function updateGroupInputVisibility() {
+    if (!newGroupNameInput || !groupSelect) return;
+    const isNew = groupSelect.value === '__new__';
+    newGroupNameInput.style.display = isNew ? 'block' : 'none';
+    if (chkAutoCat) {
+      if (groupSelect.value === '__auto__') {
+        chkAutoCat.checked = true;
+      }
+    }
+  }
+
+  groupSelect?.addEventListener('change', updateGroupInputVisibility);
+
+  // 3. Dropzone & File Selection (Limit: 50 files)
+  dropzone?.addEventListener('click', () => fileInputBatch?.click());
+
+  dropzone?.addEventListener('dragover', e => {
+    e.preventDefault();
+    dropzone.classList.add('is-dragover');
+  });
+
+  dropzone?.addEventListener('dragleave', () => dropzone.classList.remove('is-dragover'));
+
+  dropzone?.addEventListener('drop', e => {
+    e.preventDefault();
+    dropzone.classList.remove('is-dragover');
+    if (e.dataTransfer?.files) {
+      handleBatchFilesSelected(e.dataTransfer.files);
+    }
+  });
+
+  fileInputBatch?.addEventListener('change', e => {
+    if (e.target.files) {
+      handleBatchFilesSelected(e.target.files);
+    }
+  });
+
+  function handleBatchFilesSelected(fileList) {
+    const rawArr = Array.from(fileList).filter(f => f.type.startsWith('image/'));
+    if (rawArr.length === 0) {
+      showToast('Please select valid image files (PNG, JPG, WebP, SVG)');
+      return;
+    }
+
+    // Limit check: 50 files max
+    let filesToAdd = rawArr;
+    if (selectedFiles.length + filesToAdd.length > 50) {
+      const allowed = 50 - selectedFiles.length;
+      if (allowed <= 0) {
+        showToast('Maximum batch limit of 50 stickers reached.');
+        return;
+      }
+      filesToAdd = filesToAdd.slice(0, allowed);
+      showToast(`Batch limit is 50 stickers. Added first ${allowed} files.`);
+    }
+
+    let loadedCount = 0;
+    filesToAdd.forEach(file => {
+      const reader = new FileReader();
+      reader.onload = evt => {
+        selectedFiles.push({
+          file,
+          name: file.name,
+          dataUrl: evt.target.result,
+          mimeType: file.type || 'image/png'
+        });
+        loadedCount++;
+        if (loadedCount === filesToAdd.length) {
+          updateSelectedFilesUI();
+        }
+      };
+      reader.readAsDataURL(file);
+    });
+  }
+
+  function updateSelectedFilesUI() {
+    if (!fileGrid || !fileCountBadge || !btnSubmitUpload || !btnSubmitLabel) return;
+
+    fileCountBadge.textContent = `${selectedFiles.length} / 50 selected`;
+    btnSubmitLabel.textContent = `Upload & Process ${selectedFiles.length} Sticker${selectedFiles.length === 1 ? '' : 's'}`;
+    btnSubmitUpload.disabled = selectedFiles.length === 0;
+
+    if (previewBox) {
+      previewBox.style.display = selectedFiles.length > 0 ? 'block' : 'none';
+    }
+
+    fileGrid.innerHTML = '';
+    selectedFiles.forEach((item, idx) => {
+      const chip = document.createElement('div');
+      chip.className = 'v2-dev-file-chip';
+      chip.title = item.name;
+
+      const img = document.createElement('img');
+      img.src = item.dataUrl;
+      chip.appendChild(img);
+
+      const delBtn = document.createElement('button');
+      delBtn.className = 'v2-dev-file-chip-del';
+      delBtn.innerHTML = '✕';
+      delBtn.title = 'Remove sticker';
+      delBtn.addEventListener('click', e => {
+        e.stopPropagation();
+        selectedFiles.splice(idx, 1);
+        updateSelectedFilesUI();
+      });
+      chip.appendChild(delBtn);
+
+      fileGrid.appendChild(chip);
+    });
+  }
+
+  clearSelectedBtn?.addEventListener('click', () => {
+    selectedFiles = [];
+    if (fileInputBatch) fileInputBatch.value = '';
+    updateSelectedFilesUI();
+  });
+
+  // 4. Batch Upload Submission to Backend
+  btnSubmitUpload?.addEventListener('click', async () => {
+    if (selectedFiles.length === 0 || !devPin) return;
+
+    const isAutoCat = groupSelect?.value === '__auto__';
+    const isNew = groupSelect?.value === '__new__';
+    const groupName = isAutoCat ? '' : (isNew ? (newGroupNameInput?.value || 'Custom') : groupSelect?.value);
+
+    // Lock UI and show progress
+    btnSubmitUpload.disabled = true;
+    if (progressContainer) progressContainer.style.display = 'flex';
+    if (progressBar) progressBar.style.width = '10%';
+    if (progressStatus) progressStatus.textContent = `Processing ${selectedFiles.length} sticker(s) with Gemini AI...`;
+    if (progressPercent) progressPercent.textContent = '10%';
+
+    try {
+      const payload = {
+        pin: devPin,
+        targetGroup: groupName,
+        autoCategorize: isAutoCat || chkAutoCat?.checked,
+        removeBackground: chkBgRemoval?.checked !== false,
+        files: selectedFiles.map(f => ({
+          name: f.name,
+          data: f.dataUrl,
+          mimeType: f.mimeType
+        }))
+      };
+
+      if (progressBar) progressBar.style.width = '45%';
+      if (progressStatus) progressStatus.textContent = 'Removing backgrounds via Gemini Flash 2.5 Image API...';
+      if (progressPercent) progressPercent.textContent = '45%';
+
+      const res = await fetch('/api/stickers?action=upload', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${devPin}`
+        },
+        body: JSON.stringify(payload)
+      });
+
+      if (progressBar) progressBar.style.width = '85%';
+      if (progressPercent) progressPercent.textContent = '85%';
+
+      const result = await res.json();
+
+      if (result.success) {
+        if (progressBar) progressBar.style.width = '100%';
+        if (progressStatus) progressStatus.textContent = `Complete! ${result.uploaded} stickers processed.`;
+        if (progressPercent) progressPercent.textContent = '100%';
+
+        showToast(`Successfully added ${result.uploaded} stickers!`);
+
+        // Refresh dynamic stickers in memory and UI
+        await preloadStickers();
+        buildStickerPackTabs();
+
+        // Switch to the target pack if applicable
+        if (result.results?.[0]?.pack) {
+          _activePack = result.results[0].pack;
+          stickerPackBtns?.querySelectorAll('.chip, .v2-pack-tab').forEach(b => {
+            const on = b.dataset.pack === _activePack;
+            b.classList.toggle('active', on);
+            b.classList.toggle('is-active', on);
+          });
+        }
+        buildStickerGrid();
+
+        // Reset upload form
+        setTimeout(() => {
+          selectedFiles = [];
+          if (fileInputBatch) fileInputBatch.value = '';
+          updateSelectedFilesUI();
+          if (progressContainer) progressContainer.style.display = 'none';
+          closeDevStickerModal();
+        }, 1200);
+
+      } else {
+        throw new Error(result.error || 'Upload failed');
+      }
+
+    } catch (err) {
+      console.error('[DevStickerBackdoor] Upload failed:', err);
+      if (progressStatus) progressStatus.textContent = `Error: ${err.message}`;
+      showToast(`Upload error: ${err.message}`);
+      btnSubmitUpload.disabled = false;
+    }
+  });
+
+  // 5. Manage & Delete Collections Logic
+  function renderManageCollections() {
+    if (!collectionsGrid) return;
+    collectionsGrid.innerHTML = '';
+
+    const packs = getActivePacks().filter(p => p.id !== 'all');
+
+    if (packs.length === 0) {
+      collectionsGrid.innerHTML = '<div class="v2-layers-empty">No active collections found.</div>';
+      return;
+    }
+
+    packs.forEach(pack => {
+      const card = document.createElement('div');
+      card.className = 'v2-dev-col-card';
+
+      // Header row
+      const header = document.createElement('div');
+      header.className = 'v2-dev-col-header';
+
+      const nameGroup = document.createElement('div');
+      nameGroup.className = 'v2-dev-col-name-group';
+
+      const emoji = document.createElement('span');
+      emoji.className = 'v2-dev-col-emoji';
+      emoji.textContent = pack.emoji || '✦';
+
+      const title = document.createElement('span');
+      title.className = 'v2-dev-col-title';
+      title.textContent = pack.label;
+
+      nameGroup.appendChild(emoji);
+      nameGroup.appendChild(title);
+
+      const count = document.createElement('span');
+      count.className = 'v2-dev-col-count';
+      count.textContent = `${pack.count || 0} stickers`;
+
+      header.appendChild(nameGroup);
+      header.appendChild(count);
+      card.appendChild(header);
+
+      // Mini preview strip
+      const stickersInPack = getStickersByPack(pack.id).slice(0, 5);
+      const previewStrip = document.createElement('div');
+      previewStrip.style.display = 'flex';
+      previewStrip.style.gap = '6px';
+      previewStrip.style.overflow = 'hidden';
+
+      stickersInPack.forEach(stk => {
+        const mini = document.createElement('canvas');
+        mini.width = 36; mini.height = 36;
+        mini.style.borderRadius = '4px';
+        mini.style.background = 'rgba(0,0,0,0.04)';
+        const mctx = mini.getContext('2d');
+        const asset = sceneStore.getAsset(stk.id);
+        if (asset?.img) {
+          mctx.drawImage(asset.img, 0, 0, 36, 36);
+        }
+        previewStrip.appendChild(mini);
+      });
+      card.appendChild(previewStrip);
+
+      // Delete collection button
+      const delBtn = document.createElement('button');
+      delBtn.className = 'v2-dev-col-delete-btn';
+      delBtn.innerHTML = `
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="3 6 5 6 21 6"/>
+          <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+        </svg>
+        <span>Delete Entire Collection</span>
+      `;
+
+      delBtn.addEventListener('click', async () => {
+        const confirmed = window.confirm(
+          `Delete the entire collection "${pack.label}"?\n\nThis will remove all ${pack.count || 0} stickers in this group.`
+        );
+        if (!confirmed) return;
+
+        delBtn.disabled = true;
+        delBtn.textContent = 'Deleting collection...';
+
+        try {
+          const res = await fetch('/api/stickers?action=delete-group', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${devPin}`
+            },
+            body: JSON.stringify({ packId: pack.id, pin: devPin })
+          });
+          const data = await res.json();
+          if (data.success) {
+            showToast(`Collection "${pack.label}" deleted`);
+            // Refresh catalog and UI
+            await preloadStickers();
+            buildStickerPackTabs();
+            buildStickerGrid();
+            populateGroupSelect();
+            renderManageCollections();
+          } else {
+            showToast(`Error: ${data.error || 'Could not delete collection'}`);
+            delBtn.disabled = false;
+            delBtn.textContent = 'Delete Entire Collection';
+          }
+        } catch (err) {
+          showToast(`Error: ${err.message}`);
+          delBtn.disabled = false;
+          delBtn.textContent = 'Delete Entire Collection';
+        }
+      });
+
+      card.appendChild(delBtn);
+      collectionsGrid.appendChild(card);
+    });
+  }
+}
 
