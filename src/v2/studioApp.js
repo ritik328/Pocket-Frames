@@ -1596,3 +1596,5 @@ function initDevStickerBackdoor() {
   }
 }
 
+// ─── Bootstrap ────────────────────────────────────────────────────────────────
+init().catch(console.error);
