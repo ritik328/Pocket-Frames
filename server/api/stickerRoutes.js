@@ -24,70 +24,75 @@ export async function handleStickerRequest(req, res) {
     return res.end();
   }
 
-  const url = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
-  const pathname = url.pathname;
-  const segments = pathname.split('/').filter(Boolean);
-  const action = url.searchParams.get('action') || segments[segments.length - 1] || 'list';
-
-  // GET: List all custom stickers and packs
-  if (req.method === 'GET' && (action === 'stickers' || action === 'list' || pathname.endsWith('/api/stickers') || pathname.endsWith('/api/stickers/'))) {
-    const data = getStickerData();
-    return sendJson(res, 200, data);
-  }
-
-  // Parse Body for POST / DELETE
-  let body = {};
   try {
-    if (req.body && typeof req.body === 'object') {
-      body = req.body;
-    } else if (typeof req.body === 'string') {
-      body = JSON.parse(req.body);
-    } else {
-      body = await parseJsonBody(req);
+    const url = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
+    const pathname = url.pathname;
+    const segments = pathname.split('/').filter(Boolean);
+    const action = url.searchParams.get('action') || segments[segments.length - 1] || 'list';
+
+    // GET: List all custom stickers and packs
+    if (req.method === 'GET' && (action === 'stickers' || action === 'list' || pathname.endsWith('/api/stickers') || pathname.endsWith('/api/stickers/'))) {
+      const data = getStickerData();
+      return sendJson(res, 200, data);
     }
-  } catch (err) {
-    return sendJson(res, 400, { success: false, error: 'Malformed JSON in request body' });
-  }
 
-  // Action: Verify PIN
-  if (action === 'verify-pin' || pathname.endsWith('/verify-pin')) {
-    const isValid = verifyPin(body.pin);
-    if (isValid) {
-      return sendJson(res, 200, { success: true, message: 'Developer access granted' });
-    } else {
-      return sendJson(res, 401, { success: false, error: 'Invalid developer PIN' });
+    // Parse Body for POST / DELETE
+    let body = {};
+    try {
+      if (req.body && typeof req.body === 'object') {
+        body = req.body;
+      } else if (typeof req.body === 'string') {
+        body = JSON.parse(req.body);
+      } else {
+        body = await parseJsonBody(req);
+      }
+    } catch (err) {
+      return sendJson(res, 400, { success: false, error: 'Malformed JSON in request body' });
     }
+
+    // Action: Verify PIN
+    if (action === 'verify-pin' || pathname.endsWith('/verify-pin')) {
+      const isValid = verifyPin(body.pin);
+      if (isValid) {
+        return sendJson(res, 200, { success: true, message: 'Developer access granted' });
+      } else {
+        return sendJson(res, 401, { success: false, error: 'Invalid developer PIN' });
+      }
+    }
+
+    // Action: Delete Entire Collection
+    if (action === 'delete-group' || action === 'delete-collection' || (req.method === 'DELETE' && action === 'group') || pathname.endsWith('/delete-group')) {
+      const packId = body.packId || body.pack || url.searchParams.get('packId');
+      const pin = body.pin || req.headers['authorization']?.replace('Bearer ', '');
+      const result = await deleteCollection(packId, pin);
+      const status = result.success ? 200 : (result.error?.includes('Unauthorized') ? 401 : 400);
+      return sendJson(res, status, result);
+    }
+
+    // Action: Batch Upload
+    if (action === 'upload' || action === 'upload-batch' || pathname.endsWith('/upload') || pathname.endsWith('/upload-batch')) {
+      const pin = body.pin || req.headers['authorization']?.replace('Bearer ', '');
+      const files = body.files || [];
+      const targetGroup = body.targetGroup || body.group || '';
+      const autoCategorize = body.autoCategorize !== false;
+      const removeBackground = body.removeBackground !== false;
+
+      const result = await batchUploadStickers(files, {
+        pin,
+        targetGroup,
+        autoCategorize,
+        removeBackground
+      });
+
+      const status = result.success ? 200 : (result.error?.includes('Unauthorized') ? 401 : 400);
+      return sendJson(res, status, result);
+    }
+
+    return sendJson(res, 404, { success: false, error: `Unknown sticker action: ${action}` });
+  } catch (outerErr) {
+    console.error('[StickerRoutes] Unhandled request error:', outerErr);
+    return sendJson(res, 500, { success: false, error: outerErr.message || 'Server error processing sticker request' });
   }
-
-  // Action: Delete Entire Collection
-  if (action === 'delete-group' || action === 'delete-collection' || (req.method === 'DELETE' && action === 'group') || pathname.endsWith('/delete-group')) {
-    const packId = body.packId || body.pack || url.searchParams.get('packId');
-    const pin = body.pin || req.headers['authorization']?.replace('Bearer ', '');
-    const result = await deleteCollection(packId, pin);
-    const status = result.success ? 200 : (result.error?.includes('Unauthorized') ? 401 : 400);
-    return sendJson(res, status, result);
-  }
-
-  // Action: Batch Upload
-  if (action === 'upload' || action === 'upload-batch' || pathname.endsWith('/upload') || pathname.endsWith('/upload-batch')) {
-    const pin = body.pin || req.headers['authorization']?.replace('Bearer ', '');
-    const files = body.files || [];
-    const targetGroup = body.targetGroup || body.group || '';
-    const autoCategorize = body.autoCategorize !== false;
-    const removeBackground = body.removeBackground !== false;
-
-    const result = await batchUploadStickers(files, {
-      pin,
-      targetGroup,
-      autoCategorize,
-      removeBackground
-    });
-
-    const status = result.success ? 200 : (result.error?.includes('Unauthorized') ? 401 : 400);
-    return sendJson(res, status, result);
-  }
-
-  return sendJson(res, 404, { success: false, error: `Unknown sticker action: ${action}` });
 }
 
 function sendJson(res, statusCode, data) {

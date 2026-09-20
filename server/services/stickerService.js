@@ -114,8 +114,7 @@ export async function deleteCollection(packId, pin) {
       idLower === slug ||
       idSlug === rawLower ||
       labelLower === rawLower ||
-      labelSlug === slug ||
-      (rawLower && idLower.includes(rawLower))
+      labelSlug === slug
     );
   };
 

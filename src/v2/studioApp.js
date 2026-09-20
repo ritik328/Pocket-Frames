@@ -60,22 +60,27 @@ async function executeDeleteCollection(packId, packLabel = '') {
       },
       body: JSON.stringify({ packId: packId, pin: _devPin || '7788' })
     });
-    const data = await res.json();
-    if (data.success) {
-      showToast(`Collection "${packLabel || packId}" deleted`);
-      _activePack = 'all';
-      await preloadStickers();
-      buildStickerPackTabs();
-      buildStickerGrid();
-      // Also update dev modal collections if opened
-      const popGroup = document.getElementById('v2-dev-target-group');
-      if (popGroup) {
-        // Trigger dev collections re-render if function exists
-        window.dispatchEvent(new CustomEvent('stickers-catalog-updated'));
-      }
-    } else {
-      showToast(`Error: ${data.error || 'Could not delete collection'}`);
+
+    let data = null;
+    try {
+      data = await res.json();
+    } catch {
+      const text = await res.text().catch(() => '');
+      throw new Error(text?.slice(0, 120) || `Server error (HTTP ${res.status})`);
     }
+
+    if (!res.ok || !data.success) {
+      throw new Error(data?.error || `Failed to delete collection (HTTP ${res.status})`);
+    }
+
+    showToast(`Collection "${packLabel || packId}" deleted`);
+    _activePack = 'all';
+    await preloadStickers();
+    buildStickerPackTabs();
+    buildStickerGrid();
+
+    // Trigger dev collections re-render if modal exists
+    window.dispatchEvent(new CustomEvent('stickers-catalog-updated'));
   } catch (err) {
     showToast(`Error: ${err.message}`);
   }

@@ -30,18 +30,30 @@ export default defineConfig(({ command, mode }) => {
             if (req.url && (req.url.startsWith('/api/stickers') || req.url.startsWith('/api/stickers/'))) {
               try {
                 const { handleStickerRequest } = await import('./server/api/stickerRoutes.js');
-                handleStickerRequest(req, res, next);
+                await handleStickerRequest(req, res, next);
               } catch (err) {
                 console.error('[ViteDevServer] Error in Stickers middleware:', err);
-                next(err);
+                if (!res.headersSent) {
+                  res.statusCode = 500;
+                  res.setHeader('Content-Type', 'application/json');
+                  res.end(JSON.stringify({ success: false, error: err.message || 'Internal Server Error' }));
+                } else {
+                  next(err);
+                }
               }
             } else if (req.url && req.url.startsWith('/api/ai/')) {
               try {
                 const { handleAiRequest } = await import('./server/api/aiRoutes.js');
-                handleAiRequest(req, res, next);
+                await handleAiRequest(req, res, next);
               } catch (err) {
                 console.error('[ViteDevServer] Error in AI middleware:', err);
-                next(err);
+                if (!res.headersSent) {
+                  res.statusCode = 500;
+                  res.setHeader('Content-Type', 'application/json');
+                  res.end(JSON.stringify({ success: false, error: err.message || 'Internal Server Error' }));
+                } else {
+                  next(err);
+                }
               }
             } else {
               next();
@@ -53,18 +65,30 @@ export default defineConfig(({ command, mode }) => {
             if (req.url && (req.url.startsWith('/api/stickers') || req.url.startsWith('/api/stickers/'))) {
               try {
                 const { handleStickerRequest } = await import('./server/api/stickerRoutes.js');
-                handleStickerRequest(req, res, next);
+                await handleStickerRequest(req, res, next);
               } catch (err) {
                 console.error('[VitePreviewServer] Error in Stickers middleware:', err);
-                next(err);
+                if (!res.headersSent) {
+                  res.statusCode = 500;
+                  res.setHeader('Content-Type', 'application/json');
+                  res.end(JSON.stringify({ success: false, error: err.message || 'Internal Server Error' }));
+                } else {
+                  next(err);
+                }
               }
             } else if (req.url && req.url.startsWith('/api/ai/')) {
               try {
                 const { handleAiRequest } = await import('./server/api/aiRoutes.js');
-                handleAiRequest(req, res, next);
+                await handleAiRequest(req, res, next);
               } catch (err) {
                 console.error('[VitePreviewServer] Error in AI middleware:', err);
-                next(err);
+                if (!res.headersSent) {
+                  res.statusCode = 500;
+                  res.setHeader('Content-Type', 'application/json');
+                  res.end(JSON.stringify({ success: false, error: err.message || 'Internal Server Error' }));
+                } else {
+                  next(err);
+                }
               }
             } else {
               next();
