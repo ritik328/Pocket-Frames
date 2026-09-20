@@ -233,10 +233,17 @@ export async function cleanBackgroundLocal(imageBuffer) {
   return cleanedBuffer;
 }
 
+// Rate-limit circuit breaker: avoid hammering Gemini Image API when quota is exhausted
+let _geminiImageCooldownUntil = 0;
+
 /**
  * Call Gemini Flash 2.5 Image API for background cleaning / object isolation
  */
 export async function callGeminiFlashImageCleaning(imageBase64, mimeType = 'image/png') {
+  if (Date.now() < _geminiImageCooldownUntil) {
+    throw new Error('Gemini Image API quota cooldown active');
+  }
+
   const apiKey = process.env.GEMINI_API_KEY?.trim();
   if (!apiKey) {
     throw new Error('GEMINI_API_KEY not configured');
@@ -271,6 +278,10 @@ export async function callGeminiFlashImageCleaning(imageBase64, mimeType = 'imag
 
   if (!response.ok) {
     const errorText = await response.text();
+    if (response.status === 429 || errorText.includes('429') || errorText.includes('quota')) {
+      _geminiImageCooldownUntil = Date.now() + 5 * 60 * 1000; // 5 min cooldown
+      console.warn('[StickerService] Gemini Flash Image quota reached (429). Switching to fast local alpha-matting.');
+    }
     throw new Error(`Gemini Flash 2.5 Image API error ${response.status}: ${errorText.substring(0, 150)}`);
   }
 
@@ -411,7 +422,9 @@ export async function processStickerUpload(fileData, options = {}) {
       usedGeminiImage = true;
       console.log('[StickerService] Background removed via Gemini 2.5 Flash Image');
     } catch (geminiErr) {
-      console.warn('[StickerService] Gemini image cleaning failed, using local alpha-matting fallback:', geminiErr.message);
+      if (!geminiErr.message.includes('cooldown')) {
+        console.warn('[StickerService] Gemini image cleaning failed, using local alpha-matting fallback:', geminiErr.message);
+      }
       // Fall back smoothly to high-fidelity local alpha-matting
       try {
         cleanedBuffer = await cleanBackgroundLocal(buffer);
