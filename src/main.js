@@ -172,20 +172,34 @@ function onStateChange(state, changeType) {
   if (headerResLabel) headerResLabel.textContent = `${preset.width} × ${preset.height}`;
 }
 
+let updatePreviewRaf = null;
+
 /**
- * Render the live preview on canvas
+ * Render the live preview on canvas (debounced via requestAnimationFrame)
  */
 function updatePreview() {
+  if (!previewCanvas) return;
+  if (updatePreviewRaf) {
+    cancelAnimationFrame(updatePreviewRaf);
+  }
+  updatePreviewRaf = requestAnimationFrame(() => {
+    updatePreviewRaf = null;
+    performUpdatePreview();
+  });
+}
+
+function performUpdatePreview() {
   if (!previewCanvas) return;
   const state = store.getState();
   const dpr = Math.min(window.devicePixelRatio || 1, 2);
 
-  const rect = previewCanvas.getBoundingClientRect();
-  const cssWidth = rect.width || 400;
-  const cssHeight = rect.height || 500;
+  const cssWidth = (canvasResizer && canvasResizer.currentWidth)
+    ? canvasResizer.currentWidth
+    : (previewCanvas.getBoundingClientRect().width || 400);
+  const cssHeight = Math.round(cssWidth * (5 / 4));
 
-  const targetWidth = Math.round(cssWidth * dpr);
-  const targetHeight = Math.round(cssHeight * dpr);
+  const targetWidth = Math.max(200, Math.round(cssWidth * dpr));
+  const targetHeight = Math.max(250, Math.round(cssHeight * dpr));
 
   renderFrame(previewCanvas, state, {
     isExport: false,
@@ -575,11 +589,26 @@ function setupEventListeners() {
  * Handle responsive canvas resizing smoothly
  */
 function setupResizeObserver() {
-  if (!previewContainer) return;
-  const resizeObserver = new ResizeObserver(() => {
-    updatePreview();
+  const canvasArea = document.getElementById('canvasArea');
+  if (!canvasArea) return;
+  let prevWidth = 0;
+  let prevHeight = 0;
+  const resizeObserver = new ResizeObserver(entries => {
+    for (const entry of entries) {
+      const { width, height } = entry.contentRect;
+      if (width <= 0 || height <= 0) continue;
+      if (Math.abs(width - prevWidth) > 8 || Math.abs(height - prevHeight) > 8) {
+        prevWidth = width;
+        prevHeight = height;
+        if (canvasResizer && canvasResizer.isFitMode) {
+          canvasResizer.fitToScreen();
+        } else {
+          updatePreview();
+        }
+      }
+    }
   });
-  resizeObserver.observe(previewContainer);
+  resizeObserver.observe(canvasArea);
 }
 
 /**

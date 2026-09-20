@@ -25,26 +25,30 @@ export function renderFrame(canvas, state, options = {}) {
   const ctx = canvas.getContext('2d');
   if (!ctx) return;
 
-  const scale = targetWidth / MASTER_WIDTH;
+  const safeW = Math.max(100, Number.isFinite(targetWidth) ? Math.round(targetWidth) : MASTER_WIDTH);
+  const safeH = Math.max(100, Number.isFinite(targetHeight) ? Math.round(targetHeight) : MASTER_HEIGHT);
+
+  const scale = safeW / MASTER_WIDTH;
+  if (!Number.isFinite(scale) || scale <= 0) return;
 
   // Set physical canvas pixel dimensions
-  if (canvas.width !== targetWidth || canvas.height !== targetHeight) {
-    canvas.width = targetWidth;
-    canvas.height = targetHeight;
+  if (canvas.width !== safeW || canvas.height !== safeH) {
+    canvas.width = safeW;
+    canvas.height = safeH;
   }
 
   // Clear canvas
-  ctx.clearRect(0, 0, targetWidth, targetHeight);
+  ctx.clearRect(0, 0, safeW, safeH);
 
   // 1. Draw crisp Polaroid frame background
   ctx.fillStyle = '#FFFFFF';
-  ctx.fillRect(0, 0, targetWidth, targetHeight);
+  ctx.fillRect(0, 0, safeW, safeH);
 
   // Subtle outer hairline frame border for tactile paper look in preview
   if (!isExport) {
     ctx.strokeStyle = '#EAEAEF';
     ctx.lineWidth = 1;
-    ctx.strokeRect(0.5, 0.5, targetWidth - 1, targetHeight - 1);
+    ctx.strokeRect(0.5, 0.5, safeW - 1, safeH - 1);
   }
 
   const { aperture, topBranding, deviceName, exifLine1, exifLine2 } = FRAME_GEOMETRY;
@@ -73,18 +77,22 @@ export function renderFrame(canvas, state, options = {}) {
     ctx.imageSmoothingQuality = 'high';
 
     const img = state.image.element;
-    const imgW = state.image.width;
-    const imgH = state.image.height;
+    const imgW = state.image.width || img.naturalWidth || img.width || 0;
+    const imgH = state.image.height || img.naturalHeight || img.height || 0;
 
-    // Transformed dimensions in export space, then scaled to canvas
-    const drawW = imgW * state.transform.scale * scale;
-    const drawH = imgH * state.transform.scale * scale;
+    if (imgW > 0 && imgH > 0) {
+      // Transformed dimensions in export space, then scaled to canvas
+      const drawW = imgW * state.transform.scale * scale;
+      const drawH = imgH * state.transform.scale * scale;
 
-    // Position centered at aperture center + offset
-    const drawX = apCenterX + (state.transform.x * scale) - (drawW / 2);
-    const drawY = apCenterY + (state.transform.y * scale) - (drawH / 2);
+      // Position centered at aperture center + offset
+      const drawX = apCenterX + (state.transform.x * scale) - (drawW / 2);
+      const drawY = apCenterY + (state.transform.y * scale) - (drawH / 2);
 
-    ctx.drawImage(img, drawX, drawY, drawW, drawH);
+      if (drawW > 0 && drawH > 0 && Number.isFinite(drawW) && Number.isFinite(drawH)) {
+        ctx.drawImage(img, drawX, drawY, drawW, drawH);
+      }
+    }
 
     // 3. Render alignment guides & grid if in editor preview mode
     if (!isExport && state.editor.gridVisible && !state.editor.cleanPreview) {
@@ -243,6 +251,8 @@ function renderAlignmentGuides(ctx, x, y, w, h, centerX, centerY, state) {
  * Render empty aperture state when no image is loaded
  */
 function renderEmptyAperture(ctx, x, y, w, h, scale) {
+  if (w <= 0 || h <= 0 || !Number.isFinite(w) || !Number.isFinite(h) || !Number.isFinite(scale) || scale <= 0) return;
+
   // Soft gallery background
   ctx.fillStyle = '#F5F5F7';
   ctx.fillRect(x, y, w, h);
@@ -250,8 +260,8 @@ function renderEmptyAperture(ctx, x, y, w, h, scale) {
   // Subtle dashed perimeter
   ctx.strokeStyle = '#D1D1D6';
   ctx.lineWidth = 1.5;
-  ctx.setLineDash([8 * scale, 6 * scale]);
-  ctx.strokeRect(x + 2, y + 2, w - 4, h - 4);
+  ctx.setLineDash([Math.max(1, 8 * scale), Math.max(1, 6 * scale)]);
+  ctx.strokeRect(x + 2, y + 2, Math.max(1, w - 4), Math.max(1, h - 4));
   ctx.setLineDash([]);
 
   const centerX = x + w / 2;
@@ -260,26 +270,31 @@ function renderEmptyAperture(ctx, x, y, w, h, scale) {
   // Minimal camera icon
   ctx.save();
   ctx.strokeStyle = '#8E8E93';
-  ctx.lineWidth = 2 * scale;
+  ctx.lineWidth = Math.max(1, 2 * scale);
   ctx.lineJoin = 'round';
   ctx.lineCap = 'round';
 
-  const iconSize = 40 * scale;
+  const iconSize = Math.max(4, 40 * scale);
   const iconY = centerY - 32 * scale;
+  const radius = Math.max(1, 6 * scale);
 
   // Camera body
   ctx.beginPath();
-  ctx.roundRect(centerX - iconSize, iconY - iconSize * 0.7, iconSize * 2, iconSize * 1.4, 6 * scale);
+  if (typeof ctx.roundRect === 'function') {
+    ctx.roundRect(centerX - iconSize, iconY - iconSize * 0.7, iconSize * 2, iconSize * 1.4, radius);
+  } else {
+    ctx.rect(centerX - iconSize, iconY - iconSize * 0.7, iconSize * 2, iconSize * 1.4);
+  }
   ctx.stroke();
 
   // Camera lens
   ctx.beginPath();
-  ctx.arc(centerX, iconY, iconSize * 0.45, 0, Math.PI * 2);
+  ctx.arc(centerX, iconY, Math.max(1, iconSize * 0.45), 0, Math.PI * 2);
   ctx.stroke();
 
   // Lens center dot
   ctx.beginPath();
-  ctx.arc(centerX, iconY, 2 * scale, 0, Math.PI * 2);
+  ctx.arc(centerX, iconY, Math.max(1, 2 * scale), 0, Math.PI * 2);
   ctx.fillStyle = '#8E8E93';
   ctx.fill();
 
@@ -292,12 +307,12 @@ function renderEmptyAperture(ctx, x, y, w, h, scale) {
   ctx.stroke();
 
   // Typography
-  ctx.font = `500 ${Math.round(20 * scale)}px 'Inter', sans-serif`;
+  ctx.font = `500 ${Math.max(8, Math.round(20 * scale))}px 'Inter', sans-serif`;
   ctx.fillStyle = '#1C1C1E';
   ctx.textAlign = 'center';
   ctx.fillText('Upload a photograph to begin', centerX, centerY + 30 * scale);
 
-  ctx.font = `400 ${Math.round(14 * scale)}px 'Inter', sans-serif`;
+  ctx.font = `400 ${Math.max(6, Math.round(14 * scale))}px 'Inter', sans-serif`;
   ctx.fillStyle = '#8E8E93';
   ctx.fillText('Click or drag & drop (JPG, PNG, WebP)', centerX, centerY + 54 * scale);
 

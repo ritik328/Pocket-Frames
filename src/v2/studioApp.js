@@ -81,7 +81,8 @@ let _targetApertureIndex = 0;
 
 // ─── Scale helpers ────────────────────────────────────────────────────────────
 function getScale() {
-  return canvas.clientWidth / LOGICAL_W;
+  const w = (v2Resizer && v2Resizer.currentWidth) ? v2Resizer.currentWidth : (canvas.clientWidth || 400);
+  return Math.max(0.05, w / LOGICAL_W);
 }
 
 function getEditorState() {
@@ -100,46 +101,56 @@ function scheduleRender() {
 function renderLoop() {
   if (_dirty) {
     _dirty = false;
-    const scale = getScale();
-    const w = Math.round(canvas.clientWidth);
-    const h = Math.round(canvas.clientHeight);
+    try {
+      const w = Math.max(200, Math.round(v2Resizer?.currentWidth || canvas.clientWidth || 400));
+      const h = Math.max(250, Math.round(w * (LOGICAL_H / LOGICAL_W)));
 
-    renderScene(
-      canvas.getContext('2d'),
-      sceneStore.scene,
-      sceneStore.assets,
-      {
-        targetWidth:  w,
-        targetHeight: h,
-        isExport:     _cleanPreview,
-        editorState:  getEditorState()
-      }
-    );
-    _overlay?.refresh();
-    updateLayersPanel();
-    updateUndoRedo();
+      renderScene(
+        canvas.getContext('2d'),
+        sceneStore.scene,
+        sceneStore.assets,
+        {
+          targetWidth:  w,
+          targetHeight: h,
+          isExport:     _cleanPreview,
+          editorState:  getEditorState()
+        }
+      );
+      _overlay?.refresh();
+      updateLayersPanel();
+      updateUndoRedo();
+    } catch (renderErr) {
+      console.error('Studio render loop error:', renderErr);
+    }
   }
   _raf = requestAnimationFrame(renderLoop);
 }
 
 // ─── Canvas sizing ─────────────────────────────────────────────────────────────
 function sizeCanvas() {
-  if (v2Resizer && v2Resizer.isFitMode) {
-    v2Resizer.fitToScreen();
+  if (v2Resizer) {
+    if (v2Resizer.isFitMode) {
+      v2Resizer.fitToScreen();
+    } else {
+      const maxW = v2Resizer.getMaxWidth();
+      if (v2Resizer.currentWidth > maxW) {
+        v2Resizer.applyWidth(maxW, false);
+      }
+    }
     return;
   }
   const area   = document.getElementById('v2-canvas-area');
   if (!area) return;
-  const areaH  = area.clientHeight - 85;
-  const areaW  = area.clientWidth  - 48;
+  const areaH  = Math.max(200, area.clientHeight - 85);
+  const areaW  = Math.max(200, area.clientWidth  - 48);
   const aspect = LOGICAL_H / LOGICAL_W;
 
   let w = areaW;
   let h = w * aspect;
   if (h > areaH) { h = areaH; w = h / aspect; }
 
-  w = Math.floor(w);
-  h = Math.floor(h);
+  w = Math.max(200, Math.floor(w));
+  h = Math.max(250, Math.floor(h));
 
   canvas.style.width  = `${w}px`;
   canvas.style.height = `${h}px`;
@@ -874,7 +885,21 @@ if (addTapeBtn)  addTapeBtn.addEventListener('click',  () => addTapeElement('h')
 if (addTapeHBtn) addTapeHBtn.addEventListener('click', () => addTapeElement('v'));
 
 // ─── Resize observer ─────────────────────────────────────────────────────────
-new ResizeObserver(sizeCanvas).observe(document.getElementById('v2-canvas-area'));
+let prevAreaW = 0;
+let prevAreaH = 0;
+const v2AreaObserver = new ResizeObserver(entries => {
+  for (const entry of entries) {
+    const { width, height } = entry.contentRect;
+    if (width <= 0 || height <= 0) continue;
+    if (Math.abs(width - prevAreaW) > 8 || Math.abs(height - prevAreaH) > 8) {
+      prevAreaW = width;
+      prevAreaH = height;
+      sizeCanvas();
+    }
+  }
+});
+const areaEl = document.getElementById('v2-canvas-area');
+if (areaEl) v2AreaObserver.observe(areaEl);
 
 // ─── Theme Switcher (Light / Dark / Auto) ────────────────────────────────────
 function initThemeSwitcher() {

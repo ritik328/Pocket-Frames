@@ -33,6 +33,7 @@ const FONTS = {
  * @param {object}  options.editorState — { selectedId, gridVisible, guidesVisible }
  */
 export function renderScene(ctx, scene, assets, options = {}) {
+  if (!ctx || !ctx.canvas) return;
   const {
     targetWidth  = LOGICAL_W,
     targetHeight = LOGICAL_H,
@@ -40,15 +41,19 @@ export function renderScene(ctx, scene, assets, options = {}) {
     editorState  = {}
   } = options;
 
-  const scale = targetWidth / LOGICAL_W;
+  const safeW = Math.max(100, Number.isFinite(targetWidth) ? Math.round(targetWidth) : LOGICAL_W);
+  const safeH = Math.max(100, Number.isFinite(targetHeight) ? Math.round(targetHeight) : LOGICAL_H);
+
+  const scale = safeW / LOGICAL_W;
+  if (!Number.isFinite(scale) || scale <= 0) return;
 
   // Resize canvas if needed
-  if (ctx.canvas.width !== targetWidth || ctx.canvas.height !== targetHeight) {
-    ctx.canvas.width  = targetWidth;
-    ctx.canvas.height = targetHeight;
+  if (ctx.canvas.width !== safeW || ctx.canvas.height !== safeH) {
+    ctx.canvas.width  = safeW;
+    ctx.canvas.height = safeH;
   }
 
-  ctx.clearRect(0, 0, targetWidth, targetHeight);
+  ctx.clearRect(0, 0, safeW, safeH);
   ctx.imageSmoothingEnabled = true;
   ctx.imageSmoothingQuality = 'high';
 
@@ -454,22 +459,27 @@ function renderPhoto(ctx, photo, assets, aperture, scale, isExport, editorState)
   ctx.fillRect(ax, ay, aw, ah);
 
   const img    = asset.img;
-  const imgW   = asset.w;
-  const imgH   = asset.h;
+  if (!img) return;
+  const imgW   = asset.w || img.naturalWidth || img.width || 0;
+  const imgH   = asset.h || img.naturalHeight || img.height || 0;
+  if (imgW <= 0 || imgH <= 0) return;
 
-  const drawW  = imgW * (photo.scale || 1) * scale;
-  const drawH  = imgH * (photo.scale || 1) * scale;
+  const photoScale = photo.scale || 1;
+  const drawW  = imgW * photoScale * scale;
+  const drawH  = imgH * photoScale * scale;
   const drawX  = acx + (photo.x || 0) * scale - drawW / 2;
   const drawY  = acy + (photo.y || 0) * scale - drawH / 2;
 
-  ctx.save();
-  if (photo.rotation) {
-    ctx.translate(acx, acy);
-    ctx.rotate((photo.rotation * Math.PI) / 180);
-    ctx.translate(-acx, -acy);
+  if (drawW > 0 && drawH > 0 && Number.isFinite(drawW) && Number.isFinite(drawH)) {
+    ctx.save();
+    if (photo.rotation) {
+      ctx.translate(acx, acy);
+      ctx.rotate((photo.rotation * Math.PI) / 180);
+      ctx.translate(-acx, -acy);
+    }
+    ctx.drawImage(img, drawX, drawY, drawW, drawH);
+    ctx.restore();
   }
-  ctx.drawImage(img, drawX, drawY, drawW, drawH);
-  ctx.restore();
 
   // Editor guides
   if (!isExport && editorState.guidesVisible) {
@@ -479,29 +489,34 @@ function renderPhoto(ctx, photo, assets, aperture, scale, isExport, editorState)
 
 // ─── Empty aperture placeholder ───────────────────────────────────────────────
 function renderEmptyAperture(ctx, ax, ay, aw, ah, aperture, scale, idx) {
+  if (aw <= 0 || ah <= 0 || !Number.isFinite(aw) || !Number.isFinite(ah) || !Number.isFinite(scale) || scale <= 0) return;
   ctx.fillStyle = aperture.emptyFill || '#F0F0F0';
   ctx.fillRect(ax, ay, aw, ah);
 
   const cx = ax + aw / 2;
   const cy = ay + ah / 2;
-  const iconS = Math.min(aw, ah) * 0.12;
+  const iconS = Math.max(4, Math.min(aw, ah) * 0.12);
 
   ctx.save();
   ctx.strokeStyle = 'rgba(0,0,0,0.2)';
-  ctx.lineWidth = 1.5 * scale;
-  ctx.setLineDash([8 * scale, 6 * scale]);
-  ctx.strokeRect(ax + 2, ay + 2, aw - 4, ah - 4);
+  ctx.lineWidth = Math.max(1, 1.5 * scale);
+  ctx.setLineDash([Math.max(1, 8 * scale), Math.max(1, 6 * scale)]);
+  ctx.strokeRect(ax + 2, ay + 2, Math.max(1, aw - 4), Math.max(1, ah - 4));
   ctx.setLineDash([]);
 
   // Camera icon
   ctx.strokeStyle = 'rgba(0,0,0,0.25)';
-  ctx.lineWidth = 2 * scale;
+  ctx.lineWidth = Math.max(1, 2 * scale);
   ctx.lineJoin = 'round';
   ctx.beginPath();
-  ctx.roundRect(cx - iconS, cy - iconS * 0.7, iconS * 2, iconS * 1.4, 4 * scale);
+  if (typeof ctx.roundRect === 'function') {
+    ctx.roundRect(cx - iconS, cy - iconS * 0.7, iconS * 2, iconS * 1.4, Math.max(1, 4 * scale));
+  } else {
+    ctx.rect(cx - iconS, cy - iconS * 0.7, iconS * 2, iconS * 1.4);
+  }
   ctx.stroke();
   ctx.beginPath();
-  ctx.arc(cx, cy, iconS * 0.4, 0, Math.PI * 2);
+  ctx.arc(cx, cy, Math.max(1, iconS * 0.4), 0, Math.PI * 2);
   ctx.stroke();
 
   ctx.textAlign = 'center';
@@ -756,10 +771,15 @@ function renderMetadata(ctx, scene, frameDef, scale) {
 
 // ─── Scene element renderer ───────────────────────────────────────────────────
 function renderElement(ctx, el, assets, scale) {
+  if (!el || !scale || scale <= 0) return;
   ctx.save();
 
   const cx = (el.x + el.w / 2) * scale;
   const cy = (el.y + el.h / 2) * scale;
+  if (!Number.isFinite(cx) || !Number.isFinite(cy)) {
+    ctx.restore();
+    return;
+  }
 
   // Apply transform from center
   ctx.translate(cx, cy);
@@ -800,9 +820,9 @@ function renderElement(ctx, el, assets, scale) {
 
 function renderStickerEl(ctx, el, assets, scale, hw, hh) {
   const asset = assets.get(el.assetId);
-  if (asset?.img) {
+  if (asset?.img && hw > 0 && hh > 0 && Number.isFinite(hw) && Number.isFinite(hh)) {
     ctx.drawImage(asset.img, -hw, -hh, hw * 2, hh * 2);
-  } else {
+  } else if (hw > 0 && hh > 0 && Number.isFinite(hw) && Number.isFinite(hh)) {
     // Fallback placeholder
     ctx.strokeStyle = '#ccc';
     ctx.lineWidth = 2;

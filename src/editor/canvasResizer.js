@@ -47,8 +47,9 @@ export class CanvasResizer {
   }
 
   getMaxWidth() {
-    const areaW = (this.canvasArea ? this.canvasArea.clientWidth : window.innerWidth) - 48;
-    return Math.min(720, Math.max(480, areaW));
+    const areaW = (this.canvasArea && this.canvasArea.clientWidth > 0 ? this.canvasArea.clientWidth : window.innerWidth) - 48;
+    const safeAreaW = Math.max(MIN_WIDTH, areaW);
+    return Math.min(720, Math.max(MIN_WIDTH, safeAreaW));
   }
 
   init() {
@@ -89,6 +90,7 @@ export class CanvasResizer {
   }
 
   applyWidth(width, animate = true) {
+    if (typeof width !== 'number' || isNaN(width) || width <= 0) return;
     const maxW = this.getMaxWidth();
     const clamped = Math.max(MIN_WIDTH, Math.min(width, maxW));
     this.currentWidth = clamped;
@@ -107,6 +109,11 @@ export class CanvasResizer {
     }
 
     if (this.container) {
+      if (!animate) {
+        this.container.classList.add('is-resizing');
+      } else {
+        this.container.classList.remove('is-resizing');
+      }
       this.container.style.width = `${clamped}px`;
       if (this.options.setHeight) {
         this.container.style.height = `${height}px`;
@@ -114,6 +121,11 @@ export class CanvasResizer {
     }
 
     if (this.overlayEl) {
+      if (!animate) {
+        this.overlayEl.classList.add('is-resizing');
+      } else {
+        this.overlayEl.classList.remove('is-resizing');
+      }
       this.overlayEl.style.width = `${clamped}px`;
       this.overlayEl.style.height = `${height}px`;
     }
@@ -137,9 +149,13 @@ export class CanvasResizer {
       localStorage.setItem(this.storageKey, this.isFitMode ? 'fit' : String(clamped));
     } catch (e) {}
 
-    // Trigger re-render
+    // Trigger re-render (debounced via requestAnimationFrame to avoid thrashing)
     if (this.onResize) {
-      this.onResize(clamped, height);
+      if (this._resizeRaf) cancelAnimationFrame(this._resizeRaf);
+      this._resizeRaf = requestAnimationFrame(() => {
+        this._resizeRaf = null;
+        this.onResize(clamped, height);
+      });
     }
   }
 
@@ -166,10 +182,11 @@ export class CanvasResizer {
     this.isFitMode = true;
     if (!this.canvasArea) return;
     const padding = this.options.fitPaddingBottom || 110;
-    const availH = Math.max(300, this.canvasArea.clientHeight - padding);
-    const availW = Math.max(260, this.canvasArea.clientWidth - 48);
+    const availH = Math.max(200, this.canvasArea.clientHeight - padding);
+    const availW = Math.max(MIN_WIDTH, this.canvasArea.clientWidth - 48);
     let fitW = Math.round(availH / this.aspectRatio);
     if (fitW > availW) fitW = availW;
+    fitW = Math.max(MIN_WIDTH, Math.min(fitW, this.getMaxWidth()));
 
     this.applyWidth(fitW, true);
 
@@ -226,13 +243,22 @@ export class CanvasResizer {
     this.slider.addEventListener('input', e => {
       this.isFitMode = false;
       const val = parseInt(e.target.value, 10);
-      this.applyWidth(val, false);
+      if (isNaN(val)) return;
+      if (this._sliderRaf) cancelAnimationFrame(this._sliderRaf);
+      this._sliderRaf = requestAnimationFrame(() => {
+        this._sliderRaf = null;
+        this.applyWidth(val, false);
+      });
     });
 
     this.slider.addEventListener('change', () => {
-      if (this.canvas) {
-        this.canvas.classList.remove('is-resizing');
+      if (this._sliderRaf) {
+        cancelAnimationFrame(this._sliderRaf);
+        this._sliderRaf = null;
       }
+      if (this.canvas) this.canvas.classList.remove('is-resizing');
+      if (this.container) this.container.classList.remove('is-resizing');
+      if (this.overlayEl) this.overlayEl.classList.remove('is-resizing');
       this.applyWidth(this.currentWidth, true);
     });
   }
@@ -267,6 +293,8 @@ export class CanvasResizer {
   setupDragHandle() {
     if (!this.dragHandle) return;
 
+    let dragRaf = null;
+
     const onPointerDown = e => {
       e.preventDefault();
       e.stopPropagation();
@@ -279,9 +307,14 @@ export class CanvasResizer {
         startW: this.currentWidth
       };
 
-      this.dragHandle.setPointerCapture(e.pointerId);
+      try {
+        this.dragHandle.setPointerCapture(e.pointerId);
+      } catch (err) {}
+
       document.body.classList.add('is-resizing-canvas');
       if (this.canvas) this.canvas.classList.add('is-resizing');
+      if (this.container) this.container.classList.add('is-resizing');
+      if (this.overlayEl) this.overlayEl.classList.add('is-resizing');
     };
 
     const onPointerMove = e => {
@@ -292,7 +325,11 @@ export class CanvasResizer {
       const delta = Math.abs(dx) > Math.abs(dy) ? dx : dy;
       const targetW = Math.round(this.dragStartData.startW + delta);
 
-      this.applyWidth(targetW, false);
+      if (dragRaf) cancelAnimationFrame(dragRaf);
+      dragRaf = requestAnimationFrame(() => {
+        dragRaf = null;
+        this.applyWidth(targetW, false);
+      });
     };
 
     const onPointerUp = e => {
@@ -300,12 +337,19 @@ export class CanvasResizer {
       this.isDraggingHandle = false;
       this.dragStartData = null;
 
+      if (dragRaf) {
+        cancelAnimationFrame(dragRaf);
+        dragRaf = null;
+      }
+
       try {
         this.dragHandle.releasePointerCapture(e.pointerId);
       } catch (err) {}
 
       document.body.classList.remove('is-resizing-canvas');
       if (this.canvas) this.canvas.classList.remove('is-resizing');
+      if (this.container) this.container.classList.remove('is-resizing');
+      if (this.overlayEl) this.overlayEl.classList.remove('is-resizing');
       this.applyWidth(this.currentWidth, true);
     };
 
@@ -329,7 +373,7 @@ export class CanvasResizer {
         } else {
           this.updatePillPosition();
         }
-      }, 80);
+      }, 100);
     });
   }
 }
