@@ -69,7 +69,7 @@ export async function handleStickerRequest(req, res) {
   }
 
   // Action: Batch Upload
-  if (action === 'upload' || pathname.endsWith('/upload')) {
+  if (action === 'upload' || action === 'upload-batch' || pathname.endsWith('/upload') || pathname.endsWith('/upload-batch')) {
     const pin = body.pin || req.headers['authorization']?.replace('Bearer ', '');
     const files = body.files || [];
     const targetGroup = body.targetGroup || body.group || '';

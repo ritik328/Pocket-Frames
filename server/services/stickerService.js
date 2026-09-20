@@ -383,8 +383,9 @@ export async function processStickerUpload(fileData, options = {}) {
   let buffer;
   let mimeType = fileData.mimeType || 'image/png';
 
-  if (typeof fileData.data === 'string') {
-    let b64 = fileData.data;
+  const rawData = fileData.data || fileData.dataUrl;
+  if (typeof rawData === 'string') {
+    let b64 = rawData;
     if (b64.includes(',')) {
       const parts = b64.split(',');
       const match = parts[0].match(/:(.*?);/);
@@ -392,8 +393,8 @@ export async function processStickerUpload(fileData, options = {}) {
       b64 = parts[1];
     }
     buffer = Buffer.from(b64, 'base64');
-  } else if (Buffer.isBuffer(fileData.data)) {
-    buffer = fileData.data;
+  } else if (Buffer.isBuffer(rawData)) {
+    buffer = rawData;
   } else {
     throw new Error('Invalid file data provided');
   }
