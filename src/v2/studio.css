@@ -68,44 +68,44 @@ html[data-theme="dark"] {
 
 /* Light mode */
 html[data-theme="light"] {
-  --bg:          #e9e0d2;
+  --bg:          #ede5d8;
   --bg-2:        #fbf8f2;
   --bg-3:        #FFFFFF;
   --surface:     #FFFFFF;
-  --surface-2:   rgba(60,45,25,0.06);
-  --border:      #e2d8c6;
-  --border-2:    rgba(42,36,29,0.12);
-  --text:        #2a241d;
-  --text-dim:    #6b6156;
-  --text-faint:  #8c8272;
+  --surface-2:   rgba(42,36,29,0.06);
+  --border:      #ded4c3;
+  --border-2:    rgba(42,36,29,0.18);
+  --text:        #1f1b16;
+  --text-dim:    #544c41;
+  --text-faint:  #756c60;
   --accent:      #c4553b;
   --accent-2:    #a33e27;
   --accent-soft: rgba(196,85,59,0.12);
-  --accent-glow: rgba(196,85,59,0.15);
+  --accent-glow: rgba(196,85,59,0.18);
   --accent-ink:  #c4553b;
-  --panel:       #fbf8f2;
+  --panel:       #fcfaf6;
   --panel-card:  #ffffff;
-  --line:        #e2d8c6;
-  --ink:         #2a241d;
-  --ink2:        #6b6156;
-  --paper:       #fbf8f2;
+  --line:        #ded4c3;
+  --ink:         #1f1b16;
+  --ink2:        #544c41;
+  --paper:       #fcfaf6;
   --desk:        #e9e0d2;
   --acc:         #c4553b;
   --oxblood:     #6d1f22;
   --sh:          0 10px 30px rgba(60,45,25,.14);
-  --muted:       #6b6156;
+  --muted:       #544c41;
   --card-bg:     #ffffff;
   --field-bg:    #fdfcf7;
   --danger:      #CC3333;
   --sage:        #4C8567;
-  --glass-bg:    rgba(255,255,255,0.36);
-  --glass-bg-strong: rgba(255,255,255,0.64);
-  --glass-border: rgba(30,24,14,0.09);
-  --canvas-dot:  rgba(60,45,25,0.08);
+  --glass-bg:    rgba(255,255,255,0.72);
+  --glass-bg-strong: rgba(255,255,255,0.92);
+  --glass-border: rgba(30,24,14,0.12);
+  --canvas-dot:  rgba(60,45,25,0.10);
   --canvas-bg:   #e9e0d2;
-  --shadow-sm:   0 2px 8px rgba(60,45,25,0.10);
-  --shadow-md:   0 6px 24px rgba(60,45,25,0.15);
-  --shadow-lg:   0 16px 48px rgba(60,45,25,0.20);
+  --shadow-sm:   0 2px 8px rgba(60,45,25,0.08);
+  --shadow-md:   0 6px 24px rgba(60,45,25,0.12);
+  --shadow-lg:   0 16px 48px rgba(60,45,25,0.16);
   --hand:        'Segoe Script', 'Bradley Hand', 'Caveat', 'Comic Sans MS', 'Chalkboard SE', cursive;
   --serif:       Georgia, 'Times New Roman', serif;
   --type:        'Courier New', Courier, monospace;
@@ -134,7 +134,7 @@ body::before {
   position: fixed;
   inset: 0;
   pointer-events: none;
-  z-index: 0;
+  z-index: -1;
   background: radial-gradient(circle at 20% 10%, #f3ecdf 0, transparent 55%),
               radial-gradient(circle at 85% 90%, #e0d4bf 0, transparent 50%);
   opacity: 0;
@@ -221,6 +221,8 @@ input, select, textarea {
 
 /* ─── Shell layout ──────────────────────────────────────────────────────────── */
 .v2-shell {
+  position: relative;
+  z-index: 1;
   display: grid;
   grid-template-rows: var(--topbar-h) 1fr var(--status-h);
   grid-template-columns: var(--sidebar-w) 1fr var(--propbar-w);
@@ -422,16 +424,16 @@ input, select, textarea {
   width: var(--sidebar-w);
 }
 
-/* icon rail — real tab set, icon + tiny handwritten caption */
+/* icon rail — real tab set, icon + tiny clean caption */
 .rail {
   width: 64px;
-  background: rgba(251,248,242,.92);
+  background: var(--surface);
   border-right: 1px solid var(--line);
   display: flex;
   flex-direction: column;
   align-items: center;
   padding: 14px 0;
-  gap: 4px;
+  gap: 6px;
   flex-shrink: 0;
 }
 
@@ -442,18 +444,18 @@ html[data-theme="dark"] .rail {
 .rb,
 .rail-btn,
 .rail button {
-  width: 50px;
-  height: 48px;
+  width: 52px;
+  height: 50px;
   border: 1px solid transparent;
-  border-radius: 13px;
+  border-radius: 12px;
   background: transparent;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 2px;
-  font-size: 17px;
-  color: var(--ink2);
+  gap: 3px;
+  color: var(--ink);
+  opacity: 0.65;
   cursor: pointer;
   transition: var(--transition);
   user-select: none;
@@ -461,21 +463,25 @@ html[data-theme="dark"] .rail {
 
 .rb span,
 .rail-btn span {
-  font-size: 16px;
+  font-size: 18px;
   line-height: 1;
 }
 
 .rb i,
 .rail-btn i {
   font-style: normal;
-  font-size: 9px;
-  font-family: var(--hand);
-  line-height: 1;
+  font-family: var(--font-sans);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  line-height: 1.1;
+  text-transform: capitalize;
 }
 
 .rb:hover,
 .rail-btn:hover,
 .rail button:hover {
+  opacity: 1;
   background: var(--surface-2);
   color: var(--ink);
 }
@@ -487,10 +493,11 @@ html[data-theme="dark"] .rail {
 .rail-btn.is-active,
 .rail button.active,
 .rail button.is-active {
-  background: #fff;
-  border-color: var(--line);
+  opacity: 1;
+  background: var(--card-bg);
+  border-color: var(--border-2);
   color: var(--acc);
-  box-shadow: var(--sh);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
 }
 
 html[data-theme="dark"] .rb.on,
@@ -499,7 +506,7 @@ html[data-theme="dark"] .rb.is-active,
 html[data-theme="dark"] .rail-btn.active,
 html[data-theme="dark"] .rail-btn.is-active {
   background: #1D1F23;
-  border-color: rgba(255,255,255,0.12);
+  border-color: rgba(255,255,255,0.14);
   color: var(--acc);
   box-shadow: 0 4px 16px rgba(0,0,0,0.45);
 }
@@ -521,10 +528,11 @@ html[data-theme="dark"] .rail-btn.is-active {
 .panel-left h2,
 .panel-left h3 {
   font-family: var(--serif);
-  font-weight: bold;
-  font-size: 15px;
+  font-weight: 700;
+  font-size: 16px;
   margin: 2px 0 8px;
   color: var(--ink);
+  letter-spacing: -0.01em;
 }
 
 .v2-tab-panel {
@@ -594,15 +602,17 @@ html[data-theme="dark"] .rail-btn.is-active {
 .chip,
 .chips .v2-pack-tab {
   flex: 0 0 auto;
-  border: 1px solid var(--line);
-  background: var(--card-bg);
+  border: 1px solid var(--border);
+  background: var(--surface);
   border-radius: 999px;
-  padding: 4px 11px;
-  font-family: var(--hand);
-  font-size: 13px;
-  color: var(--ink2);
+  padding: 5px 12px;
+  font-family: var(--font-sans);
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--ink);
   cursor: pointer;
   white-space: nowrap;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.04);
   transition: var(--transition);
 }
 
@@ -610,6 +620,7 @@ html[data-theme="dark"] .rail-btn.is-active {
 .chips .v2-pack-tab:hover {
   border-color: var(--acc);
   color: var(--acc);
+  background: var(--surface-2);
 }
 
 .chip.on,
@@ -620,6 +631,7 @@ html[data-theme="dark"] .rail-btn.is-active {
   background: var(--ink);
   color: var(--paper);
   border-color: var(--ink);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.18);
 }
 
 /* sticker grid */
@@ -689,24 +701,26 @@ html[data-theme="dark"] .rail-btn.is-active {
   flex-direction: column;
   align-items: center;
   gap: 8px;
-  padding: 10px 6px;
+  padding: 10px 8px;
   border-radius: var(--radius);
-  background: var(--card-bg);
-  border: 1px solid var(--line);
+  background: var(--surface);
+  border: 1px solid var(--border);
   cursor: pointer;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.05);
   transition: var(--transition);
 }
 
 .v2-frame-tile:hover {
-  border-color: var(--accent-ink);
-  transform: translateY(-1px);
-  box-shadow: var(--shadow-sm);
+  border-color: var(--accent);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(0,0,0,0.08);
 }
 
 .v2-frame-tile.is-active,
 .v2-frame-tile.active {
-  border-color: var(--accent-ink);
+  border-color: var(--accent);
   background: var(--accent-soft);
+  box-shadow: 0 2px 10px var(--accent-glow);
 }
 
 .v2-frame-tile canvas {
@@ -716,7 +730,7 @@ html[data-theme="dark"] .rail-btn.is-active {
 }
 
 .v2-frame-tile span {
-  font-size: 11px;
+  font-size: 11.5px;
   font-weight: 600;
   color: var(--ink);
   text-align: center;
