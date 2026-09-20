@@ -1432,6 +1432,16 @@ function initDevStickerBackdoor() {
       if (progressBar) progressBar.style.width = '85%';
       if (progressPercent) progressPercent.textContent = '85%';
 
+      // Check HTTP status BEFORE parsing JSON
+      if (!res.ok) {
+        let errMsg = `HTTP ${res.status}`;
+        try {
+          const errData = await res.json();
+          errMsg = errData.error || errMsg;
+        } catch { /* ignore parse errors */ }
+        throw new Error(errMsg);
+      }
+
       const result = await res.json();
 
       if (result.success) {

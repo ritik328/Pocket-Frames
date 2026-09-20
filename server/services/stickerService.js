@@ -408,9 +408,20 @@ export async function processStickerUpload(fileData, options = {}) {
       const b64Input = buffer.toString('base64');
       cleanedBuffer = await callGeminiFlashImageCleaning(b64Input, mimeType);
       usedGeminiImage = true;
+      console.log('[StickerService] Background removed via Gemini 2.5 Flash Image');
     } catch (geminiErr) {
+      console.warn('[StickerService] Gemini image cleaning failed, using local alpha-matting fallback:', geminiErr.message);
       // Fall back smoothly to high-fidelity local alpha-matting
-      cleanedBuffer = await cleanBackgroundLocal(buffer);
+      try {
+        cleanedBuffer = await cleanBackgroundLocal(buffer);
+      } catch (localErr) {
+        console.warn('[StickerService] Local alpha-matting also failed, using original image:', localErr.message);
+        // Keep original buffer, just resize/convert to PNG
+        cleanedBuffer = await sharp(buffer)
+          .resize(512, 512, { fit: 'inside', withoutEnlargement: true })
+          .png({ quality: 90 })
+          .toBuffer();
+      }
     }
   } else {
     // Just ensure standard PNG sizing and clean edges
