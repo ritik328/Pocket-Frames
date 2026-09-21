@@ -1654,10 +1654,16 @@ function initDevStickerBackdoor() {
 
       if (result.success) {
         if (progressBar) progressBar.style.width = '100%';
-        if (progressStatus) progressStatus.textContent = `Complete! ${result.uploaded} stickers processed.`;
+        let summaryMsg = `Complete! ${result.uploaded} sticker${result.uploaded === 1 ? '' : 's'} processed.`;
+        if (result.alreadyTransparent > 0 && result.aiCleaned > 0) {
+          summaryMsg = `Added ${result.uploaded} stickers (${result.alreadyTransparent} skipped - already transparent, ${result.aiCleaned} AI cleaned)!`;
+        } else if (result.alreadyTransparent > 0 && result.aiCleaned === 0) {
+          summaryMsg = `Added ${result.uploaded} stickers (all already transparent - skipped AI)!`;
+        }
+        if (progressStatus) progressStatus.textContent = summaryMsg;
         if (progressPercent) progressPercent.textContent = '100%';
 
-        showToast(`Successfully added ${result.uploaded} stickers!`);
+        showToast(summaryMsg);
 
         // Refresh dynamic stickers in memory and UI
         await preloadStickers();

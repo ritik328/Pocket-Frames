@@ -193,13 +193,61 @@ def remove_bg_colorfill(img_bytes: bytes) -> bytes:
     return buf.getvalue()
 
 
+# ─── SMART SKIP: Already Transparent Detection ───────────────────────────────
+def check_already_transparent(img_bytes: bytes):
+    """
+    Detect if image already has a transparent background.
+    Returns (is_transparent: bool, ratio: float).
+    """
+    try:
+        pil_img = Image.open(io.BytesIO(img_bytes))
+        if pil_img.mode not in ("RGBA", "LA", "PA") and "transparency" not in pil_img.info:
+            return False, 0.0
+
+        rgba = pil_img.convert("RGBA")
+        thumb = rgba.resize((64, 64), Image.NEAREST)
+        alpha = np.array(thumb)[:, :, 3]
+
+        corners = [alpha[0, 0], alpha[0, 63], alpha[63, 0], alpha[63, 63]]
+        transparent_corners = sum(1 for a in corners if a < 30)
+        ratio = float(np.mean(alpha < 30))
+
+        if (transparent_corners >= 3 and ratio > 0.05) or ratio > 0.15:
+            return True, ratio
+        return False, ratio
+    except Exception:
+        return False, 0.0
+
+
 # ─── Main Pipeline ────────────────────────────────────────────────────────────
 def process_image(
     img_bytes: bytes,
     model_name: str = "u2net",
     alpha_matting: bool = False
 ) -> bytes:
-    """Process image through danielgatis/rembg with fallbacks."""
+    """Process image through danielgatis/rembg with fallbacks and smart transparency skip."""
+    # Smart check: if image already has transparent background, skip heavy AI inference!
+    is_trans, ratio = check_already_transparent(img_bytes)
+    if is_trans:
+        print(f"[rembg] ⚡ Smart skip: image is already transparent ({int(ratio * 100)}% transparent) -> skipping AI model", file=sys.stderr)
+        try:
+            pil_img = Image.open(io.BytesIO(img_bytes)).convert("RGBA")
+            bbox = pil_img.getbbox()
+            if bbox:
+                pad = 2
+                left = max(0, bbox[0] - pad)
+                top = max(0, bbox[1] - pad)
+                right = min(pil_img.width, bbox[2] + pad)
+                bottom = min(pil_img.height, bbox[3] + pad)
+                pil_img = pil_img.crop((left, top, right, bottom))
+            if pil_img.width > 512 or pil_img.height > 512:
+                pil_img.thumbnail((512, 512), Image.LANCZOS)
+            buf = io.BytesIO()
+            pil_img.save(buf, format="PNG", optimize=True)
+            return buf.getvalue()
+        except Exception:
+            return img_bytes
+
     # Stage 1: Official danielgatis/rembg tool
     try:
         result = remove_bg_rembg(
