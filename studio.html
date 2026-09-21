@@ -487,7 +487,7 @@
         </svg>
       </div>
       <h3 id="v2-pin-modal-title">Developer Access</h3>
-      <p class="v2-pin-subtitle">Enter your 4-digit developer PIN to unlock batch sticker uploads, Gemini background cleaning, and collection management.</p>
+      <p class="v2-pin-subtitle">Enter your 4-digit developer PIN to unlock batch sticker uploads, Python AI background removal, and collection management.</p>
     </div>
 
     <!-- PIN dots display -->
@@ -533,10 +533,10 @@
       <div class="v2-dev-title-block">
         <div class="v2-dev-header-badge">
           <span>🔒 Backdoor</span>
-          <span class="v2-badge-pill">Gemini Flash 2.5 Image</span>
+          <span class="v2-badge-pill">Python · rembg AI</span>
         </div>
         <h2 id="v2-dev-modal-title">Developer Sticker Studio</h2>
-        <p class="v2-dev-modal-desc">Directly upload up to 50 stickers per batch, automatically clean backgrounds with Gemini, assign custom groups (e.g. <em>summer vibes</em>), or let AI categorize.</p>
+        <p class="v2-dev-modal-desc">Directly upload up to 50 stickers per batch. Backgrounds are automatically removed using a local Python AI script (rembg U2Net model). Assign stickers to custom groups manually.</p>
       </div>
       <button class="v2-modal-close-btn" id="v2-dev-modal-close" type="button" aria-label="Close modal">✕</button>
     </div>
@@ -571,7 +571,6 @@
         <div class="v2-dev-group-select-row">
           <select id="v2-dev-group-select" class="v2-dev-select">
             <option value="__new__">+ Create New Group (e.g. Summer Vibes)</option>
-            <option value="__auto__">🤖 AI Auto-Categorize with Gemini (detects floral, mirrors, ocean, etc.)</option>
             <!-- Dynamically populated options -->
           </select>
           <input type="text" id="v2-dev-new-group-name" class="v2-dev-input" placeholder="Enter group name (e.g. summer vibes)" value="summer vibes" />
@@ -606,23 +605,13 @@
         <div class="v2-dev-file-grid" id="v2-dev-file-grid"></div>
       </div>
 
-      <!-- Background removal options -->
       <div class="v2-dev-options-card">
         <label class="v2-dev-checkbox-row">
           <input type="checkbox" id="v2-dev-chk-bg-removal" checked />
           <span class="v2-dev-checkbox-box"></span>
           <div class="v2-dev-checkbox-text">
-            <strong>Clean background in backend via Gemini Flash 2.5 Image API</strong>
-            <p>Automatically isolates foreground subjects and produces clean transparent PNG stickers with feathered antialiased edges.</p>
-          </div>
-        </label>
-        
-        <label class="v2-dev-checkbox-row" style="margin-top:10px;">
-          <input type="checkbox" id="v2-dev-chk-auto-cat" />
-          <span class="v2-dev-checkbox-box"></span>
-          <div class="v2-dev-checkbox-text">
-            <strong>Use Gemini Vision to auto-tag and name each sticker</strong>
-            <p>Generates crisp titles and semantic tags for easy search in the studio sidebar.</p>
+            <strong>Remove background via Python AI (rembg U2Net)</strong>
+            <p>Runs a local Python script that uses the U2Net neural network model to precisely isolate the foreground subject — no API calls, no rate limits. Falls back to OpenCV GrabCut or colour-sampling if needed.</p>
           </div>
         </label>
       </div>

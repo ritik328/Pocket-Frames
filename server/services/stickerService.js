@@ -2,8 +2,7 @@
  * Pocket Frames — Developer Sticker Service
  * Handles:
  *  - PIN verification
- *  - Background cleaning via Gemini Flash 2.5 Image API + sharp alpha-matting
- *  - Intelligent AI categorization into groups (floral, mirrors, ocean, summer vibes, etc.)
+ *  - Background cleaning via advanced Python script (rembg U2Net + GrabCut + color-flood fallback)
  *  - Batch uploading (up to 50 files)
  *  - Full collection / group deletion
  *  - Catalog persistence in server/data/customStickers.json & public/custom-stickers/
@@ -11,6 +10,7 @@
 
 import fs from 'fs';
 import path from 'path';
+import { spawn } from 'child_process';
 import sharp from 'sharp';
 
 const DEV_PIN = process.env.DEV_PIN?.trim() || '7788';
@@ -37,9 +37,15 @@ const STICKERS_DIR = IS_SERVERLESS
 // The public URL prefix for sticker images
 const STICKERS_URL_PREFIX = process.env.STICKERS_URL_PREFIX || '/custom-stickers';
 
+// Path to the Python background removal script
+const PYTHON_SCRIPT = path.resolve(process.cwd(), 'server', 'scripts', 'remove_bg.py');
+// Allow override via env (e.g. PYTHON_BIN=python3 on Linux)
+const PYTHON_BIN = process.env.PYTHON_BIN || 'python';
+
 console.log(`[StickerService] Environment: ${IS_SERVERLESS ? 'serverless' : 'local'}`);
 console.log(`[StickerService] Data file: ${DATA_FILE}`);
 console.log(`[StickerService] Stickers dir: ${STICKERS_DIR}`);
+console.log(`[StickerService] Python bg-remover: ${PYTHON_BIN} ${PYTHON_SCRIPT}`);
 
 // Ensure storage directories exist
 try {
@@ -191,249 +197,56 @@ export async function deleteCollection(packId, pin) {
 }
 
 /**
- * Clean image background using sharp high-fidelity alpha matting
- * Converts solid backgrounds (white, light-gray, black, checkerboards) into clean transparent PNGs
+ * Remove background from image using the Python script (remove_bg.py).
+ * Stages: rembg U2Net AI → OpenCV GrabCut → color flood-fill fallback.
+ * The Python script reads raw image bytes from stdin and writes PNG to stdout.
  */
-export async function cleanBackgroundLocal(imageBuffer) {
-  // Load image with sharp and extract raw RGBA pixels
-  const image = sharp(imageBuffer);
-  const metadata = await image.metadata();
-
-  const width = metadata.width || 512;
-  const height = metadata.height || 512;
-
-  // Convert to RGBA raw buffer
-  const raw = await image
-    .ensureAlpha()
-    .raw()
-    .toBuffer();
-
-  const pixelCount = width * height;
-  const data = new Uint8Array(raw);
-
-  // Sample corner pixels to detect background color
-  // Corners: top-left, top-right, bottom-left, bottom-right
-  const cornerIndices = [
-    0, // (0,0)
-    (width - 1) * 4, // (w-1, 0)
-    (width * (height - 1)) * 4, // (0, h-1)
-    (width * height - 1) * 4 // (w-1, h-1)
-  ];
-
-  let totalR = 0, totalG = 0, totalB = 0;
-  for (const idx of cornerIndices) {
-    totalR += data[idx];
-    totalG += data[idx + 1];
-    totalB += data[idx + 2];
-  }
-  const bgR = Math.round(totalR / 4);
-  const bgG = Math.round(totalG / 4);
-  const bgB = Math.round(totalB / 4);
-
-  // Determine if background is solid white/near-white, solid black, or solid color
-  const isWhiteBg = bgR >= 235 && bgG >= 235 && bgB >= 235;
-  const isBlackBg = bgR <= 20 && bgG <= 20 && bgB <= 20;
-
-  // Color distance threshold with soft feathering
-  const threshold = isWhiteBg ? 30 : isBlackBg ? 25 : 35;
-  const featherRange = 15;
-
-  for (let i = 0; i < pixelCount; i++) {
-    const offset = i * 4;
-    const r = data[offset];
-    const g = data[offset + 1];
-    const b = data[offset + 2];
-    const a = data[offset + 3];
-
-    if (a === 0) continue; // already transparent
-
-    // Euclidean color distance from background
-    const dist = Math.sqrt(
-      (r - bgR) * (r - bgR) +
-      (g - bgG) * (g - bgG) +
-      (b - bgB) * (b - bgB)
-    );
-
-    if (dist <= threshold) {
-      // Complete background transparency
-      data[offset + 3] = 0;
-    } else if (dist < threshold + featherRange) {
-      // Soft edge antialiasing
-      const alphaFactor = (dist - threshold) / featherRange;
-      data[offset + 3] = Math.round(a * alphaFactor);
-    }
-  }
-
-  // Re-encode back to PNG with trimmed transparent borders and safe padding
-  const cleanedBuffer = await sharp(data, {
-    raw: {
-      width,
-      height,
-      channels: 4
-    }
-  })
-    .trim({ threshold: 10 })
-    .resize(512, 512, {
-      fit: 'inside',
-      withoutEnlargement: true
-    })
-    .png({ quality: 95, compressionLevel: 8 })
-    .toBuffer();
-
-  return cleanedBuffer;
-}
-
-// Rate-limit circuit breaker: avoid hammering Gemini Image API when quota is exhausted
-let _geminiImageCooldownUntil = 0;
-
-/**
- * Call Gemini Flash 2.5 Image API for background cleaning / object isolation
- */
-export async function callGeminiFlashImageCleaning(imageBase64, mimeType = 'image/png') {
-  if (Date.now() < _geminiImageCooldownUntil) {
-    throw new Error('Gemini Image API quota cooldown active');
-  }
-
-  const apiKey = process.env.GEMINI_API_KEY?.trim();
-  if (!apiKey) {
-    throw new Error('GEMINI_API_KEY not configured');
-  }
-
-  const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image:generateContent?key=${apiKey}`;
-
-  const requestBody = {
-    contents: [
-      {
-        role: 'user',
-        parts: [
-          {
-            inlineData: {
-              mimeType,
-              data: imageBase64
-            }
-          },
-          {
-            text: 'Isolate the main foreground subject in this sticker image. Remove all background completely so that the returned image has a pure transparent alpha background. Output only the isolated sticker.'
-          }
-        ]
-      }
-    ]
-  };
-
-  const response = await fetch(endpoint, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(requestBody)
-  });
-
-  if (!response.ok) {
-    const errorText = await response.text();
-    if (response.status === 429 || errorText.includes('429') || errorText.includes('quota')) {
-      _geminiImageCooldownUntil = Date.now() + 5 * 60 * 1000; // 5 min cooldown
-      console.warn('[StickerService] Gemini Flash Image quota reached (429). Switching to fast local alpha-matting.');
-    }
-    throw new Error(`Gemini Flash 2.5 Image API error ${response.status}: ${errorText.substring(0, 150)}`);
-  }
-
-  const data = await response.json();
-  const parts = data.candidates?.[0]?.content?.parts || [];
-
-  // Look for inline image data in response
-  for (const part of parts) {
-    if (part.inlineData && part.inlineData.data) {
-      return Buffer.from(part.inlineData.data, 'base64');
-    }
-  }
-
-  throw new Error('No image returned by Gemini 2.5 Flash Image');
-}
-
-/**
- * Intelligent AI Categorization with Gemini
- * Classifies stickers into groups like 'floral', 'mirrors', 'ocean', 'summer vibes', etc.
- */
-export async function categorizeStickerWithAi(imageBase64, mimeType = 'image/png') {
-  const apiKey = process.env.GEMINI_API_KEY?.trim();
-  const model = process.env.GEMINI_MODEL || 'gemini-3.5-flash-lite';
-
-  if (!apiKey) {
-    return {
-      name: 'Sticker',
-      category: 'general',
-      emoji: '✦',
-      tags: ['sticker', 'custom']
-    };
-  }
-
-  const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
-
-  const prompt = `Analyze this sticker / isolated visual design.
-Return a JSON object with:
-- "name": Concise clean title (e.g. "Vintage Mirror", "Cherry Blossom", "Summer Palm")
-- "category": Concise group/pack name in lowercase (e.g. "floral" for flowers/botanicals, "mirrors" for mirrors, "ocean" for sea items, "summer vibes" for beach/summer items, "vintage" for retro items, "photography" for camera items, etc.)
-- "emoji": A single matching emoji for this category (e.g. 🌸 for floral, 🪞 for mirrors, ☀️ for summer vibes, 🌊 for ocean)
-- "tags": Array of 4-6 lowercase keyword tags
-
-Output valid JSON only.`;
-
-  try {
-    const response = await fetch(endpoint, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        contents: [
-          {
-            parts: [
-              {
-                inlineData: { mimeType, data: imageBase64 }
-              },
-              { text: prompt }
-            ]
-          }
-        ],
-        generationConfig: {
-          temperature: 0.2,
-          responseMimeType: 'application/json'
-        }
-      })
+async function cleanBackgroundPython(imageBuffer) {
+  return new Promise((resolve, reject) => {
+    const args = [PYTHON_SCRIPT, '-', '-'];
+    const proc = spawn(PYTHON_BIN, args, {
+      stdio: ['pipe', 'pipe', 'pipe']
     });
 
-    if (response.ok) {
-      const data = await response.json();
-      const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
-      if (text) {
-        const parsed = JSON.parse(text);
-        return {
-          name: parsed.name || 'Custom Sticker',
-          category: (parsed.category || 'custom').toLowerCase().trim().replace(/[^a-z0-9\s_-]/g, ''),
-          emoji: parsed.emoji || '✦',
-          tags: Array.isArray(parsed.tags) ? parsed.tags.map(t => String(t).toLowerCase().trim()) : ['sticker']
-        };
-      }
-    }
-  } catch (err) {
-    console.warn('[StickerService] AI categorization failed, using fallback:', err);
-  }
+    const chunks = [];
+    const errChunks = [];
 
-  return {
-    name: 'Custom Sticker',
-    category: 'custom',
-    emoji: '✦',
-    tags: ['sticker', 'custom']
-  };
+    proc.stdout.on('data', chunk => chunks.push(chunk));
+    proc.stderr.on('data', chunk => errChunks.push(chunk));
+
+    proc.on('error', err => {
+      reject(new Error(`Python bg-remover spawn failed: ${err.message}`));
+    });
+
+    proc.on('close', code => {
+      const stderrText = Buffer.concat(errChunks).toString('utf8').trim();
+      if (stderrText) console.log('[BgRemover]', stderrText);
+      if (code !== 0) {
+        return reject(new Error(`Python bg-remover exited with code ${code}: ${stderrText.slice(0, 200)}`));
+      }
+      const result = Buffer.concat(chunks);
+      if (result.length === 0) {
+        return reject(new Error('Python bg-remover returned empty output'));
+      }
+      resolve(result);
+    });
+
+    // Send image bytes to Python script via stdin, then close it
+    proc.stdin.write(imageBuffer);
+    proc.stdin.end();
+  });
 }
 
 /**
  * Process a single sticker upload:
- * 1. Clean background (Gemini Flash 2.5 Image with local alpha-matting fallback/polish)
- * 2. Categorize (Gemini AI or user group)
+ * 1. Clean background via Python script (rembg U2Net AI → GrabCut → color-flood fallback)
+ * 2. Assign to user-specified group
  * 3. Save to disk
  */
 export async function processStickerUpload(fileData, options = {}) {
   const {
     pin,
     targetGroup = '',
-    autoCategorize = true,
     removeBackground = true
   } = options;
 
@@ -460,58 +273,37 @@ export async function processStickerUpload(fileData, options = {}) {
     throw new Error('Invalid file data provided');
   }
 
-  // 1. Background removal
+  // 1. Background removal via Python script
   let cleanedBuffer = buffer;
-  let usedGeminiImage = false;
+  let bgMethod = 'none';
 
   if (removeBackground) {
-    // Try Gemini Flash 2.5 Image API first
     try {
-      const b64Input = buffer.toString('base64');
-      cleanedBuffer = await callGeminiFlashImageCleaning(b64Input, mimeType);
-      usedGeminiImage = true;
-      console.log('[StickerService] Background removed via Gemini 2.5 Flash Image');
-    } catch (geminiErr) {
-      if (!geminiErr.message.includes('cooldown')) {
-        console.warn('[StickerService] Gemini image cleaning failed, using local alpha-matting fallback:', geminiErr.message);
-      }
-      // Fall back smoothly to high-fidelity local alpha-matting
-      try {
-        cleanedBuffer = await cleanBackgroundLocal(buffer);
-      } catch (localErr) {
-        console.warn('[StickerService] Local alpha-matting also failed, using original image:', localErr.message);
-        // Keep original buffer, just resize/convert to PNG
-        cleanedBuffer = await sharp(buffer)
-          .resize(512, 512, { fit: 'inside', withoutEnlargement: true })
-          .png({ quality: 90 })
-          .toBuffer();
-      }
+      cleanedBuffer = await cleanBackgroundPython(buffer);
+      bgMethod = 'python-rembg';
+      console.log('[StickerService] Background removed via Python (rembg/GrabCut)');
+    } catch (pyErr) {
+      console.warn('[StickerService] Python bg-remover failed, using sharp resize fallback:', pyErr.message);
+      // Fallback: just resize/convert to PNG cleanly
+      cleanedBuffer = await sharp(buffer)
+        .resize(512, 512, { fit: 'inside', withoutEnlargement: true })
+        .png({ quality: 95 })
+        .toBuffer();
+      bgMethod = 'sharp-resize';
     }
   } else {
-    // Just ensure standard PNG sizing and clean edges
     cleanedBuffer = await sharp(buffer)
       .resize(512, 512, { fit: 'inside', withoutEnlargement: true })
       .png({ quality: 95 })
       .toBuffer();
+    bgMethod = 'none';
   }
 
-  // 2. Intelligent Categorization
-  let groupName = (targetGroup || '').trim();
-  let emoji = '✦';
-  let stickerName = fileData.name ? path.parse(fileData.name).name : 'Sticker';
-  let tags = ['custom'];
-
-  if (autoCategorize || !groupName) {
-    const aiMeta = await categorizeStickerWithAi(cleanedBuffer.toString('base64'), 'image/png');
-    if (!groupName) {
-      groupName = aiMeta.category || 'custom';
-      emoji = aiMeta.emoji || '✦';
-    }
-    if (aiMeta.name && aiMeta.name !== 'Custom Sticker') {
-      stickerName = aiMeta.name;
-    }
-    tags = aiMeta.tags || ['custom'];
-  }
+  // 2. Group assignment — user-specified only
+  let groupName = (targetGroup || '').trim() || 'custom';
+  const stickerName = fileData.name ? path.parse(fileData.name).name : 'Sticker';
+  const tags = ['sticker', 'custom'];
+  const emoji = '✦';
 
   // Normalize group ID
   const packId = groupName.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
@@ -543,7 +335,7 @@ export async function processStickerUpload(fileData, options = {}) {
     width: meta.width || 512,
     height: meta.height || 512,
     createdAt: Date.now(),
-    bgCleanedVia: usedGeminiImage ? 'gemini-2.5-flash-image' : 'smart-alpha-matting'
+    bgCleanedVia: bgMethod
   };
 
   // 4. Update store
@@ -591,7 +383,7 @@ export function getStickerImageBuffer(stickerId) {
  * Batch upload up to 50 stickers
  */
 export async function batchUploadStickers(files, options = {}) {
-  const { pin, targetGroup, autoCategorize, removeBackground } = options;
+  const { pin, targetGroup, removeBackground } = options;
 
   if (!verifyPin(pin)) {
     return { success: false, error: 'Unauthorized: Invalid developer PIN' };
@@ -614,7 +406,6 @@ export async function batchUploadStickers(files, options = {}) {
       const record = await processStickerUpload(file, {
         pin,
         targetGroup,
-        autoCategorize,
         removeBackground
       });
       results.push(record);

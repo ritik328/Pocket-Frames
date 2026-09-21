@@ -1260,7 +1260,6 @@ function initDevStickerBackdoor() {
   const fileGrid         = document.getElementById('v2-dev-file-grid');
   const clearSelectedBtn = document.getElementById('v2-dev-clear-selected');
   const chkBgRemoval     = document.getElementById('v2-dev-chk-bg-removal');
-  const chkAutoCat       = document.getElementById('v2-dev-chk-auto-cat');
   const btnSubmitUpload  = document.getElementById('v2-dev-btn-upload-submit');
   const btnSubmitLabel   = document.getElementById('v2-dev-btn-submit-label');
 
@@ -1448,7 +1447,6 @@ function initDevStickerBackdoor() {
     const currentVal = groupSelect.value;
     groupSelect.innerHTML = `
       <option value="__new__">+ Create New Group (e.g. Summer Vibes)</option>
-      <option value="__auto__">🤖 AI Auto-Categorize with Gemini (floral, mirrors, ocean...)</option>
     `;
 
     const activePacks = getActivePacks().filter(p => p.id !== 'all');
@@ -1471,11 +1469,6 @@ function initDevStickerBackdoor() {
     if (!newGroupNameInput || !groupSelect) return;
     const isNew = groupSelect.value === '__new__';
     newGroupNameInput.style.display = isNew ? 'block' : 'none';
-    if (chkAutoCat) {
-      if (groupSelect.value === '__auto__') {
-        chkAutoCat.checked = true;
-      }
-    }
   }
 
   groupSelect?.addEventListener('change', updateGroupInputVisibility);
@@ -1588,22 +1581,20 @@ function initDevStickerBackdoor() {
   btnSubmitUpload?.addEventListener('click', async () => {
     if (selectedFiles.length === 0 || !devPin) return;
 
-    const isAutoCat = groupSelect?.value === '__auto__';
     const isNew = groupSelect?.value === '__new__';
-    const groupName = isAutoCat ? '' : (isNew ? (newGroupNameInput?.value || 'Custom') : groupSelect?.value);
+    const groupName = isNew ? (newGroupNameInput?.value || 'Custom') : (groupSelect?.value || 'custom');
 
     // Lock UI and show progress
     btnSubmitUpload.disabled = true;
     if (progressContainer) progressContainer.style.display = 'flex';
     if (progressBar) progressBar.style.width = '10%';
-    if (progressStatus) progressStatus.textContent = `Processing ${selectedFiles.length} sticker(s) with Gemini AI...`;
+    if (progressStatus) progressStatus.textContent = `Processing ${selectedFiles.length} sticker(s)...`;
     if (progressPercent) progressPercent.textContent = '10%';
 
     try {
       const payload = {
         pin: devPin,
         targetGroup: groupName,
-        autoCategorize: isAutoCat || chkAutoCat?.checked,
         removeBackground: chkBgRemoval?.checked !== false,
         files: selectedFiles.map(f => ({
           name: f.name,
@@ -1613,7 +1604,7 @@ function initDevStickerBackdoor() {
       };
 
       if (progressBar) progressBar.style.width = '45%';
-      if (progressStatus) progressStatus.textContent = 'Removing backgrounds via Gemini Flash 2.5 Image API...';
+      if (progressStatus) progressStatus.textContent = 'Removing backgrounds via Python AI (rembg U2Net)...';
       if (progressPercent) progressPercent.textContent = '45%';
 
       const res = await fetch('/api/stickers?action=upload', {
