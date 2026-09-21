@@ -16,6 +16,16 @@ import {
   getAllStickers,
   getActivePacks
 } from './stickerCatalog.js';
+import {
+  saveStickerToDb,
+  saveStickersToDb,
+  getAllStickersFromDb,
+  savePackToDb,
+  getAllPacksFromDb,
+  deletePackFromDb,
+  renamePackInDb,
+  migrateFromLocalStorage
+} from './stickerDb.js';
 import { CanvasResizer } from '../editor/canvasResizer.js';
 
 // ─── DOM refs ─────────────────────────────────────────────────────────────────
@@ -55,7 +65,13 @@ async function executeDeleteCollection(packId, packLabel = '') {
     const rawLower = String(packId || '').toLowerCase().trim();
     const slug = rawLower.replace(/[\s_]+/g, '-').replace(/[^a-z0-9-]/g, '');
 
-    // 1. Immediately persist deletion in client localStorage so it never returns on refresh
+    // 1. Immediately persist deletion in IndexedDB & client localStorage
+    try {
+      await deletePackFromDb(packId);
+    } catch (dbErr) {
+      console.warn('[StudioApp] Error deleting pack from IndexedDB:', dbErr);
+    }
+
     try {
       const rawDel = localStorage.getItem('pocketframes_deleted_packs_v2');
       const deletedPacks = rawDel ? JSON.parse(rawDel) : [];
@@ -146,7 +162,13 @@ async function executeRenameCollection(packId, currentLabel = '', newLabel = '')
     const rawLower = String(packId || '').toLowerCase().trim();
     const slug = rawLower.replace(/[\s_]+/g, '-').replace(/[^a-z0-9-]/g, '');
 
-    // 1. Immediately persist rename in client localStorage
+    // 1. Immediately persist rename in IndexedDB & client localStorage
+    try {
+      await renamePackInDb(packId, trimmed);
+    } catch (dbErr) {
+      console.warn('[StudioApp] Error renaming pack in IndexedDB:', dbErr);
+    }
+
     try {
       const rawRenamed = localStorage.getItem('pocketframes_renamed_packs_v2');
       const renamedMap = rawRenamed ? JSON.parse(rawRenamed) : {};
@@ -590,7 +612,45 @@ async function preloadStickers() {
     return allDeletedSet.has(pId) || allDeletedSet.has(lower) || allDeletedSet.has(slug);
   };
 
-  // Merge client-cached custom stickers from localStorage for resilience on serverless deployments
+  // 1. Read persistent stickers & packs from high-capacity IndexedDB (resilient across serverless cold starts)
+  try {
+    const idbStickers = await getAllStickersFromDb();
+    const idbPacks = await getAllPacksFromDb();
+
+    if (Array.isArray(idbStickers) && idbStickers.length > 0) {
+      serverData.stickers = serverData.stickers || [];
+      const existingIds = new Set(serverData.stickers.map(s => s.id));
+      for (const s of idbStickers) {
+        if (!existingIds.has(s.id) && !isPackDeleted(s.pack)) {
+          serverData.stickers.unshift(s);
+          existingIds.add(s.id);
+        }
+      }
+    }
+
+    if (Array.isArray(idbPacks) && idbPacks.length > 0) {
+      serverData.packs = serverData.packs || [];
+      const existingPacks = new Set(serverData.packs.map(p => p.id));
+      for (const p of idbPacks) {
+        if (!existingPacks.has(p.id) && !isPackDeleted(p.id)) {
+          serverData.packs.push(p);
+          existingPacks.add(p.id);
+        }
+      }
+    }
+
+    // Background sync server stickers into IndexedDB if missing
+    if (Array.isArray(serverData.stickers) && serverData.stickers.length > 0) {
+      const missing = serverData.stickers.filter(s => s && s.id && !idbStickers?.some(idb => idb.id === s.id));
+      if (missing.length > 0) {
+        saveStickersToDb(missing).catch(() => {});
+      }
+    }
+  } catch (idbErr) {
+    console.warn('[StudioApp] Error reading stickers from IndexedDB:', idbErr);
+  }
+
+  // 2. Legacy fallback: check localStorage
   try {
     const localRaw = localStorage.getItem('pocketframes_custom_stickers_v2');
     if (localRaw) {
@@ -1459,6 +1519,7 @@ async function init() {
   });
 
   // Sticker preload + panels
+  await migrateFromLocalStorage();
   await preloadStickers();
   buildStickerPackTabs();
   buildStickerGrid();
@@ -2020,38 +2081,35 @@ function initDevStickerBackdoor() {
             // Pre-register in sceneStore immediately
             sceneStore.registerImageAsset(rec.id, rec.url || rec.dataUrl, rec.width || 200, rec.height || 200);
 
-            // Cache newly uploaded sticker in localStorage so it stays permanent on serverless
+            // 1. Immediately persist sticker and pack in high-capacity IndexedDB (Gigabytes limit, never crashes with QuotaExceededError)
             try {
-              const rawLocal = localStorage.getItem('pocketframes_custom_stickers_v2');
-              const localStore = rawLocal ? JSON.parse(rawLocal) : { stickers: [], packs: [] };
-              if (!localStore.stickers.some(s => s.id === rec.id)) {
-                localStore.stickers.unshift(rec);
+              await saveStickerToDb(rec);
+              if (rec.pack) {
+                await savePackToDb({ id: rec.pack, label: groupName, emoji: '✦' });
               }
-              if (rec.pack && !localStore.packs.some(p => p.id === rec.pack)) {
-                localStore.packs.push({ id: rec.pack, label: groupName, emoji: '✦' });
-              }
-              localStorage.setItem('pocketframes_custom_stickers_v2', JSON.stringify(localStore));
-
-              // If this pack was previously marked deleted, un-delete it
-              try {
-                const rawDel = localStorage.getItem('pocketframes_deleted_packs_v2');
-                if (rawDel) {
-                  let delPacks = JSON.parse(rawDel);
-                  if (Array.isArray(delPacks)) {
-                    const grpLower = String(groupName).toLowerCase().trim();
-                    const grpSlug = grpLower.replace(/[\s_]+/g, '-').replace(/[^a-z0-9-]/g, '');
-                    const recPack = String(rec.pack || '').toLowerCase().trim();
-                    delPacks = delPacks.filter(p => {
-                      const pl = String(p).toLowerCase().trim();
-                      return pl !== grpLower && pl !== grpSlug && pl !== recPack;
-                    });
-                    localStorage.setItem('pocketframes_deleted_packs_v2', JSON.stringify(delPacks));
-                  }
-                }
-              } catch (delErr) { /* ignore */ }
-            } catch (cacheErr) {
-              console.warn('[DevStickerBackdoor] Could not update localStorage sticker cache:', cacheErr);
+            } catch (dbErr) {
+              console.warn('[DevStickerBackdoor] Error saving to IndexedDB:', dbErr);
             }
+
+            // 2. Thoroughly un-delete this group across all variants so new stickers are never hidden
+            try {
+              const rawDel = localStorage.getItem('pocketframes_deleted_packs_v2');
+              if (rawDel) {
+                let delPacks = JSON.parse(rawDel);
+                if (Array.isArray(delPacks)) {
+                  const grpLower = String(groupName).toLowerCase().trim();
+                  const grpSlug = grpLower.replace(/[\s_]+/g, '-').replace(/[^a-z0-9-]/g, '');
+                  const recPack = String(rec.pack || '').toLowerCase().trim();
+                  const recSlug = recPack.replace(/[\s_]+/g, '-').replace(/[^a-z0-9-]/g, '');
+                  delPacks = delPacks.filter(p => {
+                    const pl = String(p).toLowerCase().trim();
+                    const ps = pl.replace(/[\s_]+/g, '-').replace(/[^a-z0-9-]/g, '');
+                    return pl !== grpLower && ps !== grpSlug && pl !== recPack && ps !== recSlug;
+                  });
+                  localStorage.setItem('pocketframes_deleted_packs_v2', JSON.stringify(delPacks));
+                }
+              }
+            } catch (delErr) { /* ignore */ }
           } else {
             throw new Error(result.error || result.errors?.[0]?.error || 'Upload failed');
           }

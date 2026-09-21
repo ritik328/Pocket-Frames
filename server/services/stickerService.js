@@ -619,8 +619,20 @@ export async function processStickerUpload(fileData, options = {}) {
   }
 
   // Unhide if it was previously in deletedBuiltinPacks or deletedPacks
-  store.deletedBuiltinPacks = (store.deletedBuiltinPacks || []).filter(id => id !== packId && id !== groupName.toLowerCase().trim());
-  store.deletedPacks = (store.deletedPacks || []).filter(id => id !== packId && id !== groupName.toLowerCase().trim());
+  const rawPackLower = String(packId || '').toLowerCase().trim();
+  const rawPackSlug = rawPackLower.replace(/[\s_]+/g, '-').replace(/[^a-z0-9-]/g, '');
+  const rawGrpLower = String(groupName || '').toLowerCase().trim();
+  const rawGrpSlug = rawGrpLower.replace(/[\s_]+/g, '-').replace(/[^a-z0-9-]/g, '');
+
+  const isMatchingPack = (id) => {
+    if (!id) return false;
+    const l = String(id).toLowerCase().trim();
+    const s = l.replace(/[\s_]+/g, '-').replace(/[^a-z0-9-]/g, '');
+    return l === rawPackLower || s === rawPackSlug || l === rawGrpLower || s === rawGrpSlug || l === packId;
+  };
+
+  store.deletedBuiltinPacks = (store.deletedBuiltinPacks || []).filter(id => !isMatchingPack(id));
+  store.deletedPacks = (store.deletedPacks || []).filter(id => !isMatchingPack(id));
 
   saveStore(store);
 
