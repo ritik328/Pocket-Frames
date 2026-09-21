@@ -1544,8 +1544,11 @@ function initDevStickerBackdoor() {
   function updateSelectedFilesUI() {
     if (!fileGrid || !fileCountBadge || !btnSubmitUpload || !btnSubmitLabel) return;
 
+    const isDirect = chkBgRemoval && !chkBgRemoval.checked;
+    const actionWord = isDirect ? 'Directly Upload' : 'Upload & Process';
+
     fileCountBadge.textContent = `${selectedFiles.length} / 50 selected`;
-    btnSubmitLabel.textContent = `Upload & Process ${selectedFiles.length} Sticker${selectedFiles.length === 1 ? '' : 's'}`;
+    btnSubmitLabel.textContent = `${actionWord} ${selectedFiles.length} Sticker${selectedFiles.length === 1 ? '' : 's'}`;
     btnSubmitUpload.disabled = selectedFiles.length === 0;
 
     if (previewBox) {
@@ -1577,6 +1580,8 @@ function initDevStickerBackdoor() {
     });
   }
 
+  chkBgRemoval?.addEventListener('change', updateSelectedFilesUI);
+
   clearSelectedBtn?.addEventListener('click', () => {
     selectedFiles = [];
     if (fileInputBatch) fileInputBatch.value = '';
@@ -1601,20 +1606,29 @@ function initDevStickerBackdoor() {
 
     const isNew = groupSelect?.value === '__new__';
     const groupName = isNew ? (newGroupNameInput?.value?.trim() || 'Custom') : (groupSelect?.value || 'custom');
+    const isDirect = chkBgRemoval?.checked === false;
 
     // Lock UI and show progress
     btnSubmitUpload.disabled = true;
-    if (btnSubmitLabel) btnSubmitLabel.textContent = `Uploading ${selectedFiles.length} Sticker${selectedFiles.length === 1 ? '' : 's'}...`;
+    if (btnSubmitLabel) {
+      btnSubmitLabel.textContent = isDirect
+        ? `Uploading ${selectedFiles.length} Sticker${selectedFiles.length === 1 ? '' : 's'} (Direct)...`
+        : `Uploading ${selectedFiles.length} Sticker${selectedFiles.length === 1 ? '' : 's'}...`;
+    }
     if (progressContainer) progressContainer.style.display = 'flex';
-    if (progressBar) progressBar.style.width = '10%';
-    if (progressStatus) progressStatus.textContent = `Processing ${selectedFiles.length} sticker(s)...`;
-    if (progressPercent) progressPercent.textContent = '10%';
+    if (progressBar) progressBar.style.width = isDirect ? '50%' : '10%';
+    if (progressStatus) {
+      progressStatus.textContent = isDirect
+        ? `Directly uploading ${selectedFiles.length} sticker(s) without processing...`
+        : `Processing ${selectedFiles.length} sticker(s)...`;
+    }
+    if (progressPercent) progressPercent.textContent = isDirect ? '50%' : '10%';
 
     try {
       const payload = {
         pin: pinToUse,
         targetGroup: groupName,
-        removeBackground: chkBgRemoval?.checked !== false,
+        removeBackground: !isDirect,
         files: selectedFiles.map(f => ({
           name: f.name,
           data: f.dataUrl,
@@ -1622,11 +1636,13 @@ function initDevStickerBackdoor() {
         }))
       };
 
-      if (progressBar) progressBar.style.width = '45%';
-      if (progressStatus) progressStatus.textContent = chkBgRemoval?.checked !== false
-        ? 'Removing backgrounds via danielgatis/rembg (U2Net AI)...'
-        : 'Processing stickers...';
-      if (progressPercent) progressPercent.textContent = '45%';
+      if (progressBar) progressBar.style.width = isDirect ? '75%' : '45%';
+      if (progressStatus) {
+        progressStatus.textContent = isDirect
+          ? `Saving ${selectedFiles.length} sticker(s) directly to catalog...`
+          : 'Removing backgrounds via danielgatis/rembg (U2Net AI)...';
+      }
+      if (progressPercent) progressPercent.textContent = isDirect ? '75%' : '45%';
 
       const res = await fetch('/api/stickers?action=upload', {
         method: 'POST',
@@ -1655,7 +1671,9 @@ function initDevStickerBackdoor() {
       if (result.success) {
         if (progressBar) progressBar.style.width = '100%';
         let summaryMsg = `Complete! ${result.uploaded} sticker${result.uploaded === 1 ? '' : 's'} processed.`;
-        if (result.alreadyTransparent > 0 && result.aiCleaned > 0) {
+        if (result.directUpload > 0) {
+          summaryMsg = `Directly uploaded ${result.uploaded} sticker${result.uploaded === 1 ? '' : 's'} (zero processing)!`;
+        } else if (result.alreadyTransparent > 0 && result.aiCleaned > 0) {
           summaryMsg = `Added ${result.uploaded} stickers (${result.alreadyTransparent} skipped - already transparent, ${result.aiCleaned} AI cleaned)!`;
         } else if (result.alreadyTransparent > 0 && result.aiCleaned === 0) {
           summaryMsg = `Added ${result.uploaded} stickers (all already transparent - skipped AI)!`;
@@ -1698,7 +1716,9 @@ function initDevStickerBackdoor() {
       if (progressStatus) progressStatus.textContent = `Error: ${err.message}`;
       showToast(`Upload error: ${err.message}`);
       btnSubmitUpload.disabled = false;
-      if (btnSubmitLabel) btnSubmitLabel.textContent = `Upload & Process ${selectedFiles.length} Sticker${selectedFiles.length === 1 ? '' : 's'}`;
+      const isDir = chkBgRemoval && !chkBgRemoval.checked;
+      const actionW = isDir ? 'Directly Upload' : 'Upload & Process';
+      if (btnSubmitLabel) btnSubmitLabel.textContent = `${actionW} ${selectedFiles.length} Sticker${selectedFiles.length === 1 ? '' : 's'}`;
     }
   });
 

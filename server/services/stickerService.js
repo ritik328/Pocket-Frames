@@ -332,10 +332,11 @@ export async function processStickerUpload(fileData, options = {}) {
 
   // 1. Background removal via danielgatis/rembg (with smart skip if already transparent)
   let cleanedBuffer = buffer;
-  let bgMethod = 'none';
+  let bgMethod = 'direct-upload';
   let isTransparentSkipped = false;
+  const shouldRemoveBg = removeBackground !== false && removeBackground !== 'false' && removeBackground !== 0;
 
-  if (removeBackground) {
+  if (shouldRemoveBg) {
     const transCheck = await isAlreadyTransparent(buffer);
     if (transCheck && transCheck.transparent) {
       console.log(`[StickerService] ⚡ Smart skip: "${fileData.name || 'sticker'}" already has transparent background (${transCheck.ratio}% transparent, ${transCheck.corners}/4 corners) -> skipping AI!`);
@@ -373,11 +374,11 @@ export async function processStickerUpload(fileData, options = {}) {
       }
     }
   } else {
-    cleanedBuffer = await sharp(buffer)
-      .resize(512, 512, { fit: 'inside', withoutEnlargement: true })
-      .png({ quality: 95 })
-      .toBuffer();
-    bgMethod = 'none';
+    // DIRECT UPLOAD: AI background removal disabled by user.
+    // Absolutely zero processing, zero modification, zero resizing — uploaded directly as-is!
+    cleanedBuffer = buffer;
+    bgMethod = 'direct-upload';
+    console.log(`[StickerService] ⚡ Direct upload: "${fileData.name || 'sticker'}" uploaded directly with 0 processing`);
   }
 
   // 2. Group assignment — user-specified only
@@ -390,14 +391,26 @@ export async function processStickerUpload(fileData, options = {}) {
   const packId = groupName.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
   const packLabel = groupName.split(/[-\s]/).map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
 
-  // 3. Save to disk
+  // 3. Save to disk directly preserving original file format
+  let ext = 'png';
+  if (mimeType.includes('svg')) ext = 'svg';
+  else if (mimeType.includes('jpeg') || mimeType.includes('jpg')) ext = 'jpg';
+  else if (mimeType.includes('webp')) ext = 'webp';
+  else if (mimeType.includes('gif')) ext = 'gif';
+  else if (fileData.name && path.extname(fileData.name)) ext = path.extname(fileData.name).replace('.', '').toLowerCase();
+
   const stickerId = `custom-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
-  const filename = `${stickerId}.png`;
+  const filename = `${stickerId}.${ext}`;
   const filePath = path.join(STICKERS_DIR, filename);
 
   fs.writeFileSync(filePath, cleanedBuffer);
 
-  const meta = await sharp(cleanedBuffer).metadata();
+  let meta = { width: 512, height: 512 };
+  try {
+    meta = await sharp(cleanedBuffer).metadata();
+  } catch {
+    // fallback if format is SVG or vector
+  }
 
   // In serverless mode, images in /tmp can't be served as static files.
   // We expose them via the /api/stickers?action=image&id=<stickerId> endpoint instead.
@@ -503,6 +516,7 @@ export async function batchUploadStickers(files, options = {}) {
   const store = loadStore();
 
   const alreadyTransparentCount = results.filter(r => r.bgCleanedVia === 'already-transparent').length;
+  const directUploadCount = results.filter(r => r.bgCleanedVia === 'direct-upload').length;
   const aiCleanedCount = results.filter(r => r.bgCleanedVia === 'rembg-danielgatis').length;
 
   return {
@@ -510,6 +524,7 @@ export async function batchUploadStickers(files, options = {}) {
     uploaded: results.length,
     failed: errors.length,
     alreadyTransparent: alreadyTransparentCount,
+    directUpload: directUploadCount,
     aiCleaned: aiCleanedCount,
     results,
     errors,
