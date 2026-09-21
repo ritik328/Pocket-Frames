@@ -1,46 +1,93 @@
 #!/usr/bin/env python3
 """
-Pocket Frames — Advanced Sticker Background Remover
-====================================================
-Uses a multi-stage approach for professional-quality background removal:
+Pocket Frames — Sticker Background Remover powered by danielgatis/rembg
+Repository: https://github.com/danielgatis/rembg.git
+========================================================================
+Uses the official rembg tool by Daniel Gatis for state-of-the-art
+AI background removal, optimized for sticker generation:
 
-Stage 1: rembg (U2Net AI model) — best quality, neural net matting
-Stage 2: OpenCV GrabCut + Pillow alpha matting — fast, geometry-based fallback
-Stage 3: Edge-aware color-flood fill — basic guaranteed fallback
+- Primary: rembg (danielgatis/rembg) with U2Net ONNX neural network model
+- Mask post-processing: enabled by default for artifact-free sticker contours
+- Fallback 1: OpenCV GrabCut with Gaussian edge feathering
+- Fallback 2: Color-flood fill with boundary alpha matting
 
 Usage:
-    python remove_bg.py <input_path> <output_path>
-    python remove_bg.py - -   (reads raw bytes from stdin, writes PNG to stdout)
+    python remove_bg.py <input_path> <output_path> [--model u2net]
+    python remove_bg.py - -  (reads raw bytes from stdin, writes PNG to stdout)
 """
 
 import sys
 import os
 import io
-import base64
 import argparse
 import traceback
 
 import numpy as np
-from PIL import Image, ImageFilter
+from PIL import Image
+
+# Global cached rembg sessions by model name
+_SESSIONS = {}
 
 
-# ─── STAGE 1: rembg (U2Net AI neural net) ─────────────────────────────────────
-def remove_bg_rembg(img_bytes: bytes) -> bytes:
-    """Use rembg U2Net model for state-of-the-art background removal."""
-    from rembg import remove as rembg_remove, new_session
-    session = new_session("u2net")
-    result = rembg_remove(img_bytes, session=session)
-    return result
+def get_rembg_session(model_name: str = "u2net"):
+    """Get or create cached rembg ONNX session."""
+    global _SESSIONS
+    if model_name not in _SESSIONS:
+        from rembg import new_session
+        _SESSIONS[model_name] = new_session(model_name)
+    return _SESSIONS[model_name]
 
 
-# ─── STAGE 2: OpenCV GrabCut + Pillow matting ─────────────────────────────────
+# ─── PRIMARY ENGINE: danielgatis/rembg ─────────────────────────────────────────
+def remove_bg_rembg(
+    img_bytes: bytes,
+    model_name: str = "u2net",
+    post_process_mask: bool = True,
+    alpha_matting: bool = False
+) -> bytes:
+    """
+    Execute background removal using danielgatis/rembg.
+    Returns transparent PNG bytes.
+    """
+    from rembg import remove as rembg_remove
+
+    session = get_rembg_session(model_name)
+    result_bytes = rembg_remove(
+        img_bytes,
+        session=session,
+        post_process_mask=post_process_mask,
+        alpha_matting=alpha_matting,
+        force_return_bytes=True
+    )
+
+    # Tight crop around transparent bounding box
+    try:
+        pil_img = Image.open(io.BytesIO(result_bytes)).convert("RGBA")
+        bbox = pil_img.getbbox()
+        if bbox:
+            pad = 2
+            left = max(0, bbox[0] - pad)
+            top = max(0, bbox[1] - pad)
+            right = min(pil_img.width, bbox[2] + pad)
+            bottom = min(pil_img.height, bbox[3] + pad)
+            pil_img = pil_img.crop((left, top, right, bottom))
+
+        # Constrain max dimension to 512 for responsive canvas sticker rendering
+        if pil_img.width > 512 or pil_img.height > 512:
+            pil_img.thumbnail((512, 512), Image.LANCZOS)
+
+        buf = io.BytesIO()
+        pil_img.save(buf, format="PNG", optimize=True)
+        return buf.getvalue()
+    except Exception as crop_err:
+        print(f"[rembg] Crop warning: {crop_err}", file=sys.stderr)
+        return result_bytes
+
+
+# ─── FALLBACK 1: OpenCV GrabCut Segmentation ──────────────────────────────────
 def remove_bg_grabcut(img_bytes: bytes) -> bytes:
     """
-    Multi-pass GrabCut segmentation with:
-    - Automatic foreground rectangle estimation
-    - Iterative refinement (10 passes)
-    - Alpha matting with Gaussian edge softening
-    - Morphological cleanup (erosion/dilation)
+    Multi-pass GrabCut segmentation with edge softening (OpenCV fallback).
     """
     import cv2
 
@@ -84,7 +131,7 @@ def remove_bg_grabcut(img_bytes: bytes) -> bytes:
 
     rgb = cv2.cvtColor(bgr, cv2.COLOR_BGR2RGB)
     rgba = np.dstack([rgb, soft_alpha])
-    pil_img = Image.fromarray(rgba, 'RGBA')
+    pil_img = Image.fromarray(rgba, "RGBA")
 
     bbox = pil_img.getbbox()
     if bbox:
@@ -98,17 +145,16 @@ def remove_bg_grabcut(img_bytes: bytes) -> bytes:
     pil_img.thumbnail((512, 512), Image.LANCZOS)
 
     buf = io.BytesIO()
-    pil_img.save(buf, format='PNG', optimize=True)
+    pil_img.save(buf, format="PNG", optimize=True)
     return buf.getvalue()
 
 
-# ─── STAGE 3: Color flood-fill fallback ──────────────────────────────────────
+# ─── FALLBACK 2: Color Flood-Fill ─────────────────────────────────────────────
 def remove_bg_colorfill(img_bytes: bytes) -> bytes:
     """
-    Background removal using corner-color sampling + alpha thresholding.
-    Works best for stickers with solid/uniform backgrounds.
+    Corner-color sampling + alpha thresholding for flat/solid backgrounds.
     """
-    pil_img = Image.open(io.BytesIO(img_bytes)).convert('RGBA')
+    pil_img = Image.open(io.BytesIO(img_bytes)).convert("RGBA")
     w, h = pil_img.size
     data = np.array(pil_img, dtype=np.float32)
 
@@ -135,7 +181,7 @@ def remove_bg_colorfill(img_bytes: bytes) -> bytes:
     alpha[feather_zone] = (feather_alpha * alpha[feather_zone]).astype(np.float32)
 
     data[:, :, 3] = alpha
-    result_img = Image.fromarray(data.astype(np.uint8), 'RGBA')
+    result_img = Image.fromarray(data.astype(np.uint8), "RGBA")
 
     bbox = result_img.getbbox()
     if bbox:
@@ -143,68 +189,96 @@ def remove_bg_colorfill(img_bytes: bytes) -> bytes:
     result_img.thumbnail((512, 512), Image.LANCZOS)
 
     buf = io.BytesIO()
-    result_img.save(buf, format='PNG', optimize=True)
+    result_img.save(buf, format="PNG", optimize=True)
     return buf.getvalue()
 
 
-# ─── Main pipeline ────────────────────────────────────────────────────────────
-def process_image(img_bytes: bytes) -> bytes:
-    """Try background removal stages in order of quality."""
-    # Stage 1: rembg neural net (best quality)
+# ─── Main Pipeline ────────────────────────────────────────────────────────────
+def process_image(
+    img_bytes: bytes,
+    model_name: str = "u2net",
+    alpha_matting: bool = False
+) -> bytes:
+    """Process image through danielgatis/rembg with fallbacks."""
+    # Stage 1: Official danielgatis/rembg tool
     try:
-        result = remove_bg_rembg(img_bytes)
-        print("[BgRemover] Stage 1 (rembg U2Net): SUCCESS", file=sys.stderr)
+        result = remove_bg_rembg(
+            img_bytes,
+            model_name=model_name,
+            post_process_mask=True,
+            alpha_matting=alpha_matting
+        )
+        print(f"[rembg] danielgatis/rembg ({model_name}): SUCCESS", file=sys.stderr)
         return result
     except Exception as e:
-        print(f"[BgRemover] Stage 1 (rembg) failed: {e}", file=sys.stderr)
+        print(f"[rembg] danielgatis/rembg ({model_name}) error: {e}", file=sys.stderr)
 
-    # Stage 2: GrabCut segmentation
+    # Stage 2: OpenCV GrabCut
     try:
         result = remove_bg_grabcut(img_bytes)
-        print("[BgRemover] Stage 2 (GrabCut): SUCCESS", file=sys.stderr)
+        print("[rembg] Stage 2 GrabCut fallback: SUCCESS", file=sys.stderr)
         return result
     except Exception as e:
-        print(f"[BgRemover] Stage 2 (GrabCut) failed: {e}", file=sys.stderr)
+        print(f"[rembg] Stage 2 GrabCut failed: {e}", file=sys.stderr)
 
-    # Stage 3: Colour flood-fill (always works)
+    # Stage 3: Color flood-fill
     try:
         result = remove_bg_colorfill(img_bytes)
-        print("[BgRemover] Stage 3 (ColorFill): SUCCESS", file=sys.stderr)
+        print("[rembg] Stage 3 ColorFill fallback: SUCCESS", file=sys.stderr)
         return result
     except Exception as e:
-        print(f"[BgRemover] Stage 3 (ColorFill) failed: {e}", file=sys.stderr)
+        print(f"[rembg] Stage 3 ColorFill failed: {e}", file=sys.stderr)
         raise RuntimeError("All background removal stages failed") from e
 
 
 def main():
-    parser = argparse.ArgumentParser(description='Pocket Frames background remover')
-    parser.add_argument('input', nargs='?', default='-', help='Input image path or - for stdin')
-    parser.add_argument('output', nargs='?', default='-', help='Output PNG path or - for stdout')
+    parser = argparse.ArgumentParser(
+        description="Pocket Frames Sticker Background Remover (powered by danielgatis/rembg)"
+    )
+    parser.add_argument("input", nargs="?", default="-", help="Input image path or - for stdin")
+    parser.add_argument("output", nargs="?", default="-", help="Output PNG path or - for stdout")
+    parser.add_argument(
+        "--model",
+        default=os.environ.get("REMBG_MODEL", "u2net"),
+        help="rembg model name (default: u2net)"
+    )
+    parser.add_argument(
+        "--alpha-matting",
+        action="store_true",
+        help="Use alpha matting post-processing"
+    )
     args = parser.parse_args()
 
     try:
-        if args.input == '-':
+        if args.input == "-":
             img_bytes = sys.stdin.buffer.read()
         else:
-            with open(args.input, 'rb') as f:
+            with open(args.input, "rb") as f:
                 img_bytes = f.read()
 
-        result = process_image(img_bytes)
+        if len(img_bytes) == 0:
+            raise ValueError("Input image data is empty")
 
-        if args.output == '-':
+        result = process_image(
+            img_bytes,
+            model_name=args.model,
+            alpha_matting=args.alpha_matting
+        )
+
+        if args.output == "-":
             sys.stdout.buffer.write(result)
         else:
-            with open(args.output, 'wb') as f:
+            with open(args.output, "wb") as f:
                 f.write(result)
-            print(f"[BgRemover] Saved to {args.output}", file=sys.stderr)
+            print(f"[rembg] Saved output to {args.output}", file=sys.stderr)
 
         sys.exit(0)
 
     except Exception as e:
-        print(f"[BgRemover] FATAL ERROR: {e}", file=sys.stderr)
+        print(f"[rembg] FATAL ERROR: {e}", file=sys.stderr)
         traceback.print_exc(file=sys.stderr)
         sys.exit(1)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

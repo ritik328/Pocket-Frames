@@ -2,7 +2,7 @@
  * Pocket Frames — Developer Sticker Service
  * Handles:
  *  - PIN verification
- *  - Background cleaning via advanced Python script (rembg U2Net + GrabCut + color-flood fallback)
+ *  - Background cleaning via danielgatis/rembg tool (U2Net AI + GrabCut + color-flood fallback)
  *  - Batch uploading (up to 50 files)
  *  - Full collection / group deletion
  *  - Catalog persistence in server/data/customStickers.json & public/custom-stickers/
@@ -289,8 +289,8 @@ export async function processStickerUpload(fileData, options = {}) {
       } catch {
         cleanedBuffer = rawCleaned;
       }
-      bgMethod = 'python-rembg';
-      console.log('[StickerService] Background removed via Python (rembg/GrabCut)');
+      bgMethod = 'rembg-danielgatis';
+      console.log('[StickerService] Background removed via danielgatis/rembg tool (U2Net AI)');
     } catch (pyErr) {
       console.warn('[StickerService] Python bg-remover failed, using sharp resize fallback:', pyErr.message);
       // Fallback: just resize/convert to PNG cleanly

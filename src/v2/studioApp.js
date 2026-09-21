@@ -1624,7 +1624,7 @@ function initDevStickerBackdoor() {
 
       if (progressBar) progressBar.style.width = '45%';
       if (progressStatus) progressStatus.textContent = chkBgRemoval?.checked !== false
-        ? 'Removing backgrounds via Python AI (rembg U2Net)...'
+        ? 'Removing backgrounds via danielgatis/rembg (U2Net AI)...'
         : 'Processing stickers...';
       if (progressPercent) progressPercent.textContent = '45%';
 
