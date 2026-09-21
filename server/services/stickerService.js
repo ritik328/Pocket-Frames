@@ -24,6 +24,8 @@ const IS_SERVERLESS =
   process.env.VERCEL === '1' ||
   process.env.SERVERLESS === '1';
 
+const BUNDLED_DATA_FILE = path.resolve(process.cwd(), 'server', 'data', 'customStickers.json');
+
 const DATA_DIR = IS_SERVERLESS
   ? '/tmp/pocket-frames-data'
   : path.resolve(process.cwd(), 'server', 'data');
@@ -43,7 +45,8 @@ const PYTHON_SCRIPT = path.resolve(process.cwd(), 'server', 'scripts', 'remove_b
 const PYTHON_BIN = process.env.PYTHON_BIN || 'python';
 
 console.log(`[StickerService] Environment: ${IS_SERVERLESS ? 'serverless' : 'local'}`);
-console.log(`[StickerService] Data file: ${DATA_FILE}`);
+console.log(`[StickerService] Bundled data file: ${BUNDLED_DATA_FILE}`);
+console.log(`[StickerService] Active data file: ${DATA_FILE}`);
 console.log(`[StickerService] Stickers dir: ${STICKERS_DIR}`);
 console.log(`[StickerService] Python bg-remover: ${PYTHON_BIN} ${PYTHON_SCRIPT}`);
 
@@ -65,27 +68,63 @@ try {
 
 /**
  * Load persisted custom stickers and deleted pack records
+ * In serverless environments, starts with the bundled repository catalog
+ * and merges any runtime additions stored in /tmp.
  */
 function loadStore() {
+  let store = {
+    packs: [],
+    deletedBuiltinPacks: [],
+    stickers: []
+  };
+
+  // 1. Read the bundled base catalog (always present in the repository build)
   try {
-    if (fs.existsSync(DATA_FILE)) {
-      const raw = fs.readFileSync(DATA_FILE, 'utf8');
+    if (fs.existsSync(BUNDLED_DATA_FILE)) {
+      const raw = fs.readFileSync(BUNDLED_DATA_FILE, 'utf8');
       const parsed = JSON.parse(raw);
-      return {
+      store = {
         packs: Array.isArray(parsed.packs) ? parsed.packs : [],
         deletedBuiltinPacks: Array.isArray(parsed.deletedBuiltinPacks) ? parsed.deletedBuiltinPacks : [],
         stickers: Array.isArray(parsed.stickers) ? parsed.stickers : []
       };
     }
   } catch (err) {
-    console.warn('[StickerService] Failed to read store, initializing fresh:', err);
+    console.warn('[StickerService] Failed to read bundled store:', err);
   }
 
-  return {
-    packs: [],
-    deletedBuiltinPacks: [],
-    stickers: []
-  };
+  // 2. If in serverless mode and /tmp has runtime additions, merge them
+  if (IS_SERVERLESS && DATA_FILE !== BUNDLED_DATA_FILE) {
+    try {
+      if (fs.existsSync(DATA_FILE)) {
+        const raw = fs.readFileSync(DATA_FILE, 'utf8');
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed.stickers)) {
+          const existingIds = new Set(store.stickers.map(s => s.id));
+          for (const s of parsed.stickers) {
+            if (!existingIds.has(s.id)) {
+              store.stickers.unshift(s);
+            }
+          }
+        }
+        if (Array.isArray(parsed.packs)) {
+          const existingPackIds = new Set(store.packs.map(p => p.id));
+          for (const p of parsed.packs) {
+            if (!existingPackIds.has(p.id)) {
+              store.packs.push(p);
+            }
+          }
+        }
+        if (Array.isArray(parsed.deletedBuiltinPacks)) {
+          store.deletedBuiltinPacks = Array.from(new Set([...store.deletedBuiltinPacks, ...parsed.deletedBuiltinPacks]));
+        }
+      }
+    } catch (err) {
+      console.warn('[StickerService] Failed to read /tmp store:', err);
+    }
+  }
+
+  return store;
 }
 
 /**
@@ -412,10 +451,14 @@ export async function processStickerUpload(fileData, options = {}) {
     // fallback if format is SVG or vector
   }
 
-  // In serverless mode, images in /tmp can't be served as static files.
-  // We expose them via the /api/stickers?action=image&id=<stickerId> endpoint instead.
+  // Generate a self-contained base64 data URL for resilient serverless & client-side rendering
+  const mimePrefix = ext === 'svg' ? 'image/svg+xml' : `image/${ext === 'jpg' ? 'jpeg' : ext}`;
+  const base64DataUrl = `data:${mimePrefix};base64,${cleanedBuffer.toString('base64')}`;
+
+  // In serverless mode (e.g. Vercel), /tmp is ephemeral and not shared across instances.
+  // Using the base64 data URL directly makes the sticker 100% resilient and instantly renderable.
   const stickerUrl = IS_SERVERLESS
-    ? `/api/stickers?action=image&id=${stickerId}`
+    ? base64DataUrl
     : `/custom-stickers/${filename}`;
 
   const stickerRecord = {
@@ -424,6 +467,7 @@ export async function processStickerUpload(fileData, options = {}) {
     pack: packId,
     tags,
     url: stickerUrl,
+    dataUrl: base64DataUrl,
     filename,
     defaultSize: 200,
     width: meta.width || 512,
@@ -464,14 +508,33 @@ export async function processStickerUpload(fileData, options = {}) {
 export function getStickerImageBuffer(stickerId) {
   const store = loadStore();
   const record = store.stickers.find(s => s.id === stickerId);
-  if (!record || !record.filename) {
+  if (!record) {
     return null;
   }
-  const filePath = path.join(STICKERS_DIR, record.filename);
-  if (!fs.existsSync(filePath)) {
-    return null;
+
+  // 1. If dataUrl exists, decode directly
+  if (record.dataUrl && record.dataUrl.startsWith('data:')) {
+    const commaIdx = record.dataUrl.indexOf(',');
+    if (commaIdx !== -1) {
+      return Buffer.from(record.dataUrl.slice(commaIdx + 1), 'base64');
+    }
   }
-  return fs.readFileSync(filePath);
+
+  // 2. Check active stickers dir (/tmp or public/custom-stickers)
+  if (record.filename) {
+    const filePath = path.join(STICKERS_DIR, record.filename);
+    if (fs.existsSync(filePath)) {
+      return fs.readFileSync(filePath);
+    }
+
+    // 3. Fallback to bundled public directory
+    const bundledPath = path.resolve(process.cwd(), 'public', 'custom-stickers', record.filename);
+    if (fs.existsSync(bundledPath)) {
+      return fs.readFileSync(bundledPath);
+    }
+  }
+
+  return null;
 }
 
 /**

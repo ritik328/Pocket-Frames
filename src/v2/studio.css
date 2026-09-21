@@ -742,7 +742,8 @@ html[data-theme="dark"] .rail-btn.is-active {
   height: 16px;
 }
 
-.sticker-grid canvas {
+.sticker-grid canvas,
+.sticker-grid img {
   width: 34px;
   height: 34px;
   object-fit: contain;

@@ -372,29 +372,52 @@ export class SceneStore {
   }
 
   registerImageAsset(assetId, srcUrl, width = 200, height = 200) {
+    if (!srcUrl) return Promise.resolve(assetId);
+
+    // If already loaded and valid, return immediately
+    const existing = this._assets.get(assetId);
+    if (existing?.img) return Promise.resolve(assetId);
+
     return new Promise((resolve) => {
-      const img = new Image();
-      img.crossOrigin = 'anonymous';
-      img.onload = () => {
-        this._assets.set(assetId, {
-          url: srcUrl,
-          img,
-          w: img.naturalWidth || width,
-          h: img.naturalHeight || height
-        });
-        resolve(assetId);
+      const isDataUrl = srcUrl.startsWith('data:');
+
+      const attemptLoad = (useCors) => {
+        const img = new Image();
+        if (useCors && !isDataUrl) {
+          img.crossOrigin = 'anonymous';
+        }
+
+        img.onload = () => {
+          this._assets.set(assetId, {
+            url: srcUrl,
+            img,
+            w: img.naturalWidth || width,
+            h: img.naturalHeight || height
+          });
+          this._emit('asset-loaded');
+          resolve(assetId);
+        };
+
+        img.onerror = () => {
+          if (useCors && !isDataUrl) {
+            // Retry without crossOrigin attribute in case server lacks Access-Control-Allow-Origin
+            attemptLoad(false);
+          } else {
+            console.warn(`[SceneStore] Failed to load image asset: "${assetId}" (url: ${srcUrl?.slice(0, 80)})`);
+            this._assets.set(assetId, {
+              url: srcUrl,
+              img: null,
+              w: width,
+              h: height
+            });
+            resolve(assetId);
+          }
+        };
+
+        img.src = srcUrl;
       };
-      img.onerror = () => {
-        // Fallback placeholder
-        this._assets.set(assetId, {
-          url: srcUrl,
-          img: null,
-          w: width,
-          h: height
-        });
-        resolve(assetId);
-      };
-      img.src = srcUrl;
+
+      attemptLoad(true);
     });
   }
 

@@ -441,22 +441,52 @@ canvas.addEventListener('dblclick', e => {
 // ─── Sticker panel ────────────────────────────────────────────────────────────
 // Pre-load all SVGs and custom sticker images as assets
 async function preloadStickers() {
+  let serverData = { stickers: [], packs: [], deletedBuiltinPacks: [] };
   try {
     const res = await fetch('/api/stickers');
     if (res.ok) {
-      const data = await res.json();
-      setCustomStickerData(data);
+      serverData = await res.json();
     }
   } catch (err) {
     console.warn('[StudioApp] Could not load dynamic stickers from backend:', err);
   }
 
+  // Merge client-cached custom stickers from localStorage for resilience on serverless deployments
+  try {
+    const localRaw = localStorage.getItem('pocketframes_custom_stickers_v2');
+    if (localRaw) {
+      const localData = JSON.parse(localRaw);
+      if (Array.isArray(localData.stickers)) {
+        serverData.stickers = serverData.stickers || [];
+        const existingIds = new Set(serverData.stickers.map(s => s.id));
+        localData.stickers.forEach(s => {
+          if (!existingIds.has(s.id)) {
+            serverData.stickers.unshift(s);
+          }
+        });
+      }
+      if (Array.isArray(localData.packs)) {
+        serverData.packs = serverData.packs || [];
+        const existingPacks = new Set(serverData.packs.map(p => p.id));
+        localData.packs.forEach(p => {
+          if (!existingPacks.has(p.id)) {
+            serverData.packs.push(p);
+          }
+        });
+      }
+    }
+  } catch (localErr) {
+    console.warn('[StudioApp] Could not read local sticker cache:', localErr);
+  }
+
+  setCustomStickerData(serverData);
+
   const all = getAllStickers();
   const promises = all.map(sticker => {
     if (sticker.svg) {
       return sceneStore.registerSvgAsset(sticker.id, sticker.svg);
-    } else if (sticker.url) {
-      return sceneStore.registerImageAsset(sticker.id, sticker.url, sticker.width || 200, sticker.height || 200);
+    } else if (sticker.url || sticker.dataUrl) {
+      return sceneStore.registerImageAsset(sticker.id, sticker.url || sticker.dataUrl, sticker.width || 200, sticker.height || 200);
     }
     return Promise.resolve();
   });
@@ -579,15 +609,16 @@ function buildStickerGrid(query = '') {
     tile.className = 'v2-sticker-tile';
     tile.title = sticker.name;
 
-    // Preview via canvas or image
-    const tc = document.createElement('canvas');
-    tc.width = 64; tc.height = 64;
-    const tctx = tc.getContext('2d');
-    const asset = sceneStore.getAsset(sticker.id);
-    if (asset?.img) {
-      tctx.drawImage(asset.img, 0, 0, 64, 64);
+    // Preview via img tag (fast, reliable, handles loading asynchronously)
+    const imgEl = document.createElement('img');
+    imgEl.alt = sticker.name;
+    imgEl.loading = 'lazy';
+    if (sticker.svg) {
+      imgEl.src = `data:image/svg+xml;utf8,${encodeURIComponent(sticker.svg)}`;
+    } else if (sticker.url || sticker.dataUrl) {
+      imgEl.src = sticker.url || sticker.dataUrl;
     }
-    tile.appendChild(tc);
+    tile.appendChild(imgEl);
 
     const lbl = document.createElement('span');
     lbl.textContent = sticker.name;
@@ -599,6 +630,16 @@ function buildStickerGrid(query = '') {
 }
 
 function addSticker(sticker) {
+  // Ensure the asset is registered and loaded in sceneStore
+  const asset = sceneStore.getAsset(sticker.id);
+  if (!asset || !asset.img) {
+    if (sticker.svg) {
+      sceneStore.registerSvgAsset(sticker.id, sticker.svg);
+    } else if (sticker.url || sticker.dataUrl) {
+      sceneStore.registerImageAsset(sticker.id, sticker.url || sticker.dataUrl, sticker.width || 200, sticker.height || 200);
+    }
+  }
+
   // Place sticker at center of aperture with default size
   const ap   = getFrameById(sceneStore.scene.frame.id)?.apertures?.[0];
   const defS = sticker.defaultSize || 200;
@@ -1747,6 +1788,28 @@ function initDevStickerBackdoor() {
             if (rec.bgCleanedVia === 'direct-upload') directCount++;
             else if (rec.bgCleanedVia === 'already-transparent') alreadyTransCount++;
             else if (rec.bgCleanedVia === 'rembg-danielgatis') aiCleanedCount++;
+
+            // Ensure rec has dataUrl fallback from client file
+            if (!rec.dataUrl && f.dataUrl) rec.dataUrl = f.dataUrl;
+            if (!rec.url) rec.url = rec.dataUrl;
+
+            // Pre-register in sceneStore immediately
+            sceneStore.registerImageAsset(rec.id, rec.url || rec.dataUrl, rec.width || 200, rec.height || 200);
+
+            // Cache newly uploaded sticker in localStorage so it stays permanent on serverless
+            try {
+              const rawLocal = localStorage.getItem('pocketframes_custom_stickers_v2');
+              const localStore = rawLocal ? JSON.parse(rawLocal) : { stickers: [], packs: [] };
+              if (!localStore.stickers.some(s => s.id === rec.id)) {
+                localStore.stickers.unshift(rec);
+              }
+              if (rec.pack && !localStore.packs.some(p => p.id === rec.pack)) {
+                localStore.packs.push({ id: rec.pack, label: groupName, emoji: '✦' });
+              }
+              localStorage.setItem('pocketframes_custom_stickers_v2', JSON.stringify(localStore));
+            } catch (cacheErr) {
+              console.warn('[DevStickerBackdoor] Could not update localStorage sticker cache:', cacheErr);
+            }
           } else {
             throw new Error(result.error || result.errors?.[0]?.error || 'Upload failed');
           }
