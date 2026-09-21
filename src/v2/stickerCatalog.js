@@ -1163,6 +1163,7 @@ const BUILTIN_PACKS = [
 let _customStickers = [];
 let _customPacks = [];
 let _deletedPacks = new Set();
+let _renamedPacks = new Map();
 
 function _normalizePackId(id) {
   if (!id) return '';
@@ -1176,10 +1177,17 @@ function _isPackDeleted(id) {
   return _deletedPacks.has(id) || _deletedPacks.has(raw) || _deletedPacks.has(slug);
 }
 
+function _getPackLabel(packId, defaultLabel) {
+  if (!packId) return defaultLabel || '';
+  const raw = String(packId).toLowerCase().trim();
+  const slug = _normalizePackId(packId);
+  return _renamedPacks.get(packId) || _renamedPacks.get(raw) || _renamedPacks.get(slug) || defaultLabel || '';
+}
+
 /**
  * Sync dynamic stickers from backend (/api/stickers)
  */
-export function setCustomStickerData({ stickers = [], packs = [], deletedBuiltinPacks = [], deletedPacks = [] } = {}) {
+export function setCustomStickerData({ stickers = [], packs = [], deletedBuiltinPacks = [], deletedPacks = [], renamedPacks = {} } = {}) {
   // Combine all deleted pack records
   const allDeleted = [
     ...(Array.isArray(deletedBuiltinPacks) ? deletedBuiltinPacks : []),
@@ -1195,12 +1203,27 @@ export function setCustomStickerData({ stickers = [], packs = [], deletedBuiltin
     }
   });
 
+  // Store renamed packs
+  _renamedPacks = new Map();
+  if (renamedPacks && typeof renamedPacks === 'object') {
+    Object.entries(renamedPacks).forEach(([k, v]) => {
+      if (k && v) {
+        _renamedPacks.set(k, v);
+        _renamedPacks.set(String(k).toLowerCase().trim(), v);
+        _renamedPacks.set(_normalizePackId(k), v);
+      }
+    });
+  }
+
   // Filter custom stickers and packs against deleted packs
   const rawStickers = Array.isArray(stickers) ? stickers : [];
   const rawPacks = Array.isArray(packs) ? packs : [];
 
   _customStickers = rawStickers.filter(s => !_isPackDeleted(s.pack));
-  _customPacks = rawPacks.filter(p => !_isPackDeleted(p.id));
+  _customPacks = rawPacks.filter(p => !_isPackDeleted(p.id)).map(p => ({
+    ...p,
+    label: _getPackLabel(p.id, p.label)
+  }));
 
   // Update STICKER_CATALOG and STICKER_PACKS arrays in place for backwards compatibility
   STICKER_CATALOG.length = 0;
@@ -1227,6 +1250,7 @@ export function getActivePacks() {
     .filter(p => !_isPackDeleted(p.id))
     .map(p => ({
       ...p,
+      label: _getPackLabel(p.id, p.label),
       count: allStickers.filter(s => s.pack === p.id).length
     }));
 
@@ -1234,6 +1258,7 @@ export function getActivePacks() {
     .filter(p => !_isPackDeleted(p.id))
     .map(p => ({
       ...p,
+      label: _getPackLabel(p.id, p.label),
       count: allStickers.filter(s => s.pack === p.id).length
     }));
 

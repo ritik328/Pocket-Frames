@@ -10,6 +10,7 @@ import {
   verifyPin,
   batchUploadStickers,
   deleteCollection,
+  renameCollection,
   getStickerImageBuffer
 } from '../services/stickerService.js';
 
@@ -66,6 +67,16 @@ export async function handleStickerRequest(req, res) {
       const packId = body.packId || body.pack || url.searchParams.get('packId');
       const pin = body.pin || req.headers['authorization']?.replace('Bearer ', '');
       const result = await deleteCollection(packId, pin);
+      const status = result.success ? 200 : (result.error?.includes('Unauthorized') ? 401 : 400);
+      return sendJson(res, status, result);
+    }
+
+    // Action: Rename Collection
+    if (action === 'rename-group' || action === 'rename-collection' || pathname.endsWith('/rename-group') || pathname.endsWith('/rename-collection')) {
+      const packId = body.packId || body.pack || url.searchParams.get('packId');
+      const newLabel = body.newLabel || body.label || body.name || url.searchParams.get('newLabel');
+      const pin = body.pin || req.headers['authorization']?.replace('Bearer ', '');
+      const result = await renameCollection(packId, newLabel, pin);
       const status = result.success ? 200 : (result.error?.includes('Unauthorized') ? 401 : 400);
       return sendJson(res, status, result);
     }

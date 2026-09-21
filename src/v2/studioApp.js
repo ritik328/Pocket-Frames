@@ -137,6 +137,70 @@ async function executeDeleteCollection(packId, packLabel = '') {
   }
 }
 
+async function executeRenameCollection(packId, currentLabel = '', newLabel = '') {
+  if (!newLabel || !newLabel.trim()) return;
+  const trimmed = newLabel.trim();
+  if (trimmed === (currentLabel || '').trim()) return;
+
+  try {
+    const rawLower = String(packId || '').toLowerCase().trim();
+    const slug = rawLower.replace(/[\s_]+/g, '-').replace(/[^a-z0-9-]/g, '');
+
+    // 1. Immediately persist rename in client localStorage
+    try {
+      const rawRenamed = localStorage.getItem('pocketframes_renamed_packs_v2');
+      const renamedMap = rawRenamed ? JSON.parse(rawRenamed) : {};
+      if (packId) renamedMap[packId] = trimmed;
+      if (rawLower) renamedMap[rawLower] = trimmed;
+      if (slug) renamedMap[slug] = trimmed;
+      localStorage.setItem('pocketframes_renamed_packs_v2', JSON.stringify(renamedMap));
+
+      // Update custom stickers in localStorage if pack matches
+      const rawCustom = localStorage.getItem('pocketframes_custom_stickers_v2');
+      if (rawCustom) {
+        const localData = JSON.parse(rawCustom);
+        if (Array.isArray(localData.packs)) {
+          localData.packs.forEach(p => {
+            const pId = String(p.id || '').toLowerCase().trim();
+            const pSlug = pId.replace(/[\s_]+/g, '-').replace(/[^a-z0-9-]/g, '');
+            if (p.id === packId || pId === rawLower || pSlug === slug) {
+              p.label = trimmed;
+            }
+          });
+          localStorage.setItem('pocketframes_custom_stickers_v2', JSON.stringify(localData));
+        }
+      }
+    } catch (e) {
+      console.warn('[StudioApp] Error updating localStorage on rename:', e);
+    }
+
+    // 2. Persist on backend
+    const res = await fetch('/api/stickers?action=rename-group', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${_devPin || '7788'}`
+      },
+      body: JSON.stringify({ packId: packId, newLabel: trimmed, pin: _devPin || '7788' })
+    });
+
+    let data = null;
+    try {
+      data = await res.json();
+    } catch { /* ignore */ }
+
+    showToast(`Collection renamed to "${trimmed}"`);
+    await preloadStickers();
+    buildStickerPackTabs();
+    buildStickerGrid();
+
+    // Trigger dev collections re-render if modal exists
+    window.dispatchEvent(new CustomEvent('stickers-catalog-updated'));
+  } catch (err) {
+    showToast(`Error renaming: ${err.message}`);
+  }
+}
+
 // Frame panel
 const frameCatBtns = document.getElementById('v2-frame-cats');
 const frameGrid    = document.getElementById('v2-frame-grid');
@@ -554,6 +618,21 @@ async function preloadStickers() {
     console.warn('[StudioApp] Could not read local sticker cache:', localErr);
   }
 
+  // Merge renamed packs tracked in localStorage
+  let localRenamed = {};
+  try {
+    const rawRen = localStorage.getItem('pocketframes_renamed_packs_v2');
+    if (rawRen) {
+      localRenamed = JSON.parse(rawRen);
+      if (typeof localRenamed !== 'object' || Array.isArray(localRenamed)) localRenamed = {};
+    }
+  } catch (e) { /* ignore */ }
+
+  serverData.renamedPacks = {
+    ...(serverData.renamedPacks || {}),
+    ...localRenamed
+  };
+
   // Filter out any deleted packs from serverData before passing to setCustomStickerData
   serverData.packs = (serverData.packs || []).filter(p => !isPackDeleted(p.id));
   serverData.stickers = (serverData.stickers || []).filter(s => !isPackDeleted(s.pack));
@@ -607,60 +686,124 @@ function buildStickerGrid(query = '') {
   if (!stickerGrid) return;
   stickerGrid.innerHTML = '';
 
-  // Active pack action bar in sidebar (shows count & direct Delete button)
+  // Active pack action bar in sidebar (shows count, Rename button & centered cornered Delete icon button)
   const activePackBar = document.getElementById('v2-active-pack-bar');
   if (activePackBar) {
     if (_activePack !== 'all' && !query) {
       const packObj = getActivePacks().find(p => p.id === _activePack);
       if (packObj) {
         activePackBar.style.display = 'flex';
-        activePackBar.innerHTML = `
-          <span class="v2-active-pack-title">${packObj.emoji || '✦'} ${packObj.label} <small>(${packObj.count} stickers)</small></span>
-          <button type="button" class="v2-delete-active-pack-btn" title="Delete entire ${packObj.label} collection">
-            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-              <polyline points="3 6 5 6 21 6"/>
-              <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
-            </svg>
-            <span>Delete Group</span>
-          </button>
-        `;
 
-        const delBtn = activePackBar.querySelector('.v2-delete-active-pack-btn');
-        let confirmPending = false;
-        let confirmTimer = null;
-
-        delBtn.addEventListener('click', async (e) => {
-          e.stopPropagation();
-
-          if (!_devUnlocked || !_devPin) {
-            _pendingDevAction = () => executeDeleteCollection(packObj.id, packObj.label);
-            if (_openPinModalFn) _openPinModalFn();
-            return;
-          }
-
-          if (!confirmPending) {
-            confirmPending = true;
-            delBtn.classList.add('is-confirming');
-            delBtn.innerHTML = `<span>⚠️ Confirm delete?</span>`;
-            confirmTimer = setTimeout(() => {
-              confirmPending = false;
-              delBtn.classList.remove('is-confirming');
-              delBtn.innerHTML = `
-                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+        const renderBarNormal = () => {
+          activePackBar.innerHTML = `
+            <div class="v2-active-pack-info">
+              <span class="v2-active-pack-title">${packObj.emoji || '✦'} ${packObj.label} <small>(${packObj.count} stickers)</small></span>
+            </div>
+            <div class="v2-pack-corner-actions">
+              <button type="button" class="v2-pack-corner-btn v2-pack-rename-btn" title="Rename ${packObj.label}">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/>
+                </svg>
+              </button>
+              <button type="button" class="v2-pack-corner-btn v2-pack-delete-btn" title="Delete ${packObj.label}">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
                   <polyline points="3 6 5 6 21 6"/>
                   <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
                 </svg>
-                <span>Delete Group</span>
-              `;
-            }, 3500);
-            return;
-          }
+              </button>
+            </div>
+          `;
 
-          clearTimeout(confirmTimer);
-          delBtn.disabled = true;
-          delBtn.textContent = 'Deleting...';
-          await executeDeleteCollection(packObj.id, packObj.label);
-        });
+          const renameBtn = activePackBar.querySelector('.v2-pack-rename-btn');
+          const delBtn = activePackBar.querySelector('.v2-pack-delete-btn');
+
+          // Inline rename form trigger
+          renameBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+
+            if (!_devUnlocked || !_devPin) {
+              _pendingDevAction = () => startInlineRename();
+              if (_openPinModalFn) _openPinModalFn();
+              return;
+            }
+            startInlineRename();
+          });
+
+          // Delete button handler (strictly icon only, centered, cornered)
+          let confirmPending = false;
+          let confirmTimer = null;
+
+          delBtn.addEventListener('click', async (e) => {
+            e.stopPropagation();
+
+            if (!_devUnlocked || !_devPin) {
+              _pendingDevAction = () => executeDeleteCollection(packObj.id, packObj.label);
+              if (_openPinModalFn) _openPinModalFn();
+              return;
+            }
+
+            if (!confirmPending) {
+              confirmPending = true;
+              delBtn.classList.add('is-confirming');
+              delBtn.title = `Click again to confirm deleting "${packObj.label}"`;
+              confirmTimer = setTimeout(() => {
+                confirmPending = false;
+                delBtn.classList.remove('is-confirming');
+                delBtn.title = `Delete ${packObj.label}`;
+              }, 3500);
+              return;
+            }
+
+            clearTimeout(confirmTimer);
+            confirmPending = false;
+            delBtn.disabled = true;
+            await executeDeleteCollection(packObj.id, packObj.label);
+          });
+        };
+
+        const startInlineRename = () => {
+          activePackBar.innerHTML = `
+            <form class="v2-pack-rename-form">
+              <input type="text" class="v2-pack-rename-input" value="${packObj.label.replace(/"/g, '&quot;')}" maxlength="40" placeholder="Collection name" />
+              <button type="submit" class="v2-pack-corner-btn v2-pack-save-btn" title="Save">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                  <polyline points="20 6 9 17 4 12"/>
+                </svg>
+              </button>
+              <button type="button" class="v2-pack-corner-btn v2-pack-cancel-btn" title="Cancel">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                  <line x1="18" y1="6" x2="6" y2="18"/>
+                  <line x1="6" y1="6" x2="18" y2="18"/>
+                </svg>
+              </button>
+            </form>
+          `;
+
+          const inputEl = activePackBar.querySelector('.v2-pack-rename-input');
+          const cancelBtn = activePackBar.querySelector('.v2-pack-cancel-btn');
+          const formEl = activePackBar.querySelector('.v2-pack-rename-form');
+
+          inputEl.focus();
+          inputEl.select();
+
+          cancelBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            renderBarNormal();
+          });
+
+          formEl.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            const val = inputEl.value.trim();
+            if (!val || val === packObj.label) {
+              renderBarNormal();
+              return;
+            }
+            await executeRenameCollection(packObj.id, packObj.label, val);
+          });
+        };
+
+        renderBarNormal();
       } else {
         activePackBar.style.display = 'none';
         activePackBar.innerHTML = '';
@@ -2017,8 +2160,70 @@ function initDevStickerBackdoor() {
       count.className = 'v2-dev-col-count';
       count.textContent = `${pack.count || 0} stickers`;
 
+      // Corner action buttons (Rename & icon-only Delete)
+      const actionsGroup = document.createElement('div');
+      actionsGroup.className = 'v2-dev-col-actions';
+
+      const renameBtn = document.createElement('button');
+      renameBtn.type = 'button';
+      renameBtn.className = 'v2-pack-corner-btn v2-pack-rename-btn';
+      renameBtn.title = `Rename "${pack.label}"`;
+      renameBtn.innerHTML = `
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/>
+        </svg>
+      `;
+
+      renameBtn.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        const newName = window.prompt(`Enter new name for collection "${pack.label}":`, pack.label);
+        if (newName && newName.trim() && newName.trim() !== pack.label) {
+          await executeRenameCollection(pack.id, pack.label, newName.trim());
+        }
+      });
+
+      const delBtn = document.createElement('button');
+      delBtn.type = 'button';
+      delBtn.className = 'v2-pack-corner-btn v2-pack-delete-btn';
+      delBtn.title = `Delete "${pack.label}" collection`;
+      delBtn.innerHTML = `
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="3 6 5 6 21 6"/>
+          <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+        </svg>
+      `;
+
+      let confirmPending = false;
+      let confirmTimer = null;
+
+      delBtn.addEventListener('click', async (e) => {
+        e.stopPropagation();
+
+        if (!confirmPending) {
+          confirmPending = true;
+          delBtn.classList.add('is-confirming');
+          delBtn.title = `Click again to confirm delete "${pack.label}"`;
+          clearTimeout(confirmTimer);
+          confirmTimer = setTimeout(() => {
+            confirmPending = false;
+            delBtn.classList.remove('is-confirming');
+            delBtn.title = `Delete "${pack.label}" collection`;
+          }, 3500);
+          return;
+        }
+
+        clearTimeout(confirmTimer);
+        confirmPending = false;
+        delBtn.disabled = true;
+        await executeDeleteCollection(pack.id, pack.label);
+      });
+
+      actionsGroup.appendChild(renameBtn);
+      actionsGroup.appendChild(delBtn);
+
       header.appendChild(nameGroup);
       header.appendChild(count);
+      header.appendChild(actionsGroup);
       card.appendChild(header);
 
       // Mini preview strip
@@ -2042,50 +2247,6 @@ function initDevStickerBackdoor() {
       });
       card.appendChild(previewStrip);
 
-      // Delete collection button
-      const delBtn = document.createElement('button');
-      delBtn.className = 'v2-dev-col-delete-btn';
-      delBtn.innerHTML = `
-        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <polyline points="3 6 5 6 21 6"/>
-          <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
-        </svg>
-        <span>Delete Entire Collection</span>
-      `;
-
-      let confirmPending = false;
-      let confirmTimer = null;
-
-      delBtn.addEventListener('click', async (e) => {
-        e.stopPropagation();
-
-        if (!confirmPending) {
-          confirmPending = true;
-          delBtn.classList.add('is-confirming');
-          delBtn.innerHTML = `<span>⚠️ Click again to confirm deleting "${pack.label}"</span>`;
-          clearTimeout(confirmTimer);
-          confirmTimer = setTimeout(() => {
-            confirmPending = false;
-            delBtn.classList.remove('is-confirming');
-            delBtn.innerHTML = `
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <polyline points="3 6 5 6 21 6"/>
-                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
-              </svg>
-              <span>Delete Entire Collection</span>
-            `;
-          }, 4000);
-          return;
-        }
-
-        clearTimeout(confirmTimer);
-        confirmPending = false;
-        delBtn.disabled = true;
-        delBtn.textContent = 'Deleting collection...';
-        await executeDeleteCollection(pack.id, pack.label);
-      });
-
-      card.appendChild(delBtn);
       collectionsGrid.appendChild(card);
     });
   }

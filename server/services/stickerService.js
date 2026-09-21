@@ -76,6 +76,7 @@ function loadStore() {
     packs: [],
     deletedBuiltinPacks: [],
     deletedPacks: [],
+    renamedPacks: {},
     stickers: []
   };
 
@@ -88,6 +89,7 @@ function loadStore() {
         packs: Array.isArray(parsed.packs) ? parsed.packs : [],
         deletedBuiltinPacks: Array.isArray(parsed.deletedBuiltinPacks) ? parsed.deletedBuiltinPacks : [],
         deletedPacks: Array.isArray(parsed.deletedPacks) ? parsed.deletedPacks : [],
+        renamedPacks: (parsed.renamedPacks && typeof parsed.renamedPacks === 'object' && !Array.isArray(parsed.renamedPacks)) ? parsed.renamedPacks : {},
         stickers: Array.isArray(parsed.stickers) ? parsed.stickers : []
       };
     }
@@ -106,6 +108,9 @@ function loadStore() {
         }
         if (Array.isArray(parsed.deletedBuiltinPacks)) {
           store.deletedBuiltinPacks = Array.from(new Set([...store.deletedBuiltinPacks, ...parsed.deletedBuiltinPacks]));
+        }
+        if (parsed.renamedPacks && typeof parsed.renamedPacks === 'object') {
+          Object.assign(store.renamedPacks, parsed.renamedPacks);
         }
         if (Array.isArray(parsed.stickers)) {
           const existingIds = new Set(store.stickers.map(s => s.id));
@@ -145,6 +150,14 @@ function loadStore() {
   store.packs = store.packs.filter(p => !isPackDeleted(p.id));
   store.stickers = store.stickers.filter(s => !isPackDeleted(s.pack));
 
+  // Apply renamed packs
+  if (store.renamedPacks && typeof store.renamedPacks === 'object') {
+    for (const p of store.packs) {
+      const ren = store.renamedPacks[p.id] || store.renamedPacks[String(p.id).toLowerCase().trim()];
+      if (ren) p.label = ren;
+    }
+  }
+
   return store;
 }
 
@@ -178,6 +191,7 @@ export function getStickerData() {
     packs: store.packs,
     deletedBuiltinPacks: store.deletedBuiltinPacks,
     deletedPacks: store.deletedPacks || [],
+    renamedPacks: store.renamedPacks || {},
     stickers: store.stickers,
     totalCustomStickers: store.stickers.length
   };
@@ -260,6 +274,88 @@ export async function deleteCollection(packId, pin) {
     remainingPacks: store.packs,
     deletedBuiltinPacks: store.deletedBuiltinPacks,
     deletedPacks: store.deletedPacks
+  };
+}
+
+/**
+ * Rename an existing collection / group
+ */
+export async function renameCollection(packId, newLabel, pin) {
+  if (!verifyPin(pin)) {
+    return { success: false, error: 'Unauthorized: Invalid developer PIN' };
+  }
+
+  if (!packId || packId === 'all') {
+    return { success: false, error: 'Invalid pack ID to rename' };
+  }
+
+  const trimmedLabel = String(newLabel || '').trim();
+  if (!trimmedLabel) {
+    return { success: false, error: 'New collection name cannot be empty' };
+  }
+
+  const store = loadStore();
+  const rawLower = String(packId).toLowerCase().trim();
+  const slug = rawLower.replace(/[\s_]+/g, '-').replace(/[^a-z0-9-]/g, '');
+
+  const matchesPack = (id, label) => {
+    if (!id && !label) return false;
+    const idLower = String(id || '').toLowerCase().trim();
+    const idSlug = idLower.replace(/[\s_]+/g, '-').replace(/[^a-z0-9-]/g, '');
+    const labelLower = String(label || '').toLowerCase().trim();
+    const labelSlug = labelLower.replace(/[\s_]+/g, '-').replace(/[^a-z0-9-]/g, '');
+
+    return (
+      idLower === rawLower ||
+      idSlug === slug ||
+      idLower === slug ||
+      idSlug === rawLower ||
+      labelLower === rawLower ||
+      labelSlug === slug
+    );
+  };
+
+  // 1. Record rename in store.renamedPacks
+  if (!store.renamedPacks || typeof store.renamedPacks !== 'object' || Array.isArray(store.renamedPacks)) {
+    store.renamedPacks = {};
+  }
+  store.renamedPacks[packId] = trimmedLabel;
+  store.renamedPacks[rawLower] = trimmedLabel;
+  store.renamedPacks[slug] = trimmedLabel;
+
+  // 2. Update matching custom packs in store.packs
+  let found = false;
+  for (const p of store.packs) {
+    if (matchesPack(p.id, p.label)) {
+      p.label = trimmedLabel;
+      found = true;
+    }
+  }
+
+  // 3. If it was a built-in pack, add or update an entry in store.packs
+  if (!found) {
+    const BUILTIN_PACKS = ['ocean', 'summer', 'photography', 'floral', 'vintage'];
+    for (const b of BUILTIN_PACKS) {
+      if (matchesPack(b, b)) {
+        store.packs.push({
+          id: b,
+          label: trimmedLabel,
+          emoji: '✦',
+          count: 0
+        });
+        break;
+      }
+    }
+  }
+
+  saveStore(store);
+
+  return {
+    success: true,
+    message: `Collection renamed to '${trimmedLabel}'`,
+    packId,
+    newLabel: trimmedLabel,
+    renamedPacks: store.renamedPacks
   };
 }
 

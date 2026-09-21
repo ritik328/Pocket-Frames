@@ -8,6 +8,10 @@
     }
   ],
   "deletedBuiltinPacks": [],
+  "deletedPacks": [],
+  "renamedPacks": {
+    "summer-vibes": "Summer Vibes"
+  },
   "stickers": [
     {
       "id": "custom-1790008200349-yjcte",
