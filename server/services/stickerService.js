@@ -75,6 +75,7 @@ function loadStore() {
   let store = {
     packs: [],
     deletedBuiltinPacks: [],
+    deletedPacks: [],
     stickers: []
   };
 
@@ -86,6 +87,7 @@ function loadStore() {
       store = {
         packs: Array.isArray(parsed.packs) ? parsed.packs : [],
         deletedBuiltinPacks: Array.isArray(parsed.deletedBuiltinPacks) ? parsed.deletedBuiltinPacks : [],
+        deletedPacks: Array.isArray(parsed.deletedPacks) ? parsed.deletedPacks : [],
         stickers: Array.isArray(parsed.stickers) ? parsed.stickers : []
       };
     }
@@ -93,12 +95,18 @@ function loadStore() {
     console.warn('[StickerService] Failed to read bundled store:', err);
   }
 
-  // 2. If in serverless mode and /tmp has runtime additions, merge them
+  // 2. If in serverless mode and /tmp has runtime additions/deletions, merge them
   if (IS_SERVERLESS && DATA_FILE !== BUNDLED_DATA_FILE) {
     try {
       if (fs.existsSync(DATA_FILE)) {
         const raw = fs.readFileSync(DATA_FILE, 'utf8');
         const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed.deletedPacks)) {
+          store.deletedPacks = Array.from(new Set([...store.deletedPacks, ...parsed.deletedPacks]));
+        }
+        if (Array.isArray(parsed.deletedBuiltinPacks)) {
+          store.deletedBuiltinPacks = Array.from(new Set([...store.deletedBuiltinPacks, ...parsed.deletedBuiltinPacks]));
+        }
         if (Array.isArray(parsed.stickers)) {
           const existingIds = new Set(store.stickers.map(s => s.id));
           for (const s of parsed.stickers) {
@@ -115,14 +123,27 @@ function loadStore() {
             }
           }
         }
-        if (Array.isArray(parsed.deletedBuiltinPacks)) {
-          store.deletedBuiltinPacks = Array.from(new Set([...store.deletedBuiltinPacks, ...parsed.deletedBuiltinPacks]));
-        }
       }
     } catch (err) {
       console.warn('[StickerService] Failed to read /tmp store:', err);
     }
   }
+
+  // Filter out any packs and stickers that have been marked as deleted
+  const allDeletedSet = new Set([
+    ...(store.deletedBuiltinPacks || []),
+    ...(store.deletedPacks || [])
+  ].map(p => String(p).toLowerCase().trim()));
+
+  const isPackDeleted = (id) => {
+    if (!id) return false;
+    const raw = String(id).toLowerCase().trim();
+    const slug = raw.replace(/[\s_]+/g, '-').replace(/[^a-z0-9-]/g, '');
+    return allDeletedSet.has(raw) || allDeletedSet.has(slug);
+  };
+
+  store.packs = store.packs.filter(p => !isPackDeleted(p.id));
+  store.stickers = store.stickers.filter(s => !isPackDeleted(s.pack));
 
   return store;
 }
@@ -156,6 +177,7 @@ export function getStickerData() {
     success: true,
     packs: store.packs,
     deletedBuiltinPacks: store.deletedBuiltinPacks,
+    deletedPacks: store.deletedPacks || [],
     stickers: store.stickers,
     totalCustomStickers: store.stickers.length
   };
@@ -194,7 +216,12 @@ export async function deleteCollection(packId, pin) {
     );
   };
 
-  // 1. If it matches a built-in pack, mark as deleted
+  // 1. Mark as permanently deleted in deletedPacks
+  if (!store.deletedPacks) store.deletedPacks = [];
+  if (!store.deletedPacks.includes(rawLower)) store.deletedPacks.push(rawLower);
+  if (!store.deletedPacks.includes(slug)) store.deletedPacks.push(slug);
+
+  // 2. If it matches a built-in pack, mark in deletedBuiltinPacks
   const BUILTIN_PACKS = ['ocean', 'summer', 'photography', 'floral', 'vintage'];
   for (const b of BUILTIN_PACKS) {
     if (matchesPack(b, b)) {
@@ -204,15 +231,15 @@ export async function deleteCollection(packId, pin) {
     }
   }
 
-  // 2. Remove all custom stickers belonging to this pack
+  // 3. Remove all custom stickers belonging to this pack
   const toDelete = store.stickers.filter(s => matchesPack(s.pack, s.pack));
   store.stickers = store.stickers.filter(s => !matchesPack(s.pack, s.pack));
 
-  // 3. Remove from custom packs list
+  // 4. Remove from custom packs list
   const removedPacks = store.packs.filter(p => matchesPack(p.id, p.label));
   store.packs = store.packs.filter(p => !matchesPack(p.id, p.label));
 
-  // 4. Delete physical files from disk
+  // 5. Delete physical files from disk
   for (const item of toDelete) {
     if (item.filename) {
       const filePath = path.join(STICKERS_DIR, item.filename);
@@ -231,7 +258,8 @@ export async function deleteCollection(packId, pin) {
     message: `Collection '${packId}' successfully deleted (${toDelete.length} stickers removed)`,
     deletedCount: toDelete.length,
     remainingPacks: store.packs,
-    deletedBuiltinPacks: store.deletedBuiltinPacks
+    deletedBuiltinPacks: store.deletedBuiltinPacks,
+    deletedPacks: store.deletedPacks
   };
 }
 
@@ -494,8 +522,9 @@ export async function processStickerUpload(fileData, options = {}) {
     existingPack.count = store.stickers.filter(s => s.pack === packId).length;
   }
 
-  // Unhide if it was previously in deletedBuiltinPacks
-  store.deletedBuiltinPacks = store.deletedBuiltinPacks.filter(id => id !== packId);
+  // Unhide if it was previously in deletedBuiltinPacks or deletedPacks
+  store.deletedBuiltinPacks = (store.deletedBuiltinPacks || []).filter(id => id !== packId && id !== groupName.toLowerCase().trim());
+  store.deletedPacks = (store.deletedPacks || []).filter(id => id !== packId && id !== groupName.toLowerCase().trim());
 
   saveStore(store);
 

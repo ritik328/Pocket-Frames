@@ -52,6 +52,57 @@ let _openPinModalFn = null;
 
 async function executeDeleteCollection(packId, packLabel = '') {
   try {
+    const rawLower = String(packId || '').toLowerCase().trim();
+    const slug = rawLower.replace(/[\s_]+/g, '-').replace(/[^a-z0-9-]/g, '');
+
+    // 1. Immediately persist deletion in client localStorage so it never returns on refresh
+    try {
+      const rawDel = localStorage.getItem('pocketframes_deleted_packs_v2');
+      const deletedPacks = rawDel ? JSON.parse(rawDel) : [];
+      if (packId && !deletedPacks.includes(packId)) deletedPacks.push(packId);
+      if (rawLower && !deletedPacks.includes(rawLower)) deletedPacks.push(rawLower);
+      if (slug && !deletedPacks.includes(slug)) deletedPacks.push(slug);
+      localStorage.setItem('pocketframes_deleted_packs_v2', JSON.stringify(deletedPacks));
+
+      // Remove from client custom stickers cache
+      const rawCustom = localStorage.getItem('pocketframes_custom_stickers_v2');
+      if (rawCustom) {
+        const localData = JSON.parse(rawCustom);
+        if (Array.isArray(localData.packs)) {
+          localData.packs = localData.packs.filter(p => {
+            const pId = String(p.id).toLowerCase().trim();
+            const pSlug = pId.replace(/[\s_]+/g, '-').replace(/[^a-z0-9-]/g, '');
+            return pId !== rawLower && pSlug !== slug && pId !== packId;
+          });
+        }
+        if (Array.isArray(localData.stickers)) {
+          localData.stickers = localData.stickers.filter(s => {
+            const sPack = String(s.pack).toLowerCase().trim();
+            const sSlug = sPack.replace(/[\s_]+/g, '-').replace(/[^a-z0-9-]/g, '');
+            return sPack !== rawLower && sSlug !== slug && sPack !== packId;
+          });
+        }
+        localStorage.setItem('pocketframes_custom_stickers_v2', JSON.stringify(localData));
+      }
+    } catch (e) {
+      console.warn('[StudioApp] Error updating localStorage on delete:', e);
+    }
+
+    // 2. Remove any active elements on the canvas from this pack
+    try {
+      const allKnown = getAllStickers();
+      const elements = sceneStore.scene.elements || [];
+      const toRemove = elements.filter(el => {
+        const st = allKnown.find(s => s.id === el.assetId);
+        if (!st) return false;
+        const stPack = String(st.pack || '').toLowerCase().trim();
+        const stSlug = stPack.replace(/[\s_]+/g, '-').replace(/[^a-z0-9-]/g, '');
+        return stPack === rawLower || stSlug === slug || stPack === packId;
+      });
+      toRemove.forEach(el => sceneStore.removeElement(el.id));
+    } catch (e) { /* ignore */ }
+
+    // 3. Send deletion to backend
     const res = await fetch('/api/stickers?action=delete-group', {
       method: 'POST',
       headers: {
@@ -441,7 +492,7 @@ canvas.addEventListener('dblclick', e => {
 // ─── Sticker panel ────────────────────────────────────────────────────────────
 // Pre-load all SVGs and custom sticker images as assets
 async function preloadStickers() {
-  let serverData = { stickers: [], packs: [], deletedBuiltinPacks: [] };
+  let serverData = { stickers: [], packs: [], deletedBuiltinPacks: [], deletedPacks: [] };
   try {
     const res = await fetch('/api/stickers');
     if (res.ok) {
@@ -450,6 +501,30 @@ async function preloadStickers() {
   } catch (err) {
     console.warn('[StudioApp] Could not load dynamic stickers from backend:', err);
   }
+
+  // Load deleted packs tracked in localStorage
+  let localDeleted = [];
+  try {
+    const rawDel = localStorage.getItem('pocketframes_deleted_packs_v2');
+    if (rawDel) {
+      localDeleted = JSON.parse(rawDel);
+      if (!Array.isArray(localDeleted)) localDeleted = [];
+    }
+  } catch (e) { /* ignore */ }
+
+  // Combine server & client deleted records
+  const allDeletedSet = new Set([
+    ...(Array.isArray(serverData.deletedBuiltinPacks) ? serverData.deletedBuiltinPacks : []),
+    ...(Array.isArray(serverData.deletedPacks) ? serverData.deletedPacks : []),
+    ...localDeleted
+  ].map(p => String(p).toLowerCase().trim()));
+
+  const isPackDeleted = (pId) => {
+    if (!pId) return false;
+    const lower = String(pId).toLowerCase().trim();
+    const slug = lower.replace(/[\s_]+/g, '-').replace(/[^a-z0-9-]/g, '');
+    return allDeletedSet.has(pId) || allDeletedSet.has(lower) || allDeletedSet.has(slug);
+  };
 
   // Merge client-cached custom stickers from localStorage for resilience on serverless deployments
   try {
@@ -460,7 +535,7 @@ async function preloadStickers() {
         serverData.stickers = serverData.stickers || [];
         const existingIds = new Set(serverData.stickers.map(s => s.id));
         localData.stickers.forEach(s => {
-          if (!existingIds.has(s.id)) {
+          if (!existingIds.has(s.id) && !isPackDeleted(s.pack)) {
             serverData.stickers.unshift(s);
           }
         });
@@ -469,7 +544,7 @@ async function preloadStickers() {
         serverData.packs = serverData.packs || [];
         const existingPacks = new Set(serverData.packs.map(p => p.id));
         localData.packs.forEach(p => {
-          if (!existingPacks.has(p.id)) {
+          if (!existingPacks.has(p.id) && !isPackDeleted(p.id)) {
             serverData.packs.push(p);
           }
         });
@@ -478,6 +553,12 @@ async function preloadStickers() {
   } catch (localErr) {
     console.warn('[StudioApp] Could not read local sticker cache:', localErr);
   }
+
+  // Filter out any deleted packs from serverData before passing to setCustomStickerData
+  serverData.packs = (serverData.packs || []).filter(p => !isPackDeleted(p.id));
+  serverData.stickers = (serverData.stickers || []).filter(s => !isPackDeleted(s.pack));
+  serverData.deletedBuiltinPacks = Array.from(allDeletedSet);
+  serverData.deletedPacks = Array.from(allDeletedSet);
 
   setCustomStickerData(serverData);
 
@@ -1807,6 +1888,24 @@ function initDevStickerBackdoor() {
                 localStore.packs.push({ id: rec.pack, label: groupName, emoji: '✦' });
               }
               localStorage.setItem('pocketframes_custom_stickers_v2', JSON.stringify(localStore));
+
+              // If this pack was previously marked deleted, un-delete it
+              try {
+                const rawDel = localStorage.getItem('pocketframes_deleted_packs_v2');
+                if (rawDel) {
+                  let delPacks = JSON.parse(rawDel);
+                  if (Array.isArray(delPacks)) {
+                    const grpLower = String(groupName).toLowerCase().trim();
+                    const grpSlug = grpLower.replace(/[\s_]+/g, '-').replace(/[^a-z0-9-]/g, '');
+                    const recPack = String(rec.pack || '').toLowerCase().trim();
+                    delPacks = delPacks.filter(p => {
+                      const pl = String(p).toLowerCase().trim();
+                      return pl !== grpLower && pl !== grpSlug && pl !== recPack;
+                    });
+                    localStorage.setItem('pocketframes_deleted_packs_v2', JSON.stringify(delPacks));
+                  }
+                }
+              } catch (delErr) { /* ignore */ }
             } catch (cacheErr) {
               console.warn('[DevStickerBackdoor] Could not update localStorage sticker cache:', cacheErr);
             }
