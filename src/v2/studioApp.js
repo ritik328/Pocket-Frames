@@ -1503,7 +1503,68 @@ function initDevStickerBackdoor() {
     }
   });
 
-  function handleBatchFilesSelected(fileList) {
+  // Scale down oversized images on client-side before base64 encoding to prevent HTTP 413 Payload Too Large
+  async function prepareStickerDataUrl(file) {
+    if (file.type === 'image/svg+xml') {
+      return new Promise(resolve => {
+        const reader = new FileReader();
+        reader.onload = e => resolve({ dataUrl: e.target.result, mimeType: file.type });
+        reader.onerror = () => resolve({ dataUrl: '', mimeType: file.type });
+        reader.readAsDataURL(file);
+      });
+    }
+
+    return new Promise(resolve => {
+      const reader = new FileReader();
+      reader.onload = e => {
+        const rawDataUrl = e.target.result;
+        const img = new Image();
+        img.onload = () => {
+          const MAX_DIM = 1200; // 1200px is more than ample for stickers (rendered at <= 512px)
+          let w = img.width;
+          let h = img.height;
+
+          // If already compact (< 1200px and < 1.5MB), keep original dataUrl
+          if (w <= MAX_DIM && h <= MAX_DIM && file.size < 1.5 * 1024 * 1024) {
+            return resolve({ dataUrl: rawDataUrl, mimeType: file.type || 'image/png' });
+          }
+
+          if (w > h && w > MAX_DIM) {
+            h = Math.round((h * MAX_DIM) / w);
+            w = MAX_DIM;
+          } else if (h > MAX_DIM) {
+            w = Math.round((w * MAX_DIM) / h);
+            h = MAX_DIM;
+          }
+
+          const canvas = document.createElement('canvas');
+          canvas.width = w;
+          canvas.height = h;
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(img, 0, 0, w, h);
+
+          const isPng = file.type === 'image/png';
+          const isWebp = file.type === 'image/webp';
+          const outMime = (isPng || isWebp) ? 'image/png' : 'image/jpeg';
+          const quality = outMime === 'image/jpeg' ? 0.88 : undefined;
+
+          try {
+            const optimized = canvas.toDataURL(outMime, quality);
+            resolve({ dataUrl: optimized, mimeType: outMime });
+          } catch {
+            resolve({ dataUrl: rawDataUrl, mimeType: file.type || 'image/png' });
+          }
+        };
+        img.onerror = () => {
+          resolve({ dataUrl: rawDataUrl, mimeType: file.type || 'image/png' });
+        };
+        img.src = rawDataUrl;
+      };
+      reader.readAsDataURL(file);
+    });
+  }
+
+  async function handleBatchFilesSelected(fileList) {
     const rawArr = Array.from(fileList).filter(f => f.type.startsWith('image/'));
     if (rawArr.length === 0) {
       showToast('Please select valid image files (PNG, JPG, WebP, SVG)');
@@ -1522,23 +1583,20 @@ function initDevStickerBackdoor() {
       showToast(`Batch limit is 50 stickers. Added first ${allowed} files.`);
     }
 
-    let loadedCount = 0;
-    filesToAdd.forEach(file => {
-      const reader = new FileReader();
-      reader.onload = evt => {
+    if (btnSubmitLabel) btnSubmitLabel.textContent = `Preparing ${filesToAdd.length} image(s)...`;
+
+    for (const file of filesToAdd) {
+      const { dataUrl, mimeType } = await prepareStickerDataUrl(file);
+      if (dataUrl) {
         selectedFiles.push({
           file,
           name: file.name,
-          dataUrl: evt.target.result,
-          mimeType: file.type || 'image/png'
+          dataUrl,
+          mimeType
         });
-        loadedCount++;
-        if (loadedCount === filesToAdd.length) {
-          updateSelectedFilesUI();
-        }
-      };
-      reader.readAsDataURL(file);
-    });
+        updateSelectedFilesUI();
+      }
+    }
   }
 
   function updateSelectedFilesUI() {
@@ -1588,7 +1646,7 @@ function initDevStickerBackdoor() {
     updateSelectedFilesUI();
   });
 
-  // 4. Batch Upload Submission to Backend
+  // 4. Batch Upload Submission to Backend (Sequential 1-by-1 to prevent HTTP 413)
   btnSubmitUpload?.addEventListener('click', async () => {
     if (selectedFiles.length === 0) {
       showToast('Please select at least one image file first');
@@ -1616,71 +1674,107 @@ function initDevStickerBackdoor() {
         : `Uploading ${selectedFiles.length} Sticker${selectedFiles.length === 1 ? '' : 's'}...`;
     }
     if (progressContainer) progressContainer.style.display = 'flex';
-    if (progressBar) progressBar.style.width = isDirect ? '50%' : '10%';
+    if (progressBar) progressBar.style.width = '5%';
     if (progressStatus) {
       progressStatus.textContent = isDirect
-        ? `Directly uploading ${selectedFiles.length} sticker(s) without processing...`
-        : `Processing ${selectedFiles.length} sticker(s)...`;
+        ? `Starting direct upload of ${selectedFiles.length} sticker(s)...`
+        : `Starting upload & processing of ${selectedFiles.length} sticker(s)...`;
     }
-    if (progressPercent) progressPercent.textContent = isDirect ? '50%' : '10%';
+    if (progressPercent) progressPercent.textContent = '5%';
+
+    const totalFiles = selectedFiles.length;
+    let successCount = 0;
+    let failedCount = 0;
+    let directCount = 0;
+    let alreadyTransCount = 0;
+    let aiCleanedCount = 0;
+    let targetPack = null;
+    const allErrors = [];
 
     try {
-      const payload = {
-        pin: pinToUse,
-        targetGroup: groupName,
-        removeBackground: !isDirect,
-        files: selectedFiles.map(f => ({
-          name: f.name,
-          data: f.dataUrl,
-          mimeType: f.mimeType
-        }))
-      };
-
-      if (progressBar) progressBar.style.width = isDirect ? '75%' : '45%';
-      if (progressStatus) {
-        progressStatus.textContent = isDirect
-          ? `Saving ${selectedFiles.length} sticker(s) directly to catalog...`
-          : 'Removing backgrounds via danielgatis/rembg (U2Net AI)...';
-      }
-      if (progressPercent) progressPercent.textContent = isDirect ? '75%' : '45%';
-
-      const res = await fetch('/api/stickers?action=upload', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${pinToUse}`
-        },
-        body: JSON.stringify(payload)
-      });
-
-      if (progressBar) progressBar.style.width = '85%';
-      if (progressPercent) progressPercent.textContent = '85%';
-
-      // Check HTTP status BEFORE parsing JSON
-      if (!res.ok) {
-        let errMsg = `HTTP ${res.status}`;
-        try {
-          const errData = await res.json();
-          errMsg = errData.error || errMsg;
-        } catch { /* ignore parse errors */ }
-        throw new Error(errMsg);
-      }
-
-      const result = await res.json();
-
-      if (result.success) {
-        if (progressBar) progressBar.style.width = '100%';
-        let summaryMsg = `Complete! ${result.uploaded} sticker${result.uploaded === 1 ? '' : 's'} processed.`;
-        if (result.directUpload > 0) {
-          summaryMsg = `Directly uploaded ${result.uploaded} sticker${result.uploaded === 1 ? '' : 's'} (zero processing)!`;
-        } else if (result.alreadyTransparent > 0 && result.aiCleaned > 0) {
-          summaryMsg = `Added ${result.uploaded} stickers (${result.alreadyTransparent} skipped - already transparent, ${result.aiCleaned} AI cleaned)!`;
-        } else if (result.alreadyTransparent > 0 && result.aiCleaned === 0) {
-          summaryMsg = `Added ${result.uploaded} stickers (all already transparent - skipped AI)!`;
+      // Process stickers sequentially 1-by-1
+      // Keeps each payload < 400KB to completely avoid HTTP 413 (Payload Too Large) on Vercel / serverless hosts
+      for (let i = 0; i < totalFiles; i++) {
+        const f = selectedFiles[i];
+        const percent = Math.round((i / totalFiles) * 90) + 5;
+        if (progressBar) progressBar.style.width = `${percent}%`;
+        if (progressPercent) progressPercent.textContent = `${percent}%`;
+        if (progressStatus) {
+          progressStatus.textContent = isDirect
+            ? `Uploading sticker ${i + 1} of ${totalFiles}: "${f.name}"...`
+            : `Processing sticker ${i + 1} of ${totalFiles}: "${f.name}"...`;
         }
-        if (progressStatus) progressStatus.textContent = summaryMsg;
+
+        const singlePayload = {
+          pin: pinToUse,
+          targetGroup: groupName,
+          removeBackground: !isDirect,
+          files: [{
+            name: f.name,
+            data: f.dataUrl,
+            mimeType: f.mimeType
+          }]
+        };
+
+        try {
+          const res = await fetch('/api/stickers?action=upload', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${pinToUse}`
+            },
+            body: JSON.stringify(singlePayload)
+          });
+
+          if (!res.ok) {
+            let errMsg = `HTTP ${res.status}`;
+            if (res.status === 413) {
+              errMsg = 'HTTP 413: Image payload exceeds server limit. Please try a smaller image.';
+            } else {
+              try {
+                const errData = await res.json();
+                errMsg = errData.error || errMsg;
+              } catch { /* ignore parse errors */ }
+            }
+            throw new Error(errMsg);
+          }
+
+          const result = await res.json();
+          if (result.success && result.results?.length) {
+            successCount++;
+            const rec = result.results[0];
+            if (!targetPack && rec.pack) targetPack = rec.pack;
+            if (rec.bgCleanedVia === 'direct-upload') directCount++;
+            else if (rec.bgCleanedVia === 'already-transparent') alreadyTransCount++;
+            else if (rec.bgCleanedVia === 'rembg-danielgatis') aiCleanedCount++;
+          } else {
+            throw new Error(result.error || result.errors?.[0]?.error || 'Upload failed');
+          }
+        } catch (fileErr) {
+          console.error(`[DevStickerBackdoor] Failed to upload "${f.name}":`, fileErr);
+          failedCount++;
+          allErrors.push(`"${f.name}": ${fileErr.message}`);
+        }
+      }
+
+      if (successCount > 0) {
+        if (progressBar) progressBar.style.width = '100%';
         if (progressPercent) progressPercent.textContent = '100%';
 
+        let summaryMsg = `Complete! Added ${successCount} sticker${successCount === 1 ? '' : 's'}.`;
+        if (directCount > 0 && directCount === successCount) {
+          summaryMsg = `Directly uploaded ${successCount} sticker${successCount === 1 ? '' : 's'} (zero processing)!`;
+        } else if (alreadyTransCount > 0 && aiCleanedCount > 0) {
+          summaryMsg = `Added ${successCount} stickers (${alreadyTransCount} already transparent, ${aiCleanedCount} AI cleaned)!`;
+        } else if (alreadyTransCount > 0 && aiCleanedCount === 0) {
+          summaryMsg = `Added ${successCount} stickers (all already transparent - skipped AI)!`;
+        }
+
+        if (failedCount > 0) {
+          summaryMsg += ` (${failedCount} failed)`;
+        }
+
+        if (progressStatus) progressStatus.textContent = summaryMsg;
         showToast(summaryMsg);
 
         // Refresh dynamic stickers in memory and UI
@@ -1688,8 +1782,8 @@ function initDevStickerBackdoor() {
         buildStickerPackTabs();
 
         // Switch to the target pack if applicable
-        if (result.results?.[0]?.pack) {
-          _activePack = result.results[0].pack;
+        if (targetPack) {
+          _activePack = targetPack;
           stickerPackBtns?.querySelectorAll('.chip, .v2-pack-tab').forEach(b => {
             const on = b.dataset.pack === _activePack;
             b.classList.toggle('active', on);
@@ -1708,11 +1802,12 @@ function initDevStickerBackdoor() {
         }, 1200);
 
       } else {
-        throw new Error(result.error || 'Upload failed');
+        const errMsg = allErrors.length ? allErrors.join('; ') : 'Upload failed';
+        throw new Error(errMsg);
       }
 
     } catch (err) {
-      console.error('[DevStickerBackdoor] Upload failed:', err);
+      console.error('[DevStickerBackdoor] Batch upload failed:', err);
       if (progressStatus) progressStatus.textContent = `Error: ${err.message}`;
       showToast(`Upload error: ${err.message}`);
       btnSubmitUpload.disabled = false;

@@ -1,5 +1,268 @@
 {
-  "packs": [],
+  "packs": [
+    {
+      "id": "summer-vibes",
+      "label": "Summer Vibes",
+      "emoji": "✦",
+      "count": 15
+    }
+  ],
   "deletedBuiltinPacks": [],
-  "stickers": []
+  "stickers": [
+    {
+      "id": "custom-1790008200349-yjcte",
+      "name": "white flower off white flower  flower sticker",
+      "pack": "summer-vibes",
+      "tags": [
+        "sticker",
+        "custom"
+      ],
+      "url": "/custom-stickers/custom-1790008200349-yjcte.png",
+      "filename": "custom-1790008200349-yjcte.png",
+      "defaultSize": 200,
+      "width": 736,
+      "height": 1104,
+      "createdAt": 1790008200354,
+      "bgCleanedVia": "direct-upload",
+      "alreadyTransparent": false
+    },
+    {
+      "id": "custom-1790008200343-yci7w",
+      "name": "New theme loading___",
+      "pack": "summer-vibes",
+      "tags": [
+        "sticker",
+        "custom"
+      ],
+      "url": "/custom-stickers/custom-1790008200343-yci7w.png",
+      "filename": "custom-1790008200343-yci7w.png",
+      "defaultSize": 200,
+      "width": 736,
+      "height": 736,
+      "createdAt": 1790008200348,
+      "bgCleanedVia": "direct-upload",
+      "alreadyTransparent": false
+    },
+    {
+      "id": "custom-1790008200337-re4os",
+      "name": "download",
+      "pack": "summer-vibes",
+      "tags": [
+        "sticker",
+        "custom"
+      ],
+      "url": "/custom-stickers/custom-1790008200337-re4os.png",
+      "filename": "custom-1790008200337-re4os.png",
+      "defaultSize": 200,
+      "width": 736,
+      "height": 1308,
+      "createdAt": 1790008200342,
+      "bgCleanedVia": "direct-upload",
+      "alreadyTransparent": false
+    },
+    {
+      "id": "custom-1790008200332-hobbe",
+      "name": "Download premium png of PNG Vintage postage stamp flower pink illustration_ by Boom about vintage paper background, stamp sticker, ephemera, png stamp sticker, and postage stamp 16829672",
+      "pack": "summer-vibes",
+      "tags": [
+        "sticker",
+        "custom"
+      ],
+      "url": "/custom-stickers/custom-1790008200332-hobbe.png",
+      "filename": "custom-1790008200332-hobbe.png",
+      "defaultSize": 200,
+      "width": 736,
+      "height": 841,
+      "createdAt": 1790008200336,
+      "bgCleanedVia": "direct-upload",
+      "alreadyTransparent": false
+    },
+    {
+      "id": "custom-1790008200325-2gpv9",
+      "name": "dark red widget",
+      "pack": "summer-vibes",
+      "tags": [
+        "sticker",
+        "custom"
+      ],
+      "url": "/custom-stickers/custom-1790008200325-2gpv9.png",
+      "filename": "custom-1790008200325-2gpv9.png",
+      "defaultSize": 200,
+      "width": 500,
+      "height": 500,
+      "createdAt": 1790008200331,
+      "bgCleanedVia": "direct-upload",
+      "alreadyTransparent": false
+    },
+    {
+      "id": "custom-1790008200320-7t2j3",
+      "name": "Be the first one to say it (and put it in…",
+      "pack": "summer-vibes",
+      "tags": [
+        "sticker",
+        "custom"
+      ],
+      "url": "/custom-stickers/custom-1790008200320-7t2j3.png",
+      "filename": "custom-1790008200320-7t2j3.png",
+      "defaultSize": 200,
+      "width": 735,
+      "height": 1252,
+      "createdAt": 1790008200325,
+      "bgCleanedVia": "direct-upload",
+      "alreadyTransparent": false
+    },
+    {
+      "id": "custom-1790008200314-zaouq",
+      "name": "1132303531352052526",
+      "pack": "summer-vibes",
+      "tags": [
+        "sticker",
+        "custom"
+      ],
+      "url": "/custom-stickers/custom-1790008200314-zaouq.png",
+      "filename": "custom-1790008200314-zaouq.png",
+      "defaultSize": 200,
+      "width": 736,
+      "height": 1041,
+      "createdAt": 1790008200319,
+      "bgCleanedVia": "direct-upload",
+      "alreadyTransparent": false
+    },
+    {
+      "id": "custom-1790008200310-yltvb",
+      "name": "1094304409477368042",
+      "pack": "summer-vibes",
+      "tags": [
+        "sticker",
+        "custom"
+      ],
+      "url": "/custom-stickers/custom-1790008200310-yltvb.png",
+      "filename": "custom-1790008200310-yltvb.png",
+      "defaultSize": 200,
+      "width": 736,
+      "height": 736,
+      "createdAt": 1790008200313,
+      "bgCleanedVia": "direct-upload",
+      "alreadyTransparent": false
+    },
+    {
+      "id": "custom-1790008200305-nb28m",
+      "name": "861524603770255656",
+      "pack": "summer-vibes",
+      "tags": [
+        "sticker",
+        "custom"
+      ],
+      "url": "/custom-stickers/custom-1790008200305-nb28m.png",
+      "filename": "custom-1790008200305-nb28m.png",
+      "defaultSize": 200,
+      "width": 736,
+      "height": 747,
+      "createdAt": 1790008200309,
+      "bgCleanedVia": "direct-upload",
+      "alreadyTransparent": false
+    },
+    {
+      "id": "custom-1790008200300-et5pi",
+      "name": "1077627017117739963",
+      "pack": "summer-vibes",
+      "tags": [
+        "sticker",
+        "custom"
+      ],
+      "url": "/custom-stickers/custom-1790008200300-et5pi.png",
+      "filename": "custom-1790008200300-et5pi.png",
+      "defaultSize": 200,
+      "width": 662,
+      "height": 932,
+      "createdAt": 1790008200304,
+      "bgCleanedVia": "direct-upload",
+      "alreadyTransparent": false
+    },
+    {
+      "id": "custom-1790008200295-g85hn",
+      "name": "619104280066089911",
+      "pack": "summer-vibes",
+      "tags": [
+        "sticker",
+        "custom"
+      ],
+      "url": "/custom-stickers/custom-1790008200295-g85hn.png",
+      "filename": "custom-1790008200295-g85hn.png",
+      "defaultSize": 200,
+      "width": 736,
+      "height": 693,
+      "createdAt": 1790008200299,
+      "bgCleanedVia": "direct-upload",
+      "alreadyTransparent": false
+    },
+    {
+      "id": "custom-1790008200291-xoily",
+      "name": "1083045410399588461",
+      "pack": "summer-vibes",
+      "tags": [
+        "sticker",
+        "custom"
+      ],
+      "url": "/custom-stickers/custom-1790008200291-xoily.png",
+      "filename": "custom-1790008200291-xoily.png",
+      "defaultSize": 200,
+      "width": 736,
+      "height": 736,
+      "createdAt": 1790008200295,
+      "bgCleanedVia": "direct-upload",
+      "alreadyTransparent": false
+    },
+    {
+      "id": "custom-1790008200286-fq7eq",
+      "name": "902408844098005211",
+      "pack": "summer-vibes",
+      "tags": [
+        "sticker",
+        "custom"
+      ],
+      "url": "/custom-stickers/custom-1790008200286-fq7eq.png",
+      "filename": "custom-1790008200286-fq7eq.png",
+      "defaultSize": 200,
+      "width": 500,
+      "height": 500,
+      "createdAt": 1790008200291,
+      "bgCleanedVia": "direct-upload",
+      "alreadyTransparent": false
+    },
+    {
+      "id": "custom-1790008200283-glhw1",
+      "name": "771030398748925054",
+      "pack": "summer-vibes",
+      "tags": [
+        "sticker",
+        "custom"
+      ],
+      "url": "/custom-stickers/custom-1790008200283-glhw1.png",
+      "filename": "custom-1790008200283-glhw1.png",
+      "defaultSize": 200,
+      "width": 675,
+      "height": 1200,
+      "createdAt": 1790008200285,
+      "bgCleanedVia": "direct-upload",
+      "alreadyTransparent": false
+    },
+    {
+      "id": "custom-1790008200278-dqu8d",
+      "name": "769411917640105378",
+      "pack": "summer-vibes",
+      "tags": [
+        "sticker",
+        "custom"
+      ],
+      "url": "/custom-stickers/custom-1790008200278-dqu8d.png",
+      "filename": "custom-1790008200278-dqu8d.png",
+      "defaultSize": 200,
+      "width": 736,
+      "height": 736,
+      "createdAt": 1790008200282,
+      "bgCleanedVia": "direct-upload",
+      "alreadyTransparent": false
+    }
+  ]
 }
