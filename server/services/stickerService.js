@@ -279,7 +279,16 @@ export async function processStickerUpload(fileData, options = {}) {
 
   if (removeBackground) {
     try {
-      cleanedBuffer = await cleanBackgroundPython(buffer);
+      const rawCleaned = await cleanBackgroundPython(buffer);
+      try {
+        cleanedBuffer = await sharp(rawCleaned)
+          .trim()
+          .resize(512, 512, { fit: 'inside', withoutEnlargement: true })
+          .png({ quality: 92 })
+          .toBuffer();
+      } catch {
+        cleanedBuffer = rawCleaned;
+      }
       bgMethod = 'python-rembg';
       console.log('[StickerService] Background removed via Python (rembg/GrabCut)');
     } catch (pyErr) {

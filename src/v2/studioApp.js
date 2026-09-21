@@ -45,8 +45,8 @@ const stickerPackBtns = document.getElementById('v2-pack-tabs');
 const stickerGrid     = document.getElementById('v2-sticker-grid');
 
 // Global dev backdoor state for direct collection actions
-let _devUnlocked = false;
-let _devPin = '';
+let _devUnlocked = typeof window !== 'undefined' && Boolean(sessionStorage.getItem('pk_dev_unlocked'));
+let _devPin = typeof window !== 'undefined' ? (sessionStorage.getItem('pk_dev_pin') || '') : '';
 let _pendingDevAction = null;
 let _openPinModalFn = null;
 
@@ -1270,8 +1270,6 @@ function initDevStickerBackdoor() {
 
   const collectionsGrid  = document.getElementById('v2-dev-collections-grid');
 
-  let devUnlocked = false;
-  let devPin = '';
   let currentPin = '';
   let selectedFiles = []; // array of { file, name, dataUrl, mimeType }
 
@@ -1326,6 +1324,10 @@ function initDevStickerBackdoor() {
       if (data.success) {
         _devUnlocked = true;
         _devPin = entered;
+        try {
+          sessionStorage.setItem('pk_dev_unlocked', '1');
+          sessionStorage.setItem('pk_dev_pin', entered);
+        } catch { /* storage full or private mode */ }
         closePinModal();
         if (typeof _pendingDevAction === 'function') {
           const fn = _pendingDevAction;
@@ -1343,6 +1345,10 @@ function initDevStickerBackdoor() {
       if (entered === '7788') {
         _devUnlocked = true;
         _devPin = entered;
+        try {
+          sessionStorage.setItem('pk_dev_unlocked', '1');
+          sessionStorage.setItem('pk_dev_pin', entered);
+        } catch { /* storage full or private mode */ }
         closePinModal();
         if (typeof _pendingDevAction === 'function') {
           const fn = _pendingDevAction;
@@ -1579,13 +1585,26 @@ function initDevStickerBackdoor() {
 
   // 4. Batch Upload Submission to Backend
   btnSubmitUpload?.addEventListener('click', async () => {
-    if (selectedFiles.length === 0 || !devPin) return;
+    if (selectedFiles.length === 0) {
+      showToast('Please select at least one image file first');
+      return;
+    }
+
+    const pinToUse = _devPin || (typeof window !== 'undefined' ? sessionStorage.getItem('pk_dev_pin') : '') || '7788';
+
+    if (!_devUnlocked && !_devPin && (typeof window === 'undefined' || !sessionStorage.getItem('pk_dev_unlocked'))) {
+      _pendingDevAction = () => btnSubmitUpload.click();
+      if (_openPinModalFn) _openPinModalFn();
+      showToast('Please enter your developer PIN first');
+      return;
+    }
 
     const isNew = groupSelect?.value === '__new__';
-    const groupName = isNew ? (newGroupNameInput?.value || 'Custom') : (groupSelect?.value || 'custom');
+    const groupName = isNew ? (newGroupNameInput?.value?.trim() || 'Custom') : (groupSelect?.value || 'custom');
 
     // Lock UI and show progress
     btnSubmitUpload.disabled = true;
+    if (btnSubmitLabel) btnSubmitLabel.textContent = `Uploading ${selectedFiles.length} Sticker${selectedFiles.length === 1 ? '' : 's'}...`;
     if (progressContainer) progressContainer.style.display = 'flex';
     if (progressBar) progressBar.style.width = '10%';
     if (progressStatus) progressStatus.textContent = `Processing ${selectedFiles.length} sticker(s)...`;
@@ -1593,7 +1612,7 @@ function initDevStickerBackdoor() {
 
     try {
       const payload = {
-        pin: devPin,
+        pin: pinToUse,
         targetGroup: groupName,
         removeBackground: chkBgRemoval?.checked !== false,
         files: selectedFiles.map(f => ({
@@ -1604,14 +1623,16 @@ function initDevStickerBackdoor() {
       };
 
       if (progressBar) progressBar.style.width = '45%';
-      if (progressStatus) progressStatus.textContent = 'Removing backgrounds via Python AI (rembg U2Net)...';
+      if (progressStatus) progressStatus.textContent = chkBgRemoval?.checked !== false
+        ? 'Removing backgrounds via Python AI (rembg U2Net)...'
+        : 'Processing stickers...';
       if (progressPercent) progressPercent.textContent = '45%';
 
       const res = await fetch('/api/stickers?action=upload', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${devPin}`
+          'Authorization': `Bearer ${pinToUse}`
         },
         body: JSON.stringify(payload)
       });
@@ -1671,6 +1692,7 @@ function initDevStickerBackdoor() {
       if (progressStatus) progressStatus.textContent = `Error: ${err.message}`;
       showToast(`Upload error: ${err.message}`);
       btnSubmitUpload.disabled = false;
+      if (btnSubmitLabel) btnSubmitLabel.textContent = `Upload & Process ${selectedFiles.length} Sticker${selectedFiles.length === 1 ? '' : 's'}`;
     }
   });
 
