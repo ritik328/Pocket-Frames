@@ -5,8 +5,21 @@
       "destination": "/ai-director.html"
     },
     {
-      "source": "/((?!api/.*|ai-director\\.html).*)",
+      "source": "/studio",
+      "destination": "/studio.html"
+    },
+    {
+      "source": "/((?!api/.*|ai-director\\.html|studio\\.html|\\..*|custom-stickers/.*).*)",
       "destination": "/index.html"
+    }
+  ],
+  "headers": [
+    {
+      "source": "/api/(.*)",
+      "headers": [
+        { "key": "Access-Control-Allow-Origin", "value": "*" },
+        { "key": "Access-Control-Allow-Methods", "value": "GET, POST, DELETE, OPTIONS" }
+      ]
     }
   ]
 }

@@ -9,7 +9,8 @@ import {
   getStickerData,
   verifyPin,
   batchUploadStickers,
-  deleteCollection
+  deleteCollection,
+  getStickerImageBuffer
 } from '../services/stickerService.js';
 
 export async function handleStickerRequest(req, res) {
@@ -86,6 +87,24 @@ export async function handleStickerRequest(req, res) {
 
       const status = result.success ? 200 : (result.error?.includes('Unauthorized') ? 401 : 400);
       return sendJson(res, status, result);
+    }
+
+    // Action: Serve Sticker Image (serverless mode: images stored in /tmp)
+    if (req.method === 'GET' && action === 'image') {
+      const stickerId = url.searchParams.get('id');
+      if (!stickerId) {
+        return sendJson(res, 400, { success: false, error: 'Missing sticker id' });
+      }
+      const imgBuffer = getStickerImageBuffer(stickerId);
+      if (!imgBuffer) {
+        res.statusCode = 404;
+        res.setHeader('Content-Type', 'application/json');
+        return res.end(JSON.stringify({ success: false, error: 'Sticker image not found' }));
+      }
+      res.statusCode = 200;
+      res.setHeader('Content-Type', 'image/png');
+      res.setHeader('Cache-Control', 'public, max-age=86400');
+      return res.end(imgBuffer);
     }
 
     return sendJson(res, 404, { success: false, error: `Unknown sticker action: ${action}` });

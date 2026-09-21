@@ -14,16 +14,47 @@ import path from 'path';
 import sharp from 'sharp';
 
 const DEV_PIN = process.env.DEV_PIN?.trim() || '7788';
-const DATA_DIR = path.resolve(process.cwd(), 'server', 'data');
+
+// In serverless/cloud deployments (e.g. Vercel), the project root is read-only.
+// We detect this by checking if the app is running from /var/task (Vercel) or
+// if the STICKERS_WRITABLE_DIR env var is set explicitly.
+// Writable paths fall back to /tmp which is always writable in serverless envs.
+const IS_SERVERLESS =
+  process.cwd().startsWith('/var/task') ||
+  process.env.VERCEL === '1' ||
+  process.env.SERVERLESS === '1';
+
+const DATA_DIR = IS_SERVERLESS
+  ? '/tmp/pocket-frames-data'
+  : path.resolve(process.cwd(), 'server', 'data');
+
 const DATA_FILE = path.join(DATA_DIR, 'customStickers.json');
-const STICKERS_DIR = path.resolve(process.cwd(), 'public', 'custom-stickers');
+
+const STICKERS_DIR = IS_SERVERLESS
+  ? '/tmp/pocket-frames-stickers'
+  : path.resolve(process.cwd(), 'public', 'custom-stickers');
+
+// The public URL prefix for sticker images
+const STICKERS_URL_PREFIX = process.env.STICKERS_URL_PREFIX || '/custom-stickers';
+
+console.log(`[StickerService] Environment: ${IS_SERVERLESS ? 'serverless' : 'local'}`);
+console.log(`[StickerService] Data file: ${DATA_FILE}`);
+console.log(`[StickerService] Stickers dir: ${STICKERS_DIR}`);
 
 // Ensure storage directories exist
-if (!fs.existsSync(DATA_DIR)) {
-  fs.mkdirSync(DATA_DIR, { recursive: true });
+try {
+  if (!fs.existsSync(DATA_DIR)) {
+    fs.mkdirSync(DATA_DIR, { recursive: true });
+  }
+} catch (e) {
+  console.warn('[StickerService] Could not create DATA_DIR:', e.message);
 }
-if (!fs.existsSync(STICKERS_DIR)) {
-  fs.mkdirSync(STICKERS_DIR, { recursive: true });
+try {
+  if (!fs.existsSync(STICKERS_DIR)) {
+    fs.mkdirSync(STICKERS_DIR, { recursive: true });
+  }
+} catch (e) {
+  console.warn('[StickerService] Could not create STICKERS_DIR:', e.message);
 }
 
 /**
@@ -495,12 +526,18 @@ export async function processStickerUpload(fileData, options = {}) {
 
   const meta = await sharp(cleanedBuffer).metadata();
 
+  // In serverless mode, images in /tmp can't be served as static files.
+  // We expose them via the /api/stickers?action=image&id=<stickerId> endpoint instead.
+  const stickerUrl = IS_SERVERLESS
+    ? `/api/stickers?action=image&id=${stickerId}`
+    : `/custom-stickers/${filename}`;
+
   const stickerRecord = {
     id: stickerId,
     name: stickerName,
     pack: packId,
     tags,
-    url: `/custom-stickers/${filename}`,
+    url: stickerUrl,
     filename,
     defaultSize: 200,
     width: meta.width || 512,
@@ -532,6 +569,22 @@ export async function processStickerUpload(fileData, options = {}) {
   saveStore(store);
 
   return stickerRecord;
+}
+
+/**
+ * Serve a sticker image by its ID (for serverless environments where /tmp isn't publicly accessible)
+ */
+export function getStickerImageBuffer(stickerId) {
+  const store = loadStore();
+  const record = store.stickers.find(s => s.id === stickerId);
+  if (!record || !record.filename) {
+    return null;
+  }
+  const filePath = path.join(STICKERS_DIR, record.filename);
+  if (!fs.existsSync(filePath)) {
+    return null;
+  }
+  return fs.readFileSync(filePath);
 }
 
 /**
