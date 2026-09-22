@@ -296,3 +296,42 @@ export async function migrateFromLocalStorage() {
     console.warn('[StickerDB] Migration from localStorage skipped:', err);
   }
 }
+
+/**
+ * Export all custom stickers and packs as a backup JSON object
+ */
+export async function exportStickersBackup() {
+  const stickers = await getAllStickersFromDb();
+  const packs = await getAllPacksFromDb();
+  return {
+    version: 1,
+    exportedAt: Date.now(),
+    packs,
+    stickers
+  };
+}
+
+/**
+ * Import a backup JSON object into IndexedDB
+ */
+export async function importStickersBackup(backupData) {
+  if (!backupData || typeof backupData !== 'object') {
+    throw new Error('Invalid backup file format');
+  }
+  const stickers = Array.isArray(backupData.stickers) ? backupData.stickers : [];
+  const packs = Array.isArray(backupData.packs) ? backupData.packs : [];
+
+  if (stickers.length > 0) {
+    await saveStickersToDb(stickers);
+  }
+  if (packs.length > 0) {
+    await savePacksToDb(packs);
+  }
+
+  return {
+    success: true,
+    stickersCount: stickers.length,
+    packsCount: packs.length
+  };
+}
+

@@ -13,6 +13,11 @@ import path from 'path';
 import { spawn } from 'child_process';
 import sharp from 'sharp';
 
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
 const DEV_PIN = process.env.DEV_PIN?.trim() || '7788';
 
 // In serverless/cloud deployments (e.g. Vercel), the project root is read-only.
@@ -24,7 +29,23 @@ const IS_SERVERLESS =
   process.env.VERCEL === '1' ||
   process.env.SERVERLESS === '1';
 
-const BUNDLED_DATA_FILE = path.resolve(process.cwd(), 'server', 'data', 'customStickers.json');
+function resolveBundledDataFile() {
+  const candidates = [
+    path.resolve(__dirname, '..', 'data', 'customStickers.json'),
+    fileURLToPath(new URL('../data/customStickers.json', import.meta.url)),
+    path.resolve(process.cwd(), 'server', 'data', 'customStickers.json'),
+    path.resolve('/var/task', 'server', 'data', 'customStickers.json'),
+    path.resolve(process.cwd(), 'data', 'customStickers.json')
+  ];
+  for (const p of candidates) {
+    try {
+      if (fs.existsSync(p)) return p;
+    } catch { /* ignore */ }
+  }
+  return candidates[0];
+}
+
+const BUNDLED_DATA_FILE = resolveBundledDataFile();
 
 const DATA_DIR = IS_SERVERLESS
   ? '/tmp/pocket-frames-data'
@@ -40,12 +61,12 @@ const STICKERS_DIR = IS_SERVERLESS
 const STICKERS_URL_PREFIX = process.env.STICKERS_URL_PREFIX || '/custom-stickers';
 
 // Path to the Python background removal script
-const PYTHON_SCRIPT = path.resolve(process.cwd(), 'server', 'scripts', 'remove_bg.py');
+const PYTHON_SCRIPT = path.resolve(__dirname, '..', 'scripts', 'remove_bg.py');
 // Allow override via env (e.g. PYTHON_BIN=python3 on Linux)
 const PYTHON_BIN = process.env.PYTHON_BIN || 'python';
 
 console.log(`[StickerService] Environment: ${IS_SERVERLESS ? 'serverless' : 'local'}`);
-console.log(`[StickerService] Bundled data file: ${BUNDLED_DATA_FILE}`);
+console.log(`[StickerService] Bundled data file: ${BUNDLED_DATA_FILE} (exists: ${fs.existsSync(BUNDLED_DATA_FILE)})`);
 console.log(`[StickerService] Active data file: ${DATA_FILE}`);
 console.log(`[StickerService] Stickers dir: ${STICKERS_DIR}`);
 console.log(`[StickerService] Python bg-remover: ${PYTHON_BIN} ${PYTHON_SCRIPT}`);
@@ -665,9 +686,17 @@ export function getStickerImageBuffer(stickerId) {
     }
 
     // 3. Fallback to bundled public directory
-    const bundledPath = path.resolve(process.cwd(), 'public', 'custom-stickers', record.filename);
-    if (fs.existsSync(bundledPath)) {
-      return fs.readFileSync(bundledPath);
+    const candidates = [
+      path.resolve(process.cwd(), 'public', 'custom-stickers', record.filename),
+      path.resolve(__dirname, '..', '..', 'public', 'custom-stickers', record.filename),
+      path.resolve('/var/task', 'public', 'custom-stickers', record.filename),
+      path.resolve(process.cwd(), 'dist', 'custom-stickers', record.filename),
+      path.resolve('/var/task', 'dist', 'custom-stickers', record.filename)
+    ];
+    for (const p of candidates) {
+      try {
+        if (fs.existsSync(p)) return fs.readFileSync(p);
+      } catch { /* ignore */ }
     }
   }
 

@@ -371,7 +371,7 @@ export class SceneStore {
     });
   }
 
-  registerImageAsset(assetId, srcUrl, width = 200, height = 200) {
+  registerImageAsset(assetId, srcUrl, width = 200, height = 200, fallbackUrl = null) {
     if (!srcUrl) return Promise.resolve(assetId);
 
     // If already loaded and valid, return immediately
@@ -379,9 +379,11 @@ export class SceneStore {
     if (existing?.img) return Promise.resolve(assetId);
 
     return new Promise((resolve) => {
-      const isDataUrl = srcUrl.startsWith('data:');
+      let currentSrc = srcUrl;
+      let hasTriedFallback = false;
 
       const attemptLoad = (useCors) => {
+        const isDataUrl = currentSrc.startsWith('data:');
         const img = new Image();
         if (useCors && !isDataUrl) {
           img.crossOrigin = 'anonymous';
@@ -389,7 +391,7 @@ export class SceneStore {
 
         img.onload = () => {
           this._assets.set(assetId, {
-            url: srcUrl,
+            url: currentSrc,
             img,
             w: img.naturalWidth || width,
             h: img.naturalHeight || height
@@ -402,19 +404,27 @@ export class SceneStore {
           if (useCors && !isDataUrl) {
             // Retry without crossOrigin attribute in case server lacks Access-Control-Allow-Origin
             attemptLoad(false);
+          } else if (!hasTriedFallback) {
+            hasTriedFallback = true;
+            if (fallbackUrl && fallbackUrl !== currentSrc) {
+              currentSrc = fallbackUrl;
+              attemptLoad(true);
+            } else if (!currentSrc.startsWith('data:') && !currentSrc.includes('/api/stickers?action=image')) {
+              currentSrc = `/api/stickers?action=image&id=${encodeURIComponent(assetId)}`;
+              attemptLoad(true);
+            } else {
+              console.warn(`[SceneStore] Failed to load image asset: "${assetId}"`);
+              this._assets.set(assetId, { url: currentSrc, img: null, w: width, h: height });
+              resolve(assetId);
+            }
           } else {
-            console.warn(`[SceneStore] Failed to load image asset: "${assetId}" (url: ${srcUrl?.slice(0, 80)})`);
-            this._assets.set(assetId, {
-              url: srcUrl,
-              img: null,
-              w: width,
-              h: height
-            });
+            console.warn(`[SceneStore] Failed to load image asset: "${assetId}"`);
+            this._assets.set(assetId, { url: currentSrc, img: null, w: width, h: height });
             resolve(assetId);
           }
         };
 
-        img.src = srcUrl;
+        img.src = currentSrc;
       };
 
       attemptLoad(true);

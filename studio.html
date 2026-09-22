@@ -560,6 +560,14 @@
         </svg>
         <span>Manage & Delete Collections</span>
       </button>
+      <button class="v2-dev-nav-tab" id="v2-tab-dev-backup" type="button">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+          <polyline points="7 10 12 15 17 10"/>
+          <line x1="12" y1="15" x2="12" y2="3"/>
+        </svg>
+        <span>Backup & Restore</span>
+      </button>
     </div>
 
     <!-- SECTION 1: Batch Upload -->
@@ -652,6 +660,49 @@
       <!-- Collections List -->
       <div class="v2-dev-collections-grid" id="v2-dev-collections-grid">
         <!-- Rendered dynamically -->
+      </div>
+    </div>
+
+    <!-- SECTION 3: Backup & Restore -->
+    <div class="v2-dev-section" id="v2-dev-section-backup" style="display:none;">
+      <div class="v2-dev-manage-intro">
+        <h3>Sticker Library Backup & Restore</h3>
+        <p>Safeguard your sticker collections permanently. Export your entire custom sticker library (including transparent PNG images and groups) as a self-contained JSON backup file, or restore from a previous backup at any time.</p>
+      </div>
+
+      <div style="display: flex; flex-direction: column; gap: 16px; margin-top: 20px;">
+        <div class="v2-dev-field-card" style="display: flex; justify-content: space-between; align-items: center; padding: 18px 20px;">
+          <div>
+            <strong style="font-size: 14px; display: block; margin-bottom: 4px; color: var(--text-primary, #fff);">Export Complete Sticker Backup</strong>
+            <span class="v2-dev-hint" style="display: block;">Downloads all custom stickers, groups, and image assets into a single JSON file.</span>
+          </div>
+          <button type="button" class="v2-btn v2-btn-primary" id="v2-dev-export-backup-btn" style="min-width: 150px; display: inline-flex; align-items: center; justify-content: center; gap: 8px;">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+              <polyline points="7 10 12 15 17 10"/>
+              <line x1="12" y1="15" x2="12" y2="3"/>
+            </svg>
+            Export Backup
+          </button>
+        </div>
+
+        <div class="v2-dev-field-card" style="display: flex; justify-content: space-between; align-items: center; padding: 18px 20px;">
+          <div>
+            <strong style="font-size: 14px; display: block; margin-bottom: 4px; color: var(--text-primary, #fff);">Restore From Backup File</strong>
+            <span class="v2-dev-hint" style="display: block;">Upload a previously exported JSON backup to instantly restore all stickers and collections.</span>
+          </div>
+          <div>
+            <input type="file" id="v2-dev-import-backup-file" accept=".json,application/json" style="display:none;" />
+            <button type="button" class="v2-btn" id="v2-dev-import-backup-btn" style="min-width: 150px; display: inline-flex; align-items: center; justify-content: center; gap: 8px; background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.16);">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                <polyline points="17 8 12 3 7 8"/>
+                <line x1="12" y1="3" x2="12" y2="15"/>
+              </svg>
+              Import Backup
+            </button>
+          </div>
+        </div>
       </div>
     </div>
 

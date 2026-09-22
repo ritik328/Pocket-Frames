@@ -24,7 +24,9 @@ import {
   getAllPacksFromDb,
   deletePackFromDb,
   renamePackInDb,
-  migrateFromLocalStorage
+  migrateFromLocalStorage,
+  exportStickersBackup,
+  importStickersBackup
 } from './stickerDb.js';
 import { CanvasResizer } from '../editor/canvasResizer.js';
 
@@ -699,6 +701,27 @@ async function preloadStickers() {
   serverData.deletedBuiltinPacks = Array.from(allDeletedSet);
   serverData.deletedPacks = Array.from(allDeletedSet);
 
+  // Permanently sync all loaded stickers and packs to high-capacity IndexedDB
+  if (Array.isArray(serverData.stickers) && serverData.stickers.length > 0) {
+    saveStickersToDb(serverData.stickers).catch(() => {});
+  }
+  if (Array.isArray(serverData.packs) && serverData.packs.length > 0) {
+    savePacksToDb(serverData.packs).catch(() => {});
+  }
+
+  // Prune heavy base64 strings from localStorage to guarantee 5MB quota is NEVER exceeded
+  try {
+    const rawCustom = localStorage.getItem('pocketframes_custom_stickers_v2');
+    if (rawCustom && rawCustom.length > 50000) {
+      const parsed = JSON.parse(rawCustom);
+      const light = {
+        packs: parsed.packs || [],
+        stickers: (parsed.stickers || []).map(s => ({ ...s, dataUrl: undefined }))
+      };
+      localStorage.setItem('pocketframes_custom_stickers_v2', JSON.stringify(light));
+    }
+  } catch { /* ignore */ }
+
   setCustomStickerData(serverData);
 
   const all = getAllStickers();
@@ -706,7 +729,7 @@ async function preloadStickers() {
     if (sticker.svg) {
       return sceneStore.registerSvgAsset(sticker.id, sticker.svg);
     } else if (sticker.url || sticker.dataUrl) {
-      return sceneStore.registerImageAsset(sticker.id, sticker.url || sticker.dataUrl, sticker.width || 200, sticker.height || 200);
+      return sceneStore.registerImageAsset(sticker.id, sticker.url || sticker.dataUrl, sticker.width || 200, sticker.height || 200, sticker.dataUrl);
     }
     return Promise.resolve();
   });
@@ -899,8 +922,16 @@ function buildStickerGrid(query = '') {
     imgEl.loading = 'lazy';
     if (sticker.svg) {
       imgEl.src = `data:image/svg+xml;utf8,${encodeURIComponent(sticker.svg)}`;
-    } else if (sticker.url || sticker.dataUrl) {
-      imgEl.src = sticker.url || sticker.dataUrl;
+    } else {
+      const primaryUrl = sticker.url || sticker.dataUrl;
+      imgEl.src = primaryUrl;
+      imgEl.onerror = () => {
+        if (sticker.dataUrl && imgEl.src !== sticker.dataUrl) {
+          imgEl.src = sticker.dataUrl;
+        } else if (!imgEl.src.includes('/api/stickers?action=image')) {
+          imgEl.src = `/api/stickers?action=image&id=${encodeURIComponent(sticker.id)}`;
+        }
+      };
     }
     tile.appendChild(imgEl);
 
@@ -920,7 +951,7 @@ function addSticker(sticker) {
     if (sticker.svg) {
       sceneStore.registerSvgAsset(sticker.id, sticker.svg);
     } else if (sticker.url || sticker.dataUrl) {
-      sceneStore.registerImageAsset(sticker.id, sticker.url || sticker.dataUrl, sticker.width || 200, sticker.height || 200);
+      sceneStore.registerImageAsset(sticker.id, sticker.url || sticker.dataUrl, sticker.width || 200, sticker.height || 200, sticker.dataUrl);
     }
   }
 
@@ -1574,8 +1605,14 @@ function initDevStickerBackdoor() {
   const devModalClose    = document.getElementById('v2-dev-modal-close');
   const tabDevUpload     = document.getElementById('v2-tab-dev-upload');
   const tabDevManage     = document.getElementById('v2-tab-dev-manage');
+  const tabDevBackup     = document.getElementById('v2-tab-dev-backup');
   const sectionDevUpload = document.getElementById('v2-dev-section-upload');
   const sectionDevManage = document.getElementById('v2-dev-section-manage');
+  const sectionDevBackup = document.getElementById('v2-dev-section-backup');
+
+  const btnExportBackup  = document.getElementById('v2-dev-export-backup-btn');
+  const btnImportBackup  = document.getElementById('v2-dev-import-backup-btn');
+  const fileInputBackup  = document.getElementById('v2-dev-import-backup-file');
 
   const groupSelect      = document.getElementById('v2-dev-group-select');
   const newGroupNameInput= document.getElementById('v2-dev-new-group-name');
@@ -1763,15 +1800,69 @@ function initDevStickerBackdoor() {
 
   function switchDevTab(tab) {
     const isUpload = tab === 'upload';
+    const isManage = tab === 'manage';
+    const isBackup = tab === 'backup';
+
     tabDevUpload?.classList.toggle('is-active', isUpload);
-    tabDevManage?.classList.toggle('is-active', !isUpload);
+    tabDevManage?.classList.toggle('is-active', isManage);
+    tabDevBackup?.classList.toggle('is-active', isBackup);
+
     if (sectionDevUpload) sectionDevUpload.style.display = isUpload ? 'flex' : 'none';
-    if (sectionDevManage) sectionDevManage.style.display = !isUpload ? 'flex' : 'none';
-    if (!isUpload) renderManageCollections();
+    if (sectionDevManage) sectionDevManage.style.display = isManage ? 'flex' : 'none';
+    if (sectionDevBackup) sectionDevBackup.style.display = isBackup ? 'flex' : 'none';
+
+    if (isManage) renderManageCollections();
   }
 
   tabDevUpload?.addEventListener('click', () => switchDevTab('upload'));
   tabDevManage?.addEventListener('click', () => switchDevTab('manage'));
+  tabDevBackup?.addEventListener('click', () => switchDevTab('backup'));
+
+  // Backup Export Handler
+  btnExportBackup?.addEventListener('click', async () => {
+    try {
+      const backup = await exportStickersBackup();
+      const jsonStr = JSON.stringify(backup, null, 2);
+      const blob = new Blob([jsonStr], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `pocketframes-stickers-backup-${new Date().toISOString().slice(0, 10)}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      showToast(`Exported backup with ${backup.stickers?.length || 0} stickers!`);
+    } catch (err) {
+      showToast(`Export failed: ${err.message}`);
+    }
+  });
+
+  // Backup Import Handler
+  btnImportBackup?.addEventListener('click', () => {
+    fileInputBackup?.click();
+  });
+
+  fileInputBackup?.addEventListener('change', async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    try {
+      showToast('Restoring stickers from backup...');
+      const text = await file.text();
+      const backupData = JSON.parse(text);
+      const res = await importStickersBackup(backupData);
+      showToast(`Successfully restored ${res.stickersCount} stickers!`);
+      await preloadStickers();
+      buildStickerPackTabs();
+      buildStickerGrid();
+      populateGroupSelect();
+      renderManageCollections();
+    } catch (err) {
+      showToast(`Import failed: ${err.message}`);
+    } finally {
+      if (fileInputBackup) fileInputBackup.value = '';
+    }
+  });
 
   // Populate Group Select Dropdown
   function populateGroupSelect() {
@@ -2079,7 +2170,7 @@ function initDevStickerBackdoor() {
             if (!rec.url) rec.url = rec.dataUrl;
 
             // Pre-register in sceneStore immediately
-            sceneStore.registerImageAsset(rec.id, rec.url || rec.dataUrl, rec.width || 200, rec.height || 200);
+            sceneStore.registerImageAsset(rec.id, rec.url || rec.dataUrl, rec.width || 200, rec.height || 200, rec.dataUrl);
 
             // 1. Immediately persist sticker and pack in high-capacity IndexedDB (Gigabytes limit, never crashes with QuotaExceededError)
             try {
