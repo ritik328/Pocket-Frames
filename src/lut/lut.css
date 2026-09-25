@@ -1,0 +1,705 @@
+/**
+ * Pocket Frames - Hasselblad Secret Backgate & 3D LUT Color Lab Styles
+ */
+
+/* ── Backdrop & Dialog ─────────────────────────────────────────────────── */
+.lut-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  background: rgba(8, 9, 14, 0.78);
+  backdrop-filter: blur(24px) saturate(180%);
+  -webkit-backdrop-filter: blur(24px) saturate(180%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  opacity: 1;
+  visibility: visible;
+  transition: opacity 0.28s cubic-bezier(0.16, 1, 0.3, 1),
+              visibility 0.28s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.lut-modal-backdrop.hidden {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+body.lut-modal-open {
+  overflow: hidden;
+}
+
+/* ── Main Container ───────────────────────────────────────────────────── */
+.lut-modal {
+  width: 100%;
+  max-width: 860px;
+  max-height: 88vh;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-surface, #14141A);
+  background: linear-gradient(145deg, rgba(28, 28, 36, 0.95), rgba(16, 16, 22, 0.98));
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 20px;
+  box-shadow: 0 32px 80px -16px rgba(0, 0, 0, 0.75),
+              0 0 0 1px rgba(255, 255, 255, 0.06),
+              inset 0 1px 0 rgba(255, 255, 255, 0.15);
+  color: #F0F0F5;
+  overflow: hidden;
+  animation: lutModalIn 0.32s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes lutModalIn {
+  from {
+    opacity: 0;
+    transform: scale(0.96) translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+/* ── Header ───────────────────────────────────────────────────────────── */
+.lut-modal__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  padding: 22px 28px 18px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  gap: 16px;
+}
+
+.lut-header-left {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.lut-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 9px;
+  border-radius: 999px;
+  background: rgba(224, 162, 54, 0.14);
+  border: 1px solid rgba(224, 162, 54, 0.35);
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: #E5A83B;
+  width: fit-content;
+  margin-bottom: 2px;
+}
+
+.lut-badge__dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #E5A83B;
+  box-shadow: 0 0 8px #E5A83B;
+  animation: lutPulse 1.8s infinite ease-in-out;
+}
+
+@keyframes lutPulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.4; transform: scale(0.85); }
+}
+
+.lut-modal__title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0;
+  font-size: 1.35rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: #FFFFFF;
+}
+
+.lut-modal__title svg {
+  color: #E5A83B;
+}
+
+.lut-modal__subtitle {
+  margin: 0;
+  font-size: 0.82rem;
+  color: rgba(255, 255, 255, 0.6);
+  line-height: 1.4;
+}
+
+.lut-header-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.lut-icon-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.85);
+  font-size: 0.78rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.18s ease;
+}
+
+.lut-icon-btn:hover {
+  background: rgba(255, 255, 255, 0.12);
+  color: #FFFFFF;
+}
+
+.lut-close-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.7);
+  cursor: pointer;
+  transition: all 0.18s ease;
+}
+
+.lut-close-btn:hover {
+  background: rgba(239, 68, 68, 0.2);
+  border-color: rgba(239, 68, 68, 0.4);
+  color: #EF4444;
+}
+
+/* ── Modal Body ───────────────────────────────────────────────────────── */
+.lut-modal__body {
+  padding: 24px 28px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+/* ── Top Controls Row ─────────────────────────────────────────────────── */
+.lut-top-controls {
+  display: grid;
+  grid-template-columns: 1fr 1.35fr;
+  gap: 16px;
+}
+
+@media (max-width: 720px) {
+  .lut-top-controls {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Dropzone */
+.lut-dropzone {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 22px 18px;
+  border-radius: 14px;
+  border: 1.5px dashed rgba(224, 162, 54, 0.4);
+  background: rgba(224, 162, 54, 0.03);
+  cursor: pointer;
+  transition: all 0.22s ease;
+}
+
+.lut-dropzone:hover,
+.lut-dropzone.is-dragover {
+  border-color: #E5A83B;
+  background: rgba(224, 162, 54, 0.08);
+  transform: translateY(-1px);
+}
+
+.lut-dropzone__icon {
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
+  background: rgba(224, 162, 54, 0.12);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #E5A83B;
+  margin-bottom: 12px;
+}
+
+.lut-dropzone__content {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.lut-dropzone__main {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #FFFFFF;
+}
+
+.lut-link {
+  color: #E5A83B;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.lut-dropzone__sub {
+  font-size: 0.72rem;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.lut-hidden-file-input {
+  display: none;
+}
+
+/* Active LUT Card */
+.lut-active-card {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 18px 20px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  gap: 14px;
+}
+
+.lut-active-card__meta {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.lut-label {
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #E5A83B;
+}
+
+.lut-active-title {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: #FFFFFF;
+}
+
+.lut-active-sub {
+  font-size: 0.74rem;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+/* Intensity Slider */
+.lut-intensity-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.lut-intensity-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.lut-intensity-label {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.lut-intensity-val {
+  font-family: 'DM Mono', monospace, sans-serif;
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: #E5A83B;
+}
+
+.lut-slider-row {
+  display: flex;
+  align-items: center;
+}
+
+.lut-slider {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 6px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.15);
+  outline: none;
+  transition: background 0.18s ease;
+}
+
+.lut-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #E5A83B;
+  box-shadow: 0 0 10px rgba(229, 168, 59, 0.6);
+  cursor: pointer;
+  transition: transform 0.12s ease;
+}
+
+.lut-slider::-webkit-slider-thumb:hover {
+  transform: scale(1.18);
+}
+
+.lut-quick-presets {
+  display: flex;
+  gap: 6px;
+}
+
+.lut-chip-btn {
+  flex: 1;
+  padding: 4px 0;
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.04);
+  color: rgba(255, 255, 255, 0.65);
+  font-size: 0.7rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.14s ease;
+}
+
+.lut-chip-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: #FFFFFF;
+}
+
+.lut-chip-btn.is-active {
+  background: rgba(229, 168, 59, 0.2);
+  border-color: #E5A83B;
+  color: #E5A83B;
+}
+
+/* Actions Bar */
+.lut-actions-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.lut-action-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.05);
+  color: rgba(255, 255, 255, 0.85);
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+  user-select: none;
+  transition: all 0.16s ease;
+}
+
+.lut-action-btn:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.12);
+  color: #FFFFFF;
+}
+
+.lut-action-btn.is-active {
+  background: rgba(229, 168, 59, 0.25);
+  border-color: #E5A83B;
+  color: #E5A83B;
+}
+
+.lut-action-btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+/* ── Category Tabs ────────────────────────────────────────────────────── */
+.lut-category-tabs {
+  display: flex;
+  gap: 8px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  padding-bottom: 12px;
+}
+
+.lut-tab-btn {
+  padding: 6px 14px;
+  border-radius: 999px;
+  border: none;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.55);
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.18s ease;
+}
+
+.lut-tab-btn:hover {
+  color: #FFFFFF;
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.lut-tab-btn.is-active {
+  color: #14141A;
+  background: #E5A83B;
+  box-shadow: 0 2px 10px rgba(229, 168, 59, 0.35);
+}
+
+/* ── Grid & Cards ─────────────────────────────────────────────────────── */
+.lut-grid-scroll {
+  max-height: 380px;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.lut-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 12px;
+}
+
+.lut-card {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.035);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.lut-card:hover {
+  background: rgba(255, 255, 255, 0.07);
+  border-color: rgba(255, 255, 255, 0.18);
+  transform: translateY(-2px);
+}
+
+.lut-card.is-selected {
+  background: rgba(229, 168, 59, 0.12);
+  border-color: #E5A83B;
+  box-shadow: 0 0 16px rgba(229, 168, 59, 0.25);
+}
+
+.lut-card__preview-wrap {
+  position: relative;
+  width: 64px;
+  height: 64px;
+  flex-shrink: 0;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+}
+
+.lut-card__thumb-slot {
+  width: 100%;
+  height: 100%;
+}
+
+.lut-card__thumb {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.lut-card__check {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #E5A83B;
+  color: #14141A;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.5);
+}
+
+.lut-card__info {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  flex: 1;
+  min-width: 0;
+}
+
+.lut-card__title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.lut-card__title {
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: #FFFFFF;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.lut-card__tags {
+  display: flex;
+  gap: 4px;
+}
+
+.lut-pill {
+  font-size: 0.62rem;
+  font-weight: 600;
+  padding: 1px 6px;
+  border-radius: 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.lut-pill--cat {
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.lut-pill--size {
+  background: rgba(229, 168, 59, 0.15);
+  color: #E5A83B;
+}
+
+.lut-card__desc {
+  margin: 2px 0 0;
+  font-size: 0.7rem;
+  color: rgba(255, 255, 255, 0.5);
+  line-height: 1.25;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.lut-card__del-btn {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
+  border: none;
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.lut-card__del-btn:hover {
+  background: rgba(239, 68, 68, 0.3);
+  color: #EF4444;
+}
+
+.lut-empty-vault {
+  grid-column: 1 / -1;
+  text-align: center;
+  padding: 36px 20px;
+  color: rgba(255, 255, 255, 0.5);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.lut-empty-vault__sub {
+  font-size: 0.75rem;
+  color: rgba(255, 255, 255, 0.35);
+  margin: 0;
+}
+
+/* ── Footer ───────────────────────────────────────────────────────────── */
+.lut-footer-tip {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.72rem;
+  color: rgba(255, 255, 255, 0.45);
+  line-height: 1.35;
+  padding-top: 8px;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.lut-footer-tip svg {
+  color: #E5A83B;
+  flex-shrink: 0;
+}
+
+/* ── Mode Tab & Topbar Integrations ──────────────────────────────────── */
+
+/* Pulse on secret taps */
+.pf-mode-tab#tab-hasselblad {
+  cursor: pointer !important;
+  position: relative;
+  transition: transform 0.1s ease, box-shadow 0.2s ease, background 0.2s ease;
+}
+
+.pf-mode-tab#tab-hasselblad.pf-tab-pulse {
+  transform: scale(0.94);
+  box-shadow: 0 0 12px rgba(229, 168, 59, 0.6) !important;
+}
+
+/* Active LUT glowing dot on Hasselblad tab */
+.pf-mode-tab#tab-hasselblad.has-active-lut::after {
+  content: '';
+  position: absolute;
+  top: 4px;
+  right: 6px;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: #E5A83B;
+  box-shadow: 0 0 6px #E5A83B;
+}
+
+/* Topbar chip */
+.lut-topbar-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: rgba(229, 168, 59, 0.12);
+  border: 1px solid rgba(229, 168, 59, 0.35);
+  color: #E5A83B;
+  font-family: inherit;
+  font-size: 0.72rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.18s ease;
+  user-select: none;
+}
+
+.lut-topbar-chip:hover {
+  background: rgba(229, 168, 59, 0.22);
+  transform: translateY(-1px);
+}
+
+.lut-topbar-chip.hidden {
+  display: none !important;
+}
+
+.lut-chip-pulse {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: #E5A83B;
+  box-shadow: 0 0 6px #E5A83B;
+}

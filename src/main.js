@@ -17,6 +17,10 @@ import { AiStudioModal } from './ai/aiStudioModal.js';
 import { applyAiComposition } from './ai/compositionApplier.js';
 import { InteractiveDots } from './canvas/interactiveDots.js';
 import { CanvasResizer } from './editor/canvasResizer.js';
+import './lut/lut.css';
+import { LutBackdoorModal } from './lut/lutBackdoorModal.js';
+import { lutManager } from './lut/lutManager.js';
+import { playSecretTapSound, playBackdoorUnlockSound } from './lut/audioFx.js';
 
 // DOM Elements with Dual-Selector Support
 const previewCanvas = document.getElementById('previewCanvas');
@@ -71,6 +75,7 @@ let toastTimer = null;
 let positionManager = null;
 let metadataEditor = null;
 let aiStudioModal = null;
+let lutBackdoorModal = null;
 
 /**
  * Toast helper for non-blocking tactile feedback
@@ -109,6 +114,10 @@ async function initApp() {
 
   // Initialize AI Photography Director Studio Modal
   aiStudioModal = new AiStudioModal();
+
+  // Initialize Hasselblad 3D LUT Color Lab Backdoor
+  lutBackdoorModal = new LutBackdoorModal();
+  await lutManager.init();
 
   // Initialize Interactive Dots for Dark Mode (Desktop only)
   const dotsCanvas = document.getElementById('interactiveDotsCanvas');
@@ -583,6 +592,55 @@ function setupEventListeners() {
       if (e.target === shortcutsModal) shortcutsModal.classList.add('hidden');
     });
   }
+
+  // ── Hasselblad Switch Button: Secret 3-Click Backgate Trigger ──
+  const tabHasselblad = document.getElementById('tab-hasselblad');
+  let hasselbladClicks = 0;
+  let hasselbladClickTimer = null;
+
+  if (tabHasselblad) {
+    tabHasselblad.style.cursor = 'pointer';
+    tabHasselblad.addEventListener('click', (e) => {
+      hasselbladClicks++;
+      clearTimeout(hasselbladClickTimer);
+
+      playSecretTapSound(1.0 + hasselbladClicks * 0.25);
+      tabHasselblad.classList.add('pf-tab-pulse');
+      setTimeout(() => tabHasselblad.classList.remove('pf-tab-pulse'), 250);
+
+      if (hasselbladClicks === 1) {
+        hasselbladClickTimer = setTimeout(() => {
+          hasselbladClicks = 0;
+        }, 2200);
+      } else if (hasselbladClicks === 2) {
+        showToast('1 more tap to unlock Backgate...');
+        hasselbladClickTimer = setTimeout(() => {
+          hasselbladClicks = 0;
+        }, 2200);
+      } else if (hasselbladClicks >= 3) {
+        hasselbladClicks = 0;
+        clearTimeout(hasselbladClickTimer);
+        playBackdoorUnlockSound();
+        showToast('🔓 Hasselblad Secret Backgate Opened!');
+        if (lutBackdoorModal) {
+          lutBackdoorModal.open();
+        }
+      }
+    });
+  }
+
+  // Secret Keyboard Shortcut: Ctrl+Shift+L or Alt+L
+  window.addEventListener('keydown', (e) => {
+    if (((e.ctrlKey || e.metaKey) && e.shiftKey && (e.key === 'L' || e.key === 'l')) ||
+        (e.altKey && (e.key === 'L' || e.key === 'l'))) {
+      const activeTag = document.activeElement?.tagName?.toLowerCase();
+      if (activeTag === 'input' || activeTag === 'textarea') return;
+      e.preventDefault();
+      if (lutBackdoorModal) {
+        lutBackdoorModal.toggle();
+      }
+    }
+  });
 }
 
 /**
@@ -633,6 +691,19 @@ async function tryRestoreSession() {
     }
     if (saved.export) {
       store.setExport(saved.export);
+    }
+
+    // Restore saved 3D LUT if present
+    if (saved.lut && saved.lut.id) {
+      try {
+        const allLuts = lutManager.getAllLuts();
+        const matched = allLuts.find(l => l.id === saved.lut.id);
+        if (matched) {
+          await lutManager.selectLut(matched, saved.lut.intensity ?? 1.0);
+        }
+      } catch (lutErr) {
+        console.warn('Could not restore saved LUT:', lutErr);
+      }
     }
 
     // Check if AI recommendation was applied from AI Photography Director

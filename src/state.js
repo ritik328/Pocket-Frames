@@ -41,6 +41,13 @@ export const DEFAULT_STATE = {
     status: 'IDLE',
     error: null,
     selectedCaptionStyle: 'minimal'
+  },
+  lut: {
+    enabled: false,
+    id: null,
+    title: null,
+    intensity: 1.0,
+    activeLut: null
   }
 };
 
@@ -81,7 +88,13 @@ class StateStore {
           metadata: this.state.metadata,
           originalExif: this.state.originalExif,
           editor: this.state.editor,
-          export: this.state.export
+          export: this.state.export,
+          lut: {
+            enabled: this.state.lut?.enabled,
+            id: this.state.lut?.id,
+            title: this.state.lut?.title,
+            intensity: this.state.lut?.intensity
+          }
         });
       }
     }, 800);
@@ -137,6 +150,9 @@ class StateStore {
 
   setImage(imageData) {
     this.pushHistory();
+    if (imageData && !imageData.originalElement) {
+      imageData.originalElement = imageData.element;
+    }
     this.state.image = imageData;
     this.notify('image');
   }
@@ -185,6 +201,14 @@ class StateStore {
       ...partial
     };
     this.notify('ai');
+  }
+
+  setLut(partial) {
+    this.state.lut = {
+      ...this.state.lut,
+      ...partial
+    };
+    this.notify('lut');
   }
 
   resetNewFrame() {
