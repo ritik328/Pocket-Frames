@@ -124,6 +124,8 @@ async function loadUserVideo(file) {
 
   return {
     type: 'video',
+    isVideo: true,
+    videoElement: video,
     element: video,
     originalElement: video,
     width,

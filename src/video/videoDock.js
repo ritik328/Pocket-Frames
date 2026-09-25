@@ -122,11 +122,14 @@ export class VideoDock {
 
   checkVisibility(state) {
     if (!this.dockEl) return;
-    const isVideo = state.image && (state.image.type === 'video' || state.image.element?.tagName?.toLowerCase() === 'video');
+    const isVideo = state.image && (state.image.type === 'video' || state.image.isVideo || state.image.videoElement || state.image.originalElement?.tagName?.toLowerCase() === 'video');
 
     if (isVideo) {
       this.dockEl.classList.remove('hidden');
-      videoManager.attach(state.image.element);
+      const videoEl = state.image.videoElement || (state.image.originalElement?.tagName?.toLowerCase() === 'video' ? state.image.originalElement : (state.image.element?.tagName?.toLowerCase() === 'video' ? state.image.element : null));
+      if (videoEl && typeof videoEl.pause === 'function') {
+        videoManager.attach(videoEl);
+      }
       this.syncUI();
     } else {
       this.dockEl.classList.add('hidden');
@@ -196,7 +199,8 @@ export class VideoDock {
     if (btnExport) {
       btnExport.addEventListener('click', async () => {
         const state = store.getState();
-        if (!state.image || state.image.type !== 'video') {
+        const isVideo = state.image && (state.image.type === 'video' || state.image.isVideo || state.image.videoElement);
+        if (!isVideo) {
           showToast('Load a video to export.');
           return;
         }
