@@ -161,8 +161,8 @@ class WebGl2LutEngine {
 
   render(sourceElement, lut, intensity, targetCanvas = null) {
     const gl = this.gl;
-    const width = sourceElement.naturalWidth || sourceElement.width;
-    const height = sourceElement.naturalHeight || sourceElement.height;
+    const width = sourceElement.videoWidth || sourceElement.naturalWidth || sourceElement.width || 1920;
+    const height = sourceElement.videoHeight || sourceElement.naturalHeight || sourceElement.height || 1080;
 
     const outCanvas = targetCanvas || document.createElement('canvas');
     if (outCanvas.width !== width || outCanvas.height !== height) {
@@ -178,7 +178,7 @@ class WebGl2LutEngine {
     gl.viewport(0, 0, width, height);
     gl.useProgram(this.program);
 
-    // 1. Upload 2D image texture
+    // 1. Upload 2D image/video texture
     gl.activeTexture(gl.TEXTURE0);
     gl.bindTexture(gl.TEXTURE_2D, this.imageTexture);
     gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
@@ -216,8 +216,8 @@ class WebGl2LutEngine {
  * CPU Fallback Trilinear Interpolation Engine
  */
 function renderCpuFallback(sourceElement, lut, intensity, targetCanvas = null) {
-  const width = sourceElement.naturalWidth || sourceElement.width;
-  const height = sourceElement.naturalHeight || sourceElement.height;
+  const width = sourceElement.videoWidth || sourceElement.naturalWidth || sourceElement.width || 1920;
+  const height = sourceElement.videoHeight || sourceElement.naturalHeight || sourceElement.height || 1080;
 
   const canvas = targetCanvas || document.createElement('canvas');
   if (canvas.width !== width || canvas.height !== height) {
@@ -339,8 +339,8 @@ export function applyLut(sourceElement, lut, intensity = 1.0, targetCanvas = nul
 
   if (intensity <= 0.0) {
     // Zero intensity = pure pass-through
-    const width = sourceElement.naturalWidth || sourceElement.width;
-    const height = sourceElement.naturalHeight || sourceElement.height;
+    const width = sourceElement.videoWidth || sourceElement.naturalWidth || sourceElement.width || 1920;
+    const height = sourceElement.videoHeight || sourceElement.naturalHeight || sourceElement.height || 1080;
     const canvas = targetCanvas || document.createElement('canvas');
     canvas.width = width;
     canvas.height = height;

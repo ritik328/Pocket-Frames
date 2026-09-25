@@ -2494,4 +2494,201 @@ body[data-theme="light"] .ai-btn--full:hover {
   align-items: center;
 }
 
+/* ==========================================================================
+   Hasselblad Page — Video Player Controls Dock
+   ========================================================================== */
+
+.video-dock {
+  margin: 12px auto 0;
+  width: fit-content;
+  max-width: 95%;
+  border-radius: 999px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  box-shadow: 0 16px 36px var(--glass-shadow), 0 0 0 1px var(--glass-border);
+  padding: 5px 12px;
+  animation: videoDockIn 0.24s var(--ease) forwards;
+  z-index: 100;
+}
+
+@keyframes videoDockIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.video-dock.hidden {
+  display: none !important;
+}
+
+.video-dock__inner {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.video-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  cursor: pointer;
+  transition: all 0.15s var(--ease);
+}
+
+.video-btn--play {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: var(--accent-ink);
+  box-shadow: 0 2px 8px var(--accent-soft);
+  flex-shrink: 0;
+}
+
+.video-btn--play:hover {
+  transform: scale(1.08);
+}
+
+.video-btn--play:active {
+  transform: scale(0.95);
+}
+
+.video-time {
+  font-family: var(--font-mono);
+  font-size: 0.73rem;
+  font-weight: 600;
+  color: var(--text-dim);
+  white-space: nowrap;
+  letter-spacing: 0.02em;
+}
+
+.video-scrubber-wrap {
+  position: relative;
+  width: 140px;
+  display: flex;
+  align-items: center;
+}
+
+@media (min-width: 900px) {
+  .video-scrubber-wrap {
+    width: 200px;
+  }
+}
+
+.video-scrubber {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--border);
+  outline: none;
+  margin: 0;
+  cursor: pointer;
+  position: relative;
+  z-index: 2;
+}
+
+.video-scrubber::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+  cursor: pointer;
+  transition: transform 0.1s var(--ease);
+}
+
+.video-scrubber::-webkit-slider-thumb:hover {
+  transform: scale(1.25);
+}
+
+.video-dock__sep {
+  width: 1px;
+  height: 16px;
+  background: var(--border-soft);
+  flex-shrink: 0;
+}
+
+.video-icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-dim);
+  cursor: pointer;
+  transition: all 0.14s var(--ease);
+  flex-shrink: 0;
+}
+
+.video-icon-btn:hover {
+  border-color: var(--text-faint);
+  color: var(--text);
+  background: var(--border-soft);
+}
+
+.video-icon-btn.is-active,
+.video-icon-btn.is-muted {
+  color: var(--accent);
+  border-color: var(--accent-soft);
+  background: var(--accent-soft);
+}
+
+.video-action-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 11px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-dim);
+  font-family: var(--font-sans);
+  font-size: 0.74rem;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  user-select: none;
+  transition: all 0.15s var(--ease);
+}
+
+.video-action-btn:hover:not(:disabled) {
+  border-color: var(--text-faint);
+  color: var(--text);
+  background: var(--border-soft);
+  transform: translateY(-1px);
+}
+
+.video-action-btn:active:not(:disabled) {
+  transform: scale(0.97);
+}
+
+.video-action-btn--accent {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.video-action-btn--accent:hover:not(:disabled) {
+  background: var(--accent);
+  color: var(--accent-ink);
+}
+
+.video-action-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+
 

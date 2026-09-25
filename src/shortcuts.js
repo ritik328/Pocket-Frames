@@ -4,6 +4,7 @@
 import { store } from './state.js';
 import { calculateFitScale, calculateFillScale, clampZoom } from './editor/zoomManager.js';
 import { applyMagneticSnap } from './editor/alignment.js';
+import { videoManager } from './video/videoManager.js';
 
 export function setupKeyboardShortcuts() {
   window.addEventListener('keydown', (e) => {
@@ -48,9 +49,13 @@ export function setupKeyboardShortcuts() {
       return;
     }
 
-    // Space: toggle clean preview mode
+    // Space: toggle video playback if video is loaded, otherwise toggle clean preview mode
     if (e.code === 'Space') {
       e.preventDefault();
+      if (state.image && (state.image.type === 'video' || state.image.isVideo)) {
+        videoManager.togglePlay();
+        return;
+      }
       store.setEditor({ cleanPreview: !state.editor.cleanPreview });
       return;
     }

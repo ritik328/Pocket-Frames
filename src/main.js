@@ -22,6 +22,8 @@ import { LutBackdoorModal } from './lut/lutBackdoorModal.js';
 import { lutManager } from './lut/lutManager.js';
 import { playSecretTapSound, playBackdoorUnlockSound } from './lut/audioFx.js';
 import { SidebarLutControl } from './lut/sidebarLutControl.js';
+import { VideoDock } from './video/videoDock.js';
+import { videoManager } from './video/videoManager.js';
 
 // DOM Elements with Dual-Selector Support
 const previewCanvas = document.getElementById('previewCanvas');
@@ -78,6 +80,7 @@ let metadataEditor = null;
 let aiStudioModal = null;
 let lutBackdoorModal = null;
 let sidebarLutControl = null;
+let videoDock = null;
 
 /**
  * Toast helper for non-blocking tactile feedback
@@ -121,6 +124,10 @@ async function initApp() {
   lutBackdoorModal = new LutBackdoorModal();
   await lutManager.init();
   sidebarLutControl = new SidebarLutControl(() => lutBackdoorModal);
+
+  // Initialize Video Playback Dock & Real-Time Grading Loop
+  videoDock = new VideoDock(previewContainer || canvasArea);
+  videoManager.setUpdateCallback(() => performUpdatePreview());
 
   // Initialize Interactive Dots for Dark Mode (Desktop only)
   const dotsCanvas = document.getElementById('interactiveDotsCanvas');
@@ -316,6 +323,57 @@ function initThemeSwitcher() {
 }
 
 /**
+ * Handle user uploading or dropping an image or video file
+ */
+export async function handleFileLoad(file) {
+  if (!file) return;
+
+  const isVideo = file.type.startsWith('video/') || /\.(mp4|webm|mov|m4v|ogg)$/i.test(file.name);
+  const isImage = file.type.startsWith('image/') || /\.(jpe?g|png|webp|gif|bmp|heic)$/i.test(file.name);
+
+  if (!isImage && !isVideo) {
+    showToast("Please upload a photo (JPG, PNG, WebP) or video (MP4, WebM, MOV).");
+    return;
+  }
+
+  if (file.size > 500 * 1024 * 1024) {
+    showToast('That file is larger than 500MB.');
+    return;
+  }
+
+  try {
+    if (btnUpload) btnUpload.disabled = true;
+    showToast(isVideo ? 'Decoding video & loading first frame...' : 'Decoding photograph...');
+
+    const loaded = await loadUserImage(file);
+    store.setImage(loaded);
+
+    // Auto-calculate initial Fill scale
+    const fillScale = calculateFillScale(loaded.width, loaded.height);
+    store.setTransform({ x: 0, y: 0, scale: fillScale }, true);
+
+    // If EXIF extracted, auto-fill editable metadata
+    if (loaded.extractedExif) {
+      const updates = {};
+      if (loaded.extractedExif.device) updates.device = loaded.extractedExif.device;
+      if (loaded.extractedExif.focalLength) updates.focalLength = loaded.extractedExif.focalLength;
+      if (loaded.extractedExif.aperture) updates.aperture = loaded.extractedExif.aperture;
+      if (loaded.extractedExif.shutter) updates.shutter = loaded.extractedExif.shutter;
+      if (loaded.extractedExif.iso) updates.iso = loaded.extractedExif.iso;
+
+      if (Object.keys(updates).length > 0) {
+        store.setMetadata(updates, true);
+      }
+    }
+    showToast(isVideo ? 'Video loaded into frame! Press Play or Space.' : 'Photo uploaded & centered.');
+  } catch (err) {
+    showToast(err.message || 'Error loading file.');
+  } finally {
+    if (btnUpload) btnUpload.disabled = false;
+  }
+}
+
+/**
  * Wire up UI listeners
  */
 function setupEventListeners() {
@@ -335,50 +393,46 @@ function setupEventListeners() {
   if (fileInput) {
     fileInput.addEventListener('change', async (e) => {
       const file = e.target.files?.[0];
-      if (!file) return;
-
-      if (!file.type.startsWith('image/')) {
-        showToast("That file isn't an image — try JPG, PNG or WebP.");
-        return;
+      if (file) {
+        await handleFileLoad(file);
       }
-      if (file.size > 100 * 1024 * 1024) {
-        showToast('That file is larger than 100MB.');
-        return;
-      }
+      fileInput.value = '';
+    });
+  }
 
-      try {
-        if (btnUpload) btnUpload.disabled = true;
-        showToast('Decoding photograph...');
+  // Drag and drop onto canvasArea or previewContainer
+  const dropZone = previewContainer || document.getElementById('canvasArea');
+  if (dropZone) {
+    ['dragenter', 'dragover'].forEach(evtName => {
+      dropZone.addEventListener(evtName, (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        dropZone.classList.add('is-dragover');
+      });
+    });
 
-        const loaded = await loadUserImage(file);
-        store.setImage(loaded);
+    ['dragleave', 'dragend'].forEach(evtName => {
+      dropZone.addEventListener(evtName, (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        dropZone.classList.remove('is-dragover');
+      });
+    });
 
-        // Auto-calculate initial Fill scale
-        const fillScale = calculateFillScale(loaded.width, loaded.height);
-        store.setTransform({ x: 0, y: 0, scale: fillScale }, true);
-
-        // If EXIF extracted, auto-fill editable metadata
-        if (loaded.extractedExif) {
-          const updates = {};
-          if (loaded.extractedExif.device) updates.device = loaded.extractedExif.device;
-          if (loaded.extractedExif.focalLength) updates.focalLength = loaded.extractedExif.focalLength;
-          if (loaded.extractedExif.aperture) updates.aperture = loaded.extractedExif.aperture;
-          if (loaded.extractedExif.shutter) updates.shutter = loaded.extractedExif.shutter;
-          if (loaded.extractedExif.iso) updates.iso = loaded.extractedExif.iso;
-
-          if (Object.keys(updates).length > 0) {
-            store.setMetadata(updates, true);
-          }
-        }
-        showToast('Photo uploaded & centered.');
-      } catch (err) {
-        showToast(err.message || 'Error loading image.');
-      } finally {
-        if (btnUpload) btnUpload.disabled = false;
-        fileInput.value = '';
+    dropZone.addEventListener('drop', async (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      dropZone.classList.remove('is-dragover');
+      const file = e.dataTransfer?.files?.[0];
+      if (file) {
+        await handleFileLoad(file);
       }
     });
   }
+
+  // Prevent default drag and drop on window to avoid accidentally navigating away
+  window.addEventListener('dragover', (e) => e.preventDefault());
+  window.addEventListener('drop', (e) => e.preventDefault());
 
   // Zoom Slider
   if (zoomSlider) {
@@ -549,7 +603,7 @@ function setupEventListeners() {
     btnDownload.addEventListener('click', async () => {
       const state = store.getState();
       if (!state.image) {
-        showToast('Upload a photo first to download your frame.');
+        showToast('Upload a photo or video first to download your frame.');
         return;
       }
 
@@ -562,7 +616,9 @@ function setupEventListeners() {
         });
 
         if (downloadBtnText) downloadBtnText.textContent = 'Downloaded!';
-        showToast('Frame downloaded successfully.');
+        showToast(state.image.type === 'video'
+          ? 'Video frame captured & downloaded! Use Export Video in dock for video file.'
+          : 'Frame downloaded successfully.');
         setTimeout(() => {
           if (downloadBtnText) downloadBtnText.textContent = 'Download frame';
           btnDownload.disabled = false;

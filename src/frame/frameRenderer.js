@@ -77,8 +77,8 @@ export function renderFrame(canvas, state, options = {}) {
     ctx.imageSmoothingQuality = 'high';
 
     const img = state.image.element;
-    const imgW = state.image.width || img.naturalWidth || img.width || 0;
-    const imgH = state.image.height || img.naturalHeight || img.height || 0;
+    const imgW = state.image.width || img.naturalWidth || img.videoWidth || img.width || 0;
+    const imgH = state.image.height || img.naturalHeight || img.videoHeight || img.height || 0;
 
     if (imgW > 0 && imgH > 0) {
       // Transformed dimensions in export space, then scaled to canvas
