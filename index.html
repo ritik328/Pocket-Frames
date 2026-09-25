@@ -175,11 +175,17 @@
             <!-- Dynamically populated: None, HNCS, Portra, Fuji Pro, Cine Teal, Leica, Kodachrome, + Custom -->
           </div>
 
-          <!-- Dropdown Select for All LUTs (Presets + Custom Uploads) -->
-          <div class="lut-select-row">
-            <select id="sidebarLutSelect" class="lut-select" aria-label="Select 3D LUT">
-              <option value="">None (Original)</option>
-            </select>
+          <!-- Dropdown Select with Live Mouseover Preview -->
+          <div class="lut-custom-dropdown" id="sidebarLutDropdown">
+            <button type="button" class="lut-dropdown-btn" id="sidebarLutDropdownBtn" aria-haspopup="listbox" aria-expanded="false" title="Choose 3D LUT">
+              <span class="lut-dropdown-btn__text" id="sidebarLutDropdownText">None (Original Photograph)</span>
+              <svg class="lut-dropdown-btn__arrow" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="6 9 12 15 18 9"/>
+              </svg>
+            </button>
+            <div class="lut-dropdown-menu hidden" id="sidebarLutDropdownMenu" role="listbox" tabindex="-1">
+              <!-- Dynamically populated options with live mouse cursor preview -->
+            </div>
           </div>
 
           <!-- Live Intensity Slider -->

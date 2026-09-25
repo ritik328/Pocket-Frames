@@ -148,6 +148,42 @@ class LutManager {
   }
 
   /**
+   * Preview a LUT temporarily on hover without committing it
+   */
+  previewLut(lut) {
+    this.previewHoverLut = lut;
+    const state = store.getState();
+    if (!state.image) return;
+
+    if (!state.image.originalElement) {
+      state.image.originalElement = state.image.element;
+    }
+
+    if (!lut || this.intensity <= 0) {
+      state.image.element = state.image.originalElement;
+    } else {
+      const renderedCanvas = applyLut(
+        state.image.originalElement,
+        lut,
+        this.intensity,
+        state.image.lutElement || null
+      );
+      state.image.lutElement = renderedCanvas;
+      state.image.element = renderedCanvas;
+    }
+
+    store.notify('lut-preview');
+  }
+
+  /**
+   * Restore the committed active LUT when hover ends
+   */
+  restoreCommittedLut() {
+    this.previewHoverLut = null;
+    this.reapplyCurrentLut();
+  }
+
+  /**
    * Core re-render routine
    */
   reapplyCurrentLut() {
