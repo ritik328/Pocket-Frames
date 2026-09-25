@@ -21,6 +21,7 @@ import './lut/lut.css';
 import { LutBackdoorModal } from './lut/lutBackdoorModal.js';
 import { lutManager } from './lut/lutManager.js';
 import { playSecretTapSound, playBackdoorUnlockSound } from './lut/audioFx.js';
+import { SidebarLutControl } from './lut/sidebarLutControl.js';
 
 // DOM Elements with Dual-Selector Support
 const previewCanvas = document.getElementById('previewCanvas');
@@ -76,6 +77,7 @@ let positionManager = null;
 let metadataEditor = null;
 let aiStudioModal = null;
 let lutBackdoorModal = null;
+let sidebarLutControl = null;
 
 /**
  * Toast helper for non-blocking tactile feedback
@@ -115,9 +117,10 @@ async function initApp() {
   // Initialize AI Photography Director Studio Modal
   aiStudioModal = new AiStudioModal();
 
-  // Initialize Hasselblad 3D LUT Color Lab Backdoor
+  // Initialize Hasselblad 3D LUT Color Lab Backdoor & On-Page Controls
   lutBackdoorModal = new LutBackdoorModal();
   await lutManager.init();
+  sidebarLutControl = new SidebarLutControl(() => lutBackdoorModal);
 
   // Initialize Interactive Dots for Dark Mode (Desktop only)
   const dotsCanvas = document.getElementById('interactiveDotsCanvas');

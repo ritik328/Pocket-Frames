@@ -1,5 +1,6 @@
 /**
- * Pocket Frames - Hasselblad Secret Backgate & 3D LUT Color Lab Styles
+ * Pocket Frames - Hasselblad Backstage Vault & 3D LUT Modal Styles
+ * Adheres strictly to the Pocket Frames Liquid Glass design system tokens
  */
 
 /* ── Backdrop & Dialog ─────────────────────────────────────────────────── */
@@ -7,7 +8,7 @@
   position: fixed;
   inset: 0;
   z-index: 9999;
-  background: rgba(8, 9, 14, 0.78);
+  background: rgba(10, 11, 14, 0.72);
   backdrop-filter: blur(24px) saturate(180%);
   -webkit-backdrop-filter: blur(24px) saturate(180%);
   display: flex;
@@ -16,8 +17,7 @@
   padding: 20px;
   opacity: 1;
   visibility: visible;
-  transition: opacity 0.28s cubic-bezier(0.16, 1, 0.3, 1),
-              visibility 0.28s cubic-bezier(0.16, 1, 0.3, 1);
+  transition: opacity 0.25s var(--ease), visibility 0.25s var(--ease);
 }
 
 .lut-modal-backdrop.hidden {
@@ -37,22 +37,22 @@ body.lut-modal-open {
   max-height: 88vh;
   display: flex;
   flex-direction: column;
-  background: var(--bg-surface, #14141A);
-  background: linear-gradient(145deg, rgba(28, 28, 36, 0.95), rgba(16, 16, 22, 0.98));
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  border-radius: 20px;
-  box-shadow: 0 32px 80px -16px rgba(0, 0, 0, 0.75),
-              0 0 0 1px rgba(255, 255, 255, 0.06),
-              inset 0 1px 0 rgba(255, 255, 255, 0.15);
-  color: #F0F0F5;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: 0 32px 80px -16px var(--glass-shadow),
+              0 0 0 1px var(--glass-border),
+              inset 0 1px 0 var(--glass-highlight);
+  color: var(--text);
+  font-family: var(--font-sans);
   overflow: hidden;
-  animation: lutModalIn 0.32s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  animation: lutModalIn 0.28s var(--ease) forwards;
 }
 
 @keyframes lutModalIn {
   from {
     opacity: 0;
-    transform: scale(0.96) translateY(8px);
+    transform: scale(0.96) translateY(10px);
   }
   to {
     opacity: 1;
@@ -65,8 +65,8 @@ body.lut-modal-open {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  padding: 22px 28px 18px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  padding: 20px 26px 16px;
+  border-bottom: 1px solid var(--border-soft);
   gap: 16px;
 }
 
@@ -82,12 +82,12 @@ body.lut-modal-open {
   gap: 6px;
   padding: 3px 9px;
   border-radius: 999px;
-  background: rgba(224, 162, 54, 0.14);
-  border: 1px solid rgba(224, 162, 54, 0.35);
+  background: var(--accent-soft);
+  border: 1px solid var(--accent);
   font-size: 0.65rem;
   font-weight: 700;
   letter-spacing: 0.08em;
-  color: #E5A83B;
+  color: var(--accent);
   width: fit-content;
   margin-bottom: 2px;
 }
@@ -96,8 +96,8 @@ body.lut-modal-open {
   width: 6px;
   height: 6px;
   border-radius: 50%;
-  background: #E5A83B;
-  box-shadow: 0 0 8px #E5A83B;
+  background: var(--accent);
+  box-shadow: 0 0 8px var(--accent);
   animation: lutPulse 1.8s infinite ease-in-out;
 }
 
@@ -111,20 +111,20 @@ body.lut-modal-open {
   align-items: center;
   gap: 10px;
   margin: 0;
-  font-size: 1.35rem;
+  font-size: 1.3rem;
   font-weight: 700;
   letter-spacing: -0.02em;
-  color: #FFFFFF;
+  color: var(--text);
 }
 
 .lut-modal__title svg {
-  color: #E5A83B;
+  color: var(--accent);
 }
 
 .lut-modal__subtitle {
   margin: 0;
-  font-size: 0.82rem;
-  color: rgba(255, 255, 255, 0.6);
+  font-size: 0.81rem;
+  color: var(--text-dim);
   line-height: 1.4;
 }
 
@@ -139,20 +139,21 @@ body.lut-modal-open {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 6px 12px;
-  border-radius: 8px;
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  background: rgba(255, 255, 255, 0.06);
-  color: rgba(255, 255, 255, 0.85);
+  padding: 7px 12px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--glass-bg);
+  color: var(--text-dim);
   font-size: 0.78rem;
   font-weight: 500;
   cursor: pointer;
-  transition: all 0.18s ease;
+  transition: all 0.16s var(--ease);
 }
 
 .lut-icon-btn:hover {
-  background: rgba(255, 255, 255, 0.12);
-  color: #FFFFFF;
+  background: var(--border-soft);
+  border-color: var(--text-faint);
+  color: var(--text);
 }
 
 .lut-close-btn {
@@ -161,27 +162,27 @@ body.lut-modal-open {
   justify-content: center;
   width: 32px;
   height: 32px;
-  border-radius: 8px;
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  background: rgba(255, 255, 255, 0.06);
-  color: rgba(255, 255, 255, 0.7);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--glass-bg);
+  color: var(--text-dim);
   cursor: pointer;
-  transition: all 0.18s ease;
+  transition: all 0.16s var(--ease);
 }
 
 .lut-close-btn:hover {
-  background: rgba(239, 68, 68, 0.2);
+  background: rgba(239, 68, 68, 0.18);
   border-color: rgba(239, 68, 68, 0.4);
   color: #EF4444;
 }
 
 /* ── Modal Body ───────────────────────────────────────────────────────── */
 .lut-modal__body {
-  padding: 24px 28px;
+  padding: 22px 26px;
   overflow-y: auto;
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: 18px;
 }
 
 /* ── Top Controls Row ─────────────────────────────────────────────────── */
@@ -205,54 +206,54 @@ body.lut-modal-open {
   align-items: center;
   justify-content: center;
   text-align: center;
-  padding: 22px 18px;
-  border-radius: 14px;
-  border: 1.5px dashed rgba(224, 162, 54, 0.4);
-  background: rgba(224, 162, 54, 0.03);
+  padding: 20px 16px;
+  border-radius: var(--radius-md);
+  border: 1.5px dashed var(--border);
+  background: var(--surface);
   cursor: pointer;
-  transition: all 0.22s ease;
+  transition: all 0.2s var(--ease);
 }
 
 .lut-dropzone:hover,
 .lut-dropzone.is-dragover {
-  border-color: #E5A83B;
-  background: rgba(224, 162, 54, 0.08);
+  border-color: var(--accent);
+  background: var(--accent-soft);
   transform: translateY(-1px);
 }
 
 .lut-dropzone__icon {
-  width: 48px;
-  height: 48px;
-  border-radius: 12px;
-  background: rgba(224, 162, 54, 0.12);
+  width: 44px;
+  height: 44px;
+  border-radius: var(--radius-sm);
+  background: var(--accent-soft);
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #E5A83B;
-  margin-bottom: 12px;
+  color: var(--accent);
+  margin-bottom: 10px;
 }
 
 .lut-dropzone__content {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 3px;
 }
 
 .lut-dropzone__main {
-  font-size: 0.85rem;
+  font-size: 0.83rem;
   font-weight: 600;
-  color: #FFFFFF;
+  color: var(--text);
 }
 
 .lut-link {
-  color: #E5A83B;
+  color: var(--accent);
   text-decoration: underline;
   text-underline-offset: 3px;
 }
 
 .lut-dropzone__sub {
-  font-size: 0.72rem;
-  color: rgba(255, 255, 255, 0.5);
+  font-size: 0.71rem;
+  color: var(--text-faint);
 }
 
 .lut-hidden-file-input {
@@ -264,11 +265,11 @@ body.lut-modal-open {
   display: flex;
   flex-direction: column;
   justify-content: space-between;
-  padding: 18px 20px;
-  border-radius: 14px;
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  gap: 14px;
+  padding: 16px 18px;
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  gap: 12px;
 }
 
 .lut-active-card__meta {
@@ -280,27 +281,27 @@ body.lut-modal-open {
 .lut-label {
   font-size: 0.68rem;
   font-weight: 600;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.04em;
   text-transform: uppercase;
-  color: #E5A83B;
+  color: var(--accent);
 }
 
 .lut-active-title {
-  font-size: 1.05rem;
+  font-size: 1rem;
   font-weight: 700;
-  color: #FFFFFF;
+  color: var(--text);
 }
 
 .lut-active-sub {
-  font-size: 0.74rem;
-  color: rgba(255, 255, 255, 0.5);
+  font-size: 0.72rem;
+  color: var(--text-dim);
 }
 
 /* Intensity Slider */
 .lut-intensity-group {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 6px;
 }
 
 .lut-intensity-header {
@@ -310,16 +311,16 @@ body.lut-modal-open {
 }
 
 .lut-intensity-label {
-  font-size: 0.78rem;
+  font-size: 0.76rem;
   font-weight: 600;
-  color: rgba(255, 255, 255, 0.8);
+  color: var(--text-dim);
 }
 
 .lut-intensity-val {
-  font-family: 'DM Mono', monospace, sans-serif;
-  font-size: 0.85rem;
+  font-family: var(--font-mono);
+  font-size: 0.82rem;
   font-weight: 700;
-  color: #E5A83B;
+  color: var(--accent);
 }
 
 .lut-slider-row {
@@ -331,27 +332,26 @@ body.lut-modal-open {
   -webkit-appearance: none;
   appearance: none;
   width: 100%;
-  height: 6px;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.15);
+  height: 4px;
+  border-radius: 2px;
+  background: var(--border);
   outline: none;
-  transition: background 0.18s ease;
 }
 
 .lut-slider::-webkit-slider-thumb {
   -webkit-appearance: none;
   appearance: none;
-  width: 18px;
-  height: 18px;
+  width: 16px;
+  height: 16px;
   border-radius: 50%;
-  background: #E5A83B;
-  box-shadow: 0 0 10px rgba(229, 168, 59, 0.6);
+  background: var(--accent);
+  box-shadow: 0 0 0 4px var(--accent-soft);
   cursor: pointer;
-  transition: transform 0.12s ease;
+  transition: transform 0.1s var(--ease);
 }
 
 .lut-slider::-webkit-slider-thumb:hover {
-  transform: scale(1.18);
+  transform: scale(1.15);
 }
 
 .lut-quick-presets {
@@ -362,25 +362,26 @@ body.lut-modal-open {
 .lut-chip-btn {
   flex: 1;
   padding: 4px 0;
-  border-radius: 6px;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  background: rgba(255, 255, 255, 0.04);
-  color: rgba(255, 255, 255, 0.65);
-  font-size: 0.7rem;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-dim);
+  font-family: var(--font-sans);
+  font-size: 0.69rem;
   font-weight: 600;
   cursor: pointer;
-  transition: all 0.14s ease;
+  transition: all 0.14s var(--ease);
 }
 
 .lut-chip-btn:hover {
-  background: rgba(255, 255, 255, 0.1);
-  color: #FFFFFF;
+  background: var(--border-soft);
+  color: var(--text);
 }
 
 .lut-chip-btn.is-active {
-  background: rgba(229, 168, 59, 0.2);
-  border-color: #E5A83B;
-  color: #E5A83B;
+  background: var(--accent-soft);
+  border-color: var(--accent);
+  color: var(--accent);
 }
 
 /* Actions Bar */
@@ -395,26 +396,28 @@ body.lut-modal-open {
   align-items: center;
   gap: 6px;
   padding: 6px 12px;
-  border-radius: 8px;
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  background: rgba(255, 255, 255, 0.05);
-  color: rgba(255, 255, 255, 0.85);
-  font-size: 0.75rem;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-dim);
+  font-family: var(--font-sans);
+  font-size: 0.74rem;
   font-weight: 600;
   cursor: pointer;
   user-select: none;
-  transition: all 0.16s ease;
+  transition: all 0.15s var(--ease);
 }
 
 .lut-action-btn:hover:not(:disabled) {
-  background: rgba(255, 255, 255, 0.12);
-  color: #FFFFFF;
+  border-color: var(--text-faint);
+  background: var(--border-soft);
+  color: var(--text);
 }
 
 .lut-action-btn.is-active {
-  background: rgba(229, 168, 59, 0.25);
-  border-color: #E5A83B;
-  color: #E5A83B;
+  background: var(--accent-soft);
+  border-color: var(--accent);
+  color: var(--accent);
 }
 
 .lut-action-btn:disabled {
@@ -426,8 +429,8 @@ body.lut-modal-open {
 .lut-category-tabs {
   display: flex;
   gap: 8px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-  padding-bottom: 12px;
+  border-bottom: 1px solid var(--border-soft);
+  padding-bottom: 10px;
 }
 
 .lut-tab-btn {
@@ -435,35 +438,36 @@ body.lut-modal-open {
   border-radius: 999px;
   border: none;
   background: transparent;
-  color: rgba(255, 255, 255, 0.55);
-  font-size: 0.8rem;
+  color: var(--text-dim);
+  font-family: var(--font-sans);
+  font-size: 0.78rem;
   font-weight: 600;
   cursor: pointer;
-  transition: all 0.18s ease;
+  transition: all 0.16s var(--ease);
 }
 
 .lut-tab-btn:hover {
-  color: #FFFFFF;
-  background: rgba(255, 255, 255, 0.06);
+  color: var(--text);
+  background: var(--glass-bg);
 }
 
 .lut-tab-btn.is-active {
-  color: #14141A;
-  background: #E5A83B;
-  box-shadow: 0 2px 10px rgba(229, 168, 59, 0.35);
+  color: var(--accent);
+  background: var(--accent-soft);
+  border: 1px solid var(--accent);
 }
 
 /* ── Grid & Cards ─────────────────────────────────────────────────────── */
 .lut-grid-scroll {
-  max-height: 380px;
+  max-height: 360px;
   overflow-y: auto;
   padding-right: 4px;
 }
 
 .lut-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
-  gap: 12px;
+  grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+  gap: 10px;
 }
 
 .lut-card {
@@ -471,34 +475,33 @@ body.lut-modal-open {
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 12px;
-  border-radius: 12px;
-  background: rgba(255, 255, 255, 0.035);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  padding: 11px;
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  border: 1px solid var(--border);
   cursor: pointer;
-  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  transition: all 0.18s var(--ease);
 }
 
 .lut-card:hover {
-  background: rgba(255, 255, 255, 0.07);
-  border-color: rgba(255, 255, 255, 0.18);
-  transform: translateY(-2px);
+  border-color: var(--text-faint);
+  background: var(--border-soft);
+  transform: translateY(-1px);
 }
 
 .lut-card.is-selected {
-  background: rgba(229, 168, 59, 0.12);
-  border-color: #E5A83B;
-  box-shadow: 0 0 16px rgba(229, 168, 59, 0.25);
+  background: var(--accent-soft);
+  border-color: var(--accent);
 }
 
 .lut-card__preview-wrap {
   position: relative;
-  width: 64px;
-  height: 64px;
+  width: 58px;
+  height: 58px;
   flex-shrink: 0;
-  border-radius: 8px;
+  border-radius: 7px;
   overflow: hidden;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+  box-shadow: 0 3px 8px var(--glass-shadow);
 }
 
 .lut-card__thumb-slot {
@@ -515,23 +518,22 @@ body.lut-modal-open {
 
 .lut-card__check {
   position: absolute;
-  top: 4px;
-  right: 4px;
-  width: 20px;
-  height: 20px;
+  top: 3px;
+  right: 3px;
+  width: 18px;
+  height: 18px;
   border-radius: 50%;
-  background: #E5A83B;
-  color: #14141A;
+  background: var(--accent);
+  color: var(--accent-ink);
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.5);
 }
 
 .lut-card__info {
   display: flex;
   flex-direction: column;
-  gap: 3px;
+  gap: 2px;
   flex: 1;
   min-width: 0;
 }
@@ -543,9 +545,9 @@ body.lut-modal-open {
 }
 
 .lut-card__title {
-  font-size: 0.88rem;
-  font-weight: 700;
-  color: #FFFFFF;
+  font-size: 0.84rem;
+  font-weight: 600;
+  color: var(--text);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -562,23 +564,23 @@ body.lut-modal-open {
   padding: 1px 6px;
   border-radius: 4px;
   text-transform: uppercase;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.03em;
 }
 
 .lut-pill--cat {
-  background: rgba(255, 255, 255, 0.08);
-  color: rgba(255, 255, 255, 0.7);
+  background: var(--border-soft);
+  color: var(--text-dim);
 }
 
 .lut-pill--size {
-  background: rgba(229, 168, 59, 0.15);
-  color: #E5A83B;
+  background: var(--accent-soft);
+  color: var(--accent);
 }
 
 .lut-card__desc {
-  margin: 2px 0 0;
-  font-size: 0.7rem;
-  color: rgba(255, 255, 255, 0.5);
+  margin: 1px 0 0;
+  font-size: 0.69rem;
+  color: var(--text-faint);
   line-height: 1.25;
   display: -webkit-box;
   -webkit-line-clamp: 2;
@@ -588,31 +590,32 @@ body.lut-modal-open {
 
 .lut-card__del-btn {
   position: absolute;
-  top: 8px;
-  right: 8px;
-  width: 24px;
-  height: 24px;
-  border-radius: 6px;
-  border: none;
-  background: rgba(255, 255, 255, 0.08);
-  color: rgba(255, 255, 255, 0.5);
+  top: 7px;
+  right: 7px;
+  width: 22px;
+  height: 22px;
+  border-radius: 5px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-dim);
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  transition: all 0.15s ease;
+  transition: all 0.14s var(--ease);
 }
 
 .lut-card__del-btn:hover {
-  background: rgba(239, 68, 68, 0.3);
+  background: rgba(239, 68, 68, 0.2);
+  border-color: rgba(239, 68, 68, 0.4);
   color: #EF4444;
 }
 
 .lut-empty-vault {
   grid-column: 1 / -1;
   text-align: center;
-  padding: 36px 20px;
-  color: rgba(255, 255, 255, 0.5);
+  padding: 32px 18px;
+  color: var(--text-dim);
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -620,8 +623,8 @@ body.lut-modal-open {
 }
 
 .lut-empty-vault__sub {
-  font-size: 0.75rem;
-  color: rgba(255, 255, 255, 0.35);
+  font-size: 0.74rem;
+  color: var(--text-faint);
   margin: 0;
 }
 
@@ -630,15 +633,15 @@ body.lut-modal-open {
   display: flex;
   align-items: center;
   gap: 8px;
-  font-size: 0.72rem;
-  color: rgba(255, 255, 255, 0.45);
+  font-size: 0.71rem;
+  color: var(--text-dim);
   line-height: 1.35;
   padding-top: 8px;
-  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  border-top: 1px solid var(--border-soft);
 }
 
 .lut-footer-tip svg {
-  color: #E5A83B;
+  color: var(--accent);
   flex-shrink: 0;
 }
 
@@ -653,7 +656,7 @@ body.lut-modal-open {
 
 .pf-mode-tab#tab-hasselblad.pf-tab-pulse {
   transform: scale(0.94);
-  box-shadow: 0 0 12px rgba(229, 168, 59, 0.6) !important;
+  box-shadow: 0 0 12px var(--accent) !important;
 }
 
 /* Active LUT glowing dot on Hasselblad tab */
@@ -665,8 +668,8 @@ body.lut-modal-open {
   width: 5px;
   height: 5px;
   border-radius: 50%;
-  background: #E5A83B;
-  box-shadow: 0 0 6px #E5A83B;
+  background: var(--accent);
+  box-shadow: 0 0 6px var(--accent);
 }
 
 /* Topbar chip */
@@ -676,19 +679,20 @@ body.lut-modal-open {
   gap: 6px;
   padding: 3px 10px;
   border-radius: 999px;
-  background: rgba(229, 168, 59, 0.12);
-  border: 1px solid rgba(229, 168, 59, 0.35);
-  color: #E5A83B;
-  font-family: inherit;
+  background: var(--accent-soft);
+  border: 1px solid var(--accent);
+  color: var(--accent);
+  font-family: var(--font-sans);
   font-size: 0.72rem;
   font-weight: 600;
   cursor: pointer;
-  transition: all 0.18s ease;
+  transition: all 0.16s var(--ease);
   user-select: none;
 }
 
 .lut-topbar-chip:hover {
-  background: rgba(229, 168, 59, 0.22);
+  background: var(--accent);
+  color: var(--accent-ink);
   transform: translateY(-1px);
 }
 
@@ -700,6 +704,6 @@ body.lut-modal-open {
   width: 5px;
   height: 5px;
   border-radius: 50%;
-  background: #E5A83B;
-  box-shadow: 0 0 6px #E5A83B;
+  background: currentColor;
+  box-shadow: 0 0 6px currentColor;
 }

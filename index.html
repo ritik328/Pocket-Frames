@@ -163,6 +163,49 @@
           </div>
         </div>
 
+        <!-- Color Grading (3D LUT) -->
+        <div class="sidebar__section" id="lutSidebarSection">
+          <div class="sidebar__row">
+            <span class="eyebrow">Color grading (3D LUT)</span>
+            <span class="mono-value" id="sidebarLutIntensityValue">100%</span>
+          </div>
+
+          <!-- Horizontal Preset Swatch Pills -->
+          <div class="lut-pill-strip" id="sidebarLutPillStrip" role="tablist" aria-label="LUT Presets">
+            <!-- Dynamically populated: None, HNCS, Portra, Fuji Pro, Cine Teal, Leica, Kodachrome, + Custom -->
+          </div>
+
+          <!-- Dropdown Select for All LUTs (Presets + Custom Uploads) -->
+          <div class="lut-select-row">
+            <select id="sidebarLutSelect" class="lut-select" aria-label="Select 3D LUT">
+              <option value="">None (Original)</option>
+            </select>
+          </div>
+
+          <!-- Live Intensity Slider -->
+          <div class="sidebar__row" style="margin-top: 10px; margin-bottom: 6px;">
+            <span class="eyebrow" style="margin-bottom: 0;">Intensity</span>
+            <span class="mono-value" id="sidebarLutIntensityPercent">100%</span>
+          </div>
+          <div class="zoom-control">
+            <input type="range" id="sidebarLutSlider" min="0" max="1" step="0.01" value="1.0" aria-label="LUT intensity slider">
+          </div>
+
+          <!-- Tool Grid Actions -->
+          <div class="tool-grid" style="margin-top: 10px;">
+            <button class="tool-btn" id="sidebarBtnCompare" type="button" title="Hold mouse to view original photo">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
+              Compare
+            </button>
+            <button class="tool-btn" id="sidebarBtnBypass" type="button" title="Bypass LUT temporarily">Bypass</button>
+            <button class="tool-btn" id="sidebarBtnReset" type="button" title="Clear active LUT">Reset</button>
+            <button class="tool-btn tool-btn--accent" id="sidebarBtnBackdoor" type="button" title="Open Backstage to upload .cube files">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
+              Backstage
+            </button>
+          </div>
+        </div>
+
         <!-- Guides & Snapping -->
         <div class="sidebar__section">
           <span class="eyebrow">Guides &amp; snapping</span>

@@ -2274,3 +2274,106 @@ body[data-theme="light"] .ai-btn--full:hover {
   cursor: default;
 }
 
+/* ==========================================================================
+   Hasselblad Page — On-Page 3D LUT Color Grading System
+   ========================================================================== */
+
+.lut-pill-strip {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  padding-bottom: 4px;
+  margin-bottom: 10px;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+.lut-pill-strip::-webkit-scrollbar {
+  display: none;
+}
+
+.lut-pill-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 10px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text-dim);
+  font-family: var(--font-sans);
+  font-size: 0.74rem;
+  font-weight: 500;
+  cursor: pointer;
+  white-space: nowrap;
+  user-select: none;
+  flex-shrink: 0;
+  transition: border-color 0.15s var(--ease), color 0.15s var(--ease), background 0.15s var(--ease), transform 0.1s var(--ease);
+}
+
+.lut-pill-item:hover {
+  border-color: var(--text-faint);
+  color: var(--text);
+  background: var(--border-soft);
+  transform: translateY(-1px);
+}
+
+.lut-pill-item:active {
+  transform: scale(0.97);
+}
+
+.lut-pill-item.is-active {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-weight: 600;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.1);
+}
+
+.lut-pill-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  box-shadow: 0 0 4px rgba(0, 0, 0, 0.25);
+}
+
+.lut-select-row {
+  margin-bottom: 6px;
+}
+
+.lut-select {
+  width: 100%;
+  padding: 8px 10px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  font-family: var(--font-sans);
+  font-size: 0.79rem;
+  font-weight: 500;
+  outline: none;
+  cursor: pointer;
+  transition: border-color 0.15s var(--ease), background 0.15s var(--ease);
+}
+
+.lut-select:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--accent-soft);
+}
+
+.lut-select optgroup {
+  font-weight: 700;
+  color: var(--text-dim);
+  background: var(--surface);
+  font-size: 0.72rem;
+}
+
+.lut-select option {
+  font-weight: 500;
+  color: var(--text);
+  background: var(--surface);
+  font-size: 0.78rem;
+  padding: 4px 6px;
+}
+
+
