@@ -17,6 +17,7 @@ export class MobileAppCoordinator {
     this.current = 'scr-splash';
     this.history = [];
     this.deferredInstallPrompt = null;
+    this.onbSlide = 0;
 
     this.samplePhotos = [
       { id: 'p1', title: 'Prismatik', score: 8.2, type: 'print' },
@@ -530,12 +531,32 @@ export class MobileAppCoordinator {
         return;
       }
 
+      const onbNextBtn = e.target.closest('#mobOnbNext');
+      if (onbNextBtn) {
+        if (this.onbSlide === 0) {
+          this.onbSlide = 1;
+          container.querySelectorAll('.mob-onb-slide').forEach(s => s.classList.toggle('active', s.dataset.slide === '1'));
+          container.querySelectorAll('#mobOnbDots i').forEach((d, i) => d.classList.toggle('on', i === 1));
+          onbNextBtn.innerHTML = `Get started <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg>`;
+        } else {
+          this.go('scr-home', { root: true });
+        }
+        return;
+      }
+
+      const onbSkipBtn = e.target.closest('#mobOnbSkip');
+      if (onbSkipBtn) {
+        this.go('scr-home', { root: true });
+        return;
+      }
+
       const tt = e.target.closest('[data-toast]');
       if (tt) {
         this.toast(tt.dataset.toast);
         return;
       }
     });
+
 
     // Chips filter binding
     const bindChips = (sel, cb) => {
@@ -893,24 +914,35 @@ export class MobileAppCoordinator {
       });
     }
 
-    // Onboarding slides
-    let onbSlide = 0;
+    // Onboarding slides listeners
+    const advanceOnboard = (e) => {
+      if (e) e.stopPropagation();
+      if (this.onbSlide === 0) {
+        this.onbSlide = 1;
+        container.querySelectorAll('.mob-onb-slide').forEach(s => s.classList.toggle('active', s.dataset.slide === '1'));
+        container.querySelectorAll('#mobOnbDots i').forEach((d, i) => d.classList.toggle('on', i === 1));
+        const btn = document.getElementById('mobOnbNext');
+        if (btn) btn.innerHTML = `Get started <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg>`;
+      } else {
+        this.go('scr-home', { root: true });
+      }
+    };
+    const skipOnboard = (e) => {
+      if (e) e.stopPropagation();
+      this.go('scr-home', { root: true });
+    };
+
     const onbNext = document.getElementById('mobOnbNext');
     if (onbNext) {
-      onbNext.addEventListener('click', () => {
-        if (onbSlide === 0) {
-          onbSlide = 1;
-          container.querySelectorAll('.mob-onb-slide').forEach(s => s.classList.toggle('active', s.dataset.slide === '1'));
-          container.querySelectorAll('#mobOnbDots i').forEach((d, i) => d.classList.toggle('on', i === 1));
-          onbNext.childNodes[0].textContent = 'Get started ';
-        } else {
-          this.go('scr-home', { root: true });
-        }
-      });
+      onbNext.addEventListener('click', advanceOnboard);
+      onbNext.addEventListener('touchend', advanceOnboard);
     }
-    document.getElementById('mobOnbSkip')?.addEventListener('click', () => {
-      this.go('scr-home', { root: true });
-    });
+    const onbSkip = document.getElementById('mobOnbSkip');
+    if (onbSkip) {
+      onbSkip.addEventListener('click', skipOnboard);
+      onbSkip.addEventListener('touchend', skipOnboard);
+    }
+
   }
 }
 
