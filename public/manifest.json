@@ -1,6 +1,7 @@
 {
+  "id": "/",
   "name": "Pocket Frames",
-  "short_name": "PocketFrames",
+  "short_name": "Pocket Frames",
   "description": "Minimalist Polaroid & Hasselblad photo framing and cinematic video creator with 3D LUT grading.",
   "start_url": "/",
   "scope": "/",
@@ -8,17 +9,19 @@
   "orientation": "portrait",
   "background_color": "#F6F1E7",
   "theme_color": "#0F0F12",
-  "categories": ["photography", "video", "productivity"],
+  "categories": ["photography", "video", "photo", "productivity"],
   "icons": [
     {
       "src": "/icons/icon-192.png",
       "sizes": "192x192",
-      "type": "image/png"
+      "type": "image/png",
+      "purpose": "any"
     },
     {
       "src": "/icons/icon-512.png",
       "sizes": "512x512",
-      "type": "image/png"
+      "type": "image/png",
+      "purpose": "any"
     },
     {
       "src": "/icons/icon-maskable.png",
@@ -29,7 +32,8 @@
     {
       "src": "/icons/icon.svg",
       "sizes": "any",
-      "type": "image/svg+xml"
+      "type": "image/svg+xml",
+      "purpose": "any"
     }
   ]
 }

@@ -1,5 +1,6 @@
 import { defineConfig, loadEnv } from 'vite';
 import { resolve } from 'path';
+import basicSsl from '@vitejs/plugin-basic-ssl';
  
 export default defineConfig(({ command, mode }) => {
   if (command === 'serve') {
@@ -23,6 +24,8 @@ export default defineConfig(({ command, mode }) => {
       }
     },
     plugins: [
+      basicSsl(),
+
       {
         name: 'pocket-frames-ai-backend',
         configureServer(server) {

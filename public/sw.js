@@ -11,11 +11,18 @@ const PRECACHE_URLS = [
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => {
-      return cache.addAll(PRECACHE_URLS);
+    caches.open(CACHE_NAME).then(async (cache) => {
+      for (const url of PRECACHE_URLS) {
+        try {
+          await cache.add(url);
+        } catch (err) {
+          console.warn('[SW] Precache skipped:', url, err);
+        }
+      }
     }).then(() => self.skipWaiting())
   );
 });
+
 
 self.addEventListener('activate', (event) => {
   event.waitUntil(
