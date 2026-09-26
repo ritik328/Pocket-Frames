@@ -26,7 +26,25 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500&family=Instrument+Serif:ital@0;1&family=Inter:ital,wght@0,400;0,500;0,600;0,700;1,400&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 
+  <!-- Progressive Web App (PWA) Manifest & Android Meta Tags -->
+  <link rel="manifest" href="/manifest.json" />
+  <meta name="theme-color" content="#F6F1E7" media="(prefers-color-scheme: light)" />
+  <meta name="theme-color" content="#0F0F12" media="(prefers-color-scheme: dark)" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Pocket Frames" />
+  <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
+  <link rel="icon" type="image/svg+xml" href="/icons/icon.svg" />
+  <link rel="icon" type="image/png" sizes="192x192" href="/icons/icon-192.png" />
+
+  <!-- DM Sans Font for Android Mobile Experience -->
+  <link href="https://cdn.jsdelivr.net/fontsource/css/dm-sans@latest/400.css" rel="stylesheet" />
+  <link href="https://cdn.jsdelivr.net/fontsource/css/dm-sans@latest/500.css" rel="stylesheet" />
+  <link href="https://cdn.jsdelivr.net/fontsource/css/dm-sans@latest/700.css" rel="stylesheet" />
+
   <link rel="stylesheet" href="./src/style.css" />
+  <link rel="stylesheet" href="./src/mobile/mobileApp.css" />
 </head>
 <body>
 
@@ -53,6 +71,10 @@
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 13.4 9.6 20 11l-6.6 1.4L12 19l-1.4-6.6L4 11l6.6-1.4Z"/></svg>
           Studio Frame
         </a>
+        <button type="button" class="btn-mobile-preview-toggle" id="btnToggleMobilePreview" title="Toggle Android Phone Preview">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="2" width="14" height="20" rx="3"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg>
+          Android App
+        </button>
       </div>
 
       <div class="format-chips" id="pf-format-chips">
@@ -669,6 +691,414 @@
         </button>
       </div>
     </div>
+  </div>
+
+  <!-- Liquid-glass refraction filters: channel-gradient displacement map + blur + feDisplacementMap -->
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+    <filter id="liquidGlass" x="0" y="0" width="1" height="1" primitiveUnits="objectBoundingBox">
+      <feImage result="map" x="0" y="0" width="1" height="1" preserveAspectRatio="none"
+        href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='100'%3E%3Cdefs%3E%3ClinearGradient id='l' x1='0' y1='0' x2='1' y2='0'%3E%3Cstop offset='0' stop-color='%23008080'/%3E%3Cstop offset='1' stop-color='%23808080'/%3E%3C/linearGradient%3E%3ClinearGradient id='r' x1='0' y1='0' x2='1' y2='0'%3E%3Cstop offset='0' stop-color='%23808080'/%3E%3Cstop offset='1' stop-color='%23ff8080'/%3E%3C/linearGradient%3E%3ClinearGradient id='t' x1='0' y1='0' x2='0' y2='1'%3E%3Cstop offset='0' stop-color='%23800080'/%3E%3Cstop offset='1' stop-color='%23808080'/%3E%3C/linearGradient%3E%3ClinearGradient id='b' x1='0' y1='0' x2='0' y2='1'%3E%3Cstop offset='0' stop-color='%23808080'/%3E%3Cstop offset='1' stop-color='%2380ff80'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='300' height='100' fill='%23808080'/%3E%3Crect width='300' height='26' fill='url(%23t)'/%3E%3Crect y='74' width='300' height='26' fill='url(%23b)'/%3E%3Crect width='36' height='100' fill='url(%23l)'/%3E%3Crect x='264' width='36' height='100' fill='url(%23r)'/%3E%3C/svg%3E"
+        xlink:href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='100'%3E%3Cdefs%3E%3ClinearGradient id='l' x1='0' y1='0' x2='1' y2='0'%3E%3Cstop offset='0' stop-color='%23008080'/%3E%3Cstop offset='1' stop-color='%23808080'/%3E%3C/linearGradient%3E%3ClinearGradient id='r' x1='0' y1='0' x2='1' y2='0'%3E%3Cstop offset='0' stop-color='%23808080'/%3E%3Cstop offset='1' stop-color='%23ff8080'/%3E%3C/linearGradient%3E%3ClinearGradient id='t' x1='0' y1='0' x2='0' y2='1'%3E%3Cstop offset='0' stop-color='%23800080'/%3E%3Cstop offset='1' stop-color='%23808080'/%3E%3C/linearGradient%3E%3ClinearGradient id='b' x1='0' y1='0' x2='0' y2='1'%3E%3Cstop offset='0' stop-color='%23808080'/%3E%3Cstop offset='1' stop-color='%2380ff80'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='300' height='100' fill='%23808080'/%3E%3Crect width='300' height='26' fill='url(%23t)'/%3E%3Crect y='74' width='300' height='26' fill='url(%23b)'/%3E%3Crect width='36' height='100' fill='url(%23l)'/%3E%3Crect x='264' width='36' height='100' fill='url(%23r)'/%3E%3C/svg%3E"/>
+      <feGaussianBlur in="SourceGraphic" stdDeviation="0.02" result="blur"/>
+      <feDisplacementMap in="blur" in2="map" scale="0.32" xChannelSelector="R" yChannelSelector="G"/>
+    </filter>
+    <filter id="liquidGlassSoft" x="0" y="0" width="1" height="1" primitiveUnits="objectBoundingBox">
+      <feImage result="map" x="0" y="0" width="1" height="1" preserveAspectRatio="none"
+        href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='100'%3E%3Cdefs%3E%3ClinearGradient id='l' x1='0' y1='0' x2='1' y2='0'%3E%3Cstop offset='0' stop-color='%23008080'/%3E%3Cstop offset='1' stop-color='%23808080'/%3E%3C/linearGradient%3E%3ClinearGradient id='r' x1='0' y1='0' x2='1' y2='0'%3E%3Cstop offset='0' stop-color='%23808080'/%3E%3Cstop offset='1' stop-color='%23ff8080'/%3E%3C/linearGradient%3E%3ClinearGradient id='t' x1='0' y1='0' x2='0' y2='1'%3E%3Cstop offset='0' stop-color='%23800080'/%3E%3Cstop offset='1' stop-color='%23808080'/%3E%3C/linearGradient%3E%3ClinearGradient id='b' x1='0' y1='0' x2='0' y2='1'%3E%3Cstop offset='0' stop-color='%23808080'/%3E%3Cstop offset='1' stop-color='%2380ff80'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='300' height='100' fill='%23808080'/%3E%3Crect width='300' height='26' fill='url(%23t)'/%3E%3Crect y='74' width='300' height='26' fill='url(%23b)'/%3E%3Crect width='36' height='100' fill='url(%23l)'/%3E%3Crect x='264' width='36' height='100' fill='url(%23r)'/%3E%3C/svg%3E"
+        xlink:href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='100'%3E%3Cdefs%3E%3ClinearGradient id='l' x1='0' y1='0' x2='1' y2='0'%3E%3Cstop offset='0' stop-color='%23008080'/%3E%3Cstop offset='1' stop-color='%23808080'/%3E%3C/linearGradient%3E%3ClinearGradient id='r' x1='0' y1='0' x2='1' y2='0'%3E%3Cstop offset='0' stop-color='%23808080'/%3E%3Cstop offset='1' stop-color='%23ff8080'/%3E%3C/linearGradient%3E%3ClinearGradient id='t' x1='0' y1='0' x2='0' y2='1'%3E%3Cstop offset='0' stop-color='%23800080'/%3E%3Cstop offset='1' stop-color='%23808080'/%3E%3C/linearGradient%3E%3ClinearGradient id='b' x1='0' y1='0' x2='0' y2='1'%3E%3Cstop offset='0' stop-color='%23808080'/%3E%3Cstop offset='1' stop-color='%2380ff80'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='300' height='100' fill='%23808080'/%3E%3Crect width='300' height='26' fill='url(%23t)'/%3E%3Crect y='74' width='300' height='26' fill='url(%23b)'/%3E%3Crect width='36' height='100' fill='url(%23l)'/%3E%3Crect x='264' width='36' height='100' fill='url(%23r)'/%3E%3C/svg%3E"/>
+      <feGaussianBlur in="SourceGraphic" stdDeviation="0.012" result="blur"/>
+      <feDisplacementMap in="blur" in2="map" scale="0.18" xChannelSelector="R" yChannelSelector="G"/>
+    </filter>
+  </svg>
+
+  <!-- Native mobile camera & file input bridge -->
+  <input type="file" id="mobNativeFileInput" accept="image/*,video/*" style="display:none">
+
+  <!-- ================= ANDROID MOBILE EXPERIENCE (PWA) ================= -->
+  <div id="mobileAppContainer" data-theme="light">
+    <!-- Desktop Modal Close button -->
+    <button class="mob-preview-close" id="mobBtnClosePreview" title="Close Phone View">✕ Close Phone View</button>
+
+    <div class="mob-device" id="mobDevice">
+      <div class="mob-side-btn side-btn power"></div>
+      <div class="mob-side-btn side-btn volup"></div>
+      <div class="mob-side-btn side-btn voldn"></div>
+
+      <div class="mob-phone" id="mobPhone" data-nav="off">
+        <div class="mob-punch"></div>
+        <div class="mob-statusbar">
+          <span id="mobClock">10:41</span>
+          <span class="mob-sicons sicons">
+            <svg width="16" height="12" viewBox="0 0 16 12" fill="currentColor"><rect x="0" y="7" width="3" height="5" rx="1"/><rect x="4.3" y="5" width="3" height="7" rx="1"/><rect x="8.6" y="2.5" width="3" height="9.5" rx="1"/><rect x="12.9" y="0" width="3" height="12" rx="1"/></svg>
+            <svg width="16" height="12" viewBox="0 0 16 12" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M1.5 4a10 10 0 0 1 13 0"/><path d="M4 6.6a6.5 6.5 0 0 1 8 0"/><path d="M6.4 9.2a3 3 0 0 1 3.2 0"/><circle cx="8" cy="11" r=".9" fill="currentColor" stroke="none"/></svg>
+            <svg width="22" height="12" viewBox="0 0 22 12" fill="none"><rect x=".8" y=".8" width="18" height="10.4" rx="3" stroke="currentColor" stroke-opacity=".5" stroke-width="1.2"/><rect x="2.4" y="2.4" width="12" height="7.2" rx="1.6" fill="currentColor"/><path d="M20.4 4v4a2.2 2.2 0 0 0 0-4z" fill="currentColor" fill-opacity=".5"/></svg>
+          </span>
+        </div>
+
+        <div class="mob-screens" id="mobScreens">
+          <!-- SPLASH -->
+          <section class="mob-screen nonav" id="scr-splash">
+            <div class="mob-splash splash">
+              <div class="mob-logo-mark logo-mark">
+                <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                  <rect x="3.5" y="3.5" width="17" height="17" rx="4"/>
+                  <path d="M3.5 9h5M15.5 3.5v5M20.5 15h-5M8.5 20.5v-5"/>
+                  <circle cx="12" cy="12" r="2.6"/>
+                </svg>
+              </div>
+              <h1>Pocket Frames</h1>
+              <p>Frame it. Grade it. Share it.</p>
+              <div class="mob-dots-load dots-load"><span></span><span></span><span></span></div>
+            </div>
+          </section>
+
+          <!-- ONBOARD -->
+          <section class="mob-screen nonav" id="scr-onboard">
+            <div class="mob-onb-visual onb-visual">
+              <div class="mob-onb-frame onb-frame photo-bg p1">
+                <span class="onb-meta">DAY 18/47 • f/1.8 • ISO 64</span>
+              </div>
+            </div>
+            <div class="mob-onb-copy onb-copy">
+              <div class="mob-onb-slide onb-slide active" data-slide="0">
+                <h2>Your photos,<br>framed like prints</h2>
+                <p>Matte borders, polaroid mats and clean full-bleed crops — straight from your pocket, exported gallery-ready.</p>
+              </div>
+              <div class="mob-onb-slide onb-slide" data-slide="1">
+                <h2>AI eyes on<br>your composition</h2>
+                <p>Scores, critiques and one-tap fixes for every frame you import. Then captions, hashtags and LUTs in a tap.</p>
+              </div>
+              <div class="mob-onb-dots onb-dots" id="mobOnbDots"><i class="on"></i><i></i></div>
+              <div class="mob-onb-cta onb-cta">
+                <button class="mob-ghost ghost" id="mobOnbSkip">Skip</button>
+                <button class="mob-dark-pill dark-pill" id="mobOnbNext">Next <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg></button>
+              </div>
+            </div>
+          </section>
+
+          <!-- HOME -->
+          <section class="mob-screen" id="scr-home">
+            <div class="mob-scr-body scr-body">
+              <div class="mob-home-top home-top">
+                <div class="mob-avatar avatar">AL</div>
+                <div class="mob-hello hello"><b>Hey, Alex 👋</b><span>3 frames finished this week</span></div>
+                <button class="mob-ibtn ibtn" data-toast="No new notifications">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg>
+                </button>
+              </div>
+              <button class="mob-searchpill searchpill" data-nav-to="scr-library">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>Search frames, LUTs, posts…
+              </button>
+              <button class="mob-hero-card hero-card" data-open-photo="p1" style="width:100%;text-align:left">
+                <div class="mob-hero-blobs hero-blobs"><i class="b1"></i><i class="b2"></i></div>
+                <span class="mob-tag tag">Daily challenge</span>
+                <h3>Frame one photo<br>before 9:00 PM</h3>
+                <div class="mob-hero-row hero-row">
+                  <div class="mob-stack stack"><i class="photo-bg p3"></i><i class="photo-bg p2"></i><i class="photo-bg p4"></i><b>+4</b></div>
+                  <span class="mob-mini-pill mini-pill">Start framing</span>
+                </div>
+              </button>
+              <div class="mob-row-head row-head">
+                <h4>Recent frames</h4>
+                <button class="mob-link link" data-nav-to="scr-library">See all</button>
+              </div>
+              <div class="mob-chips chips" id="mobHomeChips">
+                <button class="mob-chip chip on" data-filter="all">All</button>
+                <button class="mob-chip chip" data-filter="print">Prints</button>
+                <button class="mob-chip chip" data-filter="video">Videos</button>
+                <button class="mob-chip chip" data-filter="fav">Faves</button>
+              </div>
+              <div class="mob-grid2 grid2" id="mobHomeGrid"></div>
+              <button class="mob-continue-card continue-card" data-open-photo="p1">
+                <i class="thumb photo-bg p1"></i>
+                <div class="grow"><b>Prismatik</b><span>Score 8.2 • LUT: Warm Film • 4:5</span></div>
+                <span class="mob-mini-pill mini-pill dark">Resume</span>
+              </button>
+            </div>
+          </section>
+
+          <!-- LIBRARY -->
+          <section class="mob-screen" id="scr-library">
+            <div class="mob-scr-head scr-head">
+              <h2 class="mob-scr-title scr-title" style="flex:1">Library</h2>
+              <span class="count" id="mobLibCount">6 items</span>
+            </div>
+            <div class="mob-scr-body scr-body" style="padding-top:0">
+              <div class="searchbar">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
+                <input id="mobLibSearch" placeholder="Search by title…">
+              </div>
+              <div class="mob-chips chips" id="mobLibChips">
+                <button class="mob-chip chip on" data-filter="all">All</button>
+                <button class="mob-chip chip" data-filter="fav">Favorites</button>
+                <button class="mob-chip chip" data-filter="video">Videos</button>
+                <button class="mob-chip chip" data-filter="print">Prints</button>
+              </div>
+              <div class="mob-grid2 grid2" id="mobLibGrid"></div>
+            </div>
+          </section>
+
+          <!-- EDITOR -->
+          <section class="mob-screen nonav" id="scr-editor">
+            <div class="mob-scr-head scr-head">
+              <button class="mob-ibtn ibtn" data-back><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg></button>
+              <div class="ed-title"><b id="mobEdTitle">Prismatik</b><span id="mobEdSub">1080 × 1350 • 4:5 • Matte</span></div>
+              <button class="mob-ibtn ibtn" data-toast="More options coming soon"><svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="19" cy="12" r="1.8"/></svg></button>
+            </div>
+            <div class="mob-scr-body scr-body">
+              <div class="mob-canvas-wrap canvas-wrap">
+                <div class="mob-frame frame matte" id="mobFrameBox">
+                  <div class="clip" id="mobClip">
+                    <div class="mob-photo-view photo-view photo-bg p1" id="mobEdPhoto"></div>
+                    <div class="mob-guides guides" id="mobGuides"><i></i><i></i><i></i><i></i></div>
+                  </div>
+                  <span class="mob-frame-meta frame-meta" id="mobFrameMeta">POCKET FRAMES • 4:5 • LUT: WARM FILM</span>
+                </div>
+              </div>
+              <div class="mob-zoom-row zoom-row">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M8 11h6M20 20l-3.5-3.5"/></svg>
+                <input type="range" id="mobZoomRange" min="100" max="250" value="100">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M8 11h6M11 8v6M20 20l-3.5-3.5"/></svg>
+                <b id="mobZoomVal">1.00×</b>
+              </div>
+              <div class="mob-toolrow toolrow">
+                <button class="mob-tool tool" id="mobTGuides"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3.5" y="3.5" width="17" height="17" rx="3"/><path d="M9 3.5v17M15 3.5v17M3.5 9h17M3.5 15h17"/></svg>Guides</button>
+                <button class="mob-tool tool" id="mobTReset"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v5h5"/></svg>Reset</button>
+                <div class="mob-vsep vsep"></div>
+                <button class="mob-tool tool on" data-frame="matte">Matte</button>
+                <button class="mob-tool tool" data-frame="full">Full bleed</button>
+                <button class="mob-tool tool" data-frame="polaroid">Polaroid</button>
+                <button class="mob-tool tool" data-frame="round">Round</button>
+              </div>
+              <div class="mob-ed-actions ed-actions">
+                <button class="mob-dark-pill dark-pill" data-nav-to="scr-ai"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2.8l1.9 4.9 4.9 1.9-4.9 1.9L12 16.4l-1.9-4.9-4.9-1.9 4.9-1.9z"/><circle cx="19" cy="18" r="1.6"/><circle cx="5.5" cy="19" r="1.2"/></svg>AI Analyze</button>
+                <button class="mob-ibtn ibtn sq" data-nav-to="scr-lut" title="3D LUT Color Lab"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2.7s6.5 7 6.5 11.3a6.5 6.5 0 0 1-13 0C5.5 9.7 12 2.7 12 2.7z"/></svg></button>
+                <button class="mob-ibtn ibtn sq" data-nav-to="scr-post" title="Post package"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7V5h16v2M12 5v14M9 19h6"/></svg></button>
+                <button class="mob-ibtn ibtn sq" data-nav-to="scr-export" title="Export"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="M7.5 7.5L12 3l4.5 4.5"/><path d="M5 13v6a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-6"/></svg></button>
+              </div>
+              <p class="mob-hint hint">Drag the photo to nudge • use the slider to zoom</p>
+            </div>
+          </section>
+
+          <!-- AI -->
+          <section class="mob-screen nonav" id="scr-ai">
+            <div class="mob-scr-head scr-head">
+              <button class="mob-ibtn ibtn" data-back><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg></button>
+              <div class="ed-title"><b>AI Analysis</b><span>Gemini Vision • composition audit</span></div>
+              <button class="mob-ibtn ibtn" id="mobAiRefresh"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-3-6.7"/><path d="M21 4v5h-5"/></svg></button>
+            </div>
+            <div class="mob-scr-body scr-body">
+              <div class="mob-score-card score-card">
+                <div class="mob-ringwrap ringwrap">
+                  <svg width="118" height="118" viewBox="0 0 118 118"><circle class="mob-ring-bg ring-bg" cx="59" cy="59" r="50"/><circle class="mob-ring-val ring-val" id="mobRingVal" cx="59" cy="59" r="50" stroke-dasharray="314.16" stroke-dashoffset="314.16"/></svg>
+                  <div class="mob-ring-txt ring-txt"><b>8.2</b><span>/ 10</span></div>
+                </div>
+                <div class="mob-score-side score-side">
+                  <b id="mobAiPhotoName">Prismatik</b>
+                  <span>Mobile camera strength 8.2/10</span>
+                  <div class="mob-badge-row badge-row"><span class="mob-badge badge yel">Portfolio candidate</span><span class="mob-badge badge blu">OPPO • medium</span></div>
+                </div>
+              </div>
+              <div class="mob-bars bars" id="mobAiBars">
+                <div class="mob-brow brow"><label>Composition</label><div class="track"><div class="fill" data-w="85" style="background:var(--mob-grn)"></div></div><b>8.5</b></div>
+                <div class="mob-brow brow"><label>Story</label><div class="track"><div class="fill" data-w="78" style="background:var(--mob-blu)"></div></div><b>7.8</b></div>
+                <div class="mob-brow brow"><label>Visual impact</label><div class="track"><div class="fill" data-w="89" style="background:var(--mob-pnk)"></div></div><b>8.9</b></div>
+                <div class="mob-brow brow"><label>Background</label><div class="track"><div class="fill" data-w="82" style="background:var(--mob-yel)"></div></div><b>8.2</b></div>
+              </div>
+              <div class="mob-rec-card rec-card">
+                <span class="mob-tag tag" style="background:rgba(255,255,255,.6)">AI recommendation</span>
+                <p>Slight upward shift removes the distracting bottom-edge text while preserving the diagonal light path.</p>
+                <div class="mob-rec-meta rec-meta"><span>Target 50% / 44%</span><span>Zoom 1.02×</span><span>Confidence 90%</span></div>
+                <div class="mob-rec-cta rec-cta"><button class="mob-dark-pill dark-pill" id="mobApplyRec">Apply to canvas</button><button class="mob-ghost ghost" id="mobIgnoreRec">Ignore</button></div>
+              </div>
+              <div class="two-col" style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px">
+                <div class="mob-list-card list-card green"><h5>Strengths</h5><ul><li>Clean diagonal division</li><li>Balanced color weight</li></ul></div>
+                <div class="mob-list-card list-card coral"><h5>Critique</h5><ul><li>Bottom-edge text creates minor distraction</li></ul></div>
+              </div>
+              <button class="mob-dark-pill dark-pill wide" data-nav-to="scr-post">View post package <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg></button>
+            </div>
+          </section>
+
+          <!-- POST -->
+          <section class="mob-screen nonav" id="scr-post">
+            <div class="mob-scr-head scr-head">
+              <button class="mob-ibtn ibtn" data-back><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg></button>
+              <div class="ed-title"><b>Post Package</b><span>Human &amp; restrained captions</span></div>
+            </div>
+            <div class="mob-scr-body scr-body">
+              <div class="mob-pst-card pst-card">
+                <div class="mob-pst-head pst-head"><h5>Caption</h5>
+                  <div class="mob-seg seg" id="mobCapSeg"><button class="on" data-cap="minimal">Minimal</button><button data-cap="cinematic">Cinematic</button><button data-cap="documentary">Docu</button></div>
+                </div>
+                <p id="mobCaptionText">Shifting spectra in the dark.</p>
+                <div style="height:12px"></div>
+                <button class="mob-copybtn copybtn" data-copy="caption"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="9" y="9" width="12" height="12" rx="2.5"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>Copy caption</button>
+              </div>
+              <div class="mob-pst-card pst-card">
+                <div class="mob-pst-head pst-head"><h5>Intelligent hashtags</h5><button class="mob-copybtn copybtn" data-copy="tags">Copy</button></div>
+                <div class="mob-htags htags" id="mobHtagWrap"><span class="mob-htag htag">#ShotOnOPPO</span><span class="mob-htag htag">#MobilePhotography</span><span class="mob-htag htag">#AbstractPhoto</span><span class="mob-htag htag">#PrismaticGradient</span><span class="mob-htag htag">#Day18</span></div>
+              </div>
+              <div class="mob-pst-card pst-card">
+                <div class="mob-pst-head pst-head"><h5>Instagram story note</h5><button class="mob-copybtn copybtn" data-copy="story">Copy</button></div>
+                <p>DAY 18/47 — Shot on OPPO Find X9</p>
+              </div>
+              <div class="mob-pst-card pst-card">
+                <div class="mob-pst-head pst-head"><h5>Accessibility alt text</h5><button class="mob-copybtn copybtn" data-copy="alt">Copy</button></div>
+                <p>An abstract close-up photograph featuring a diagonal gradient of warm orange, white, and deep blue light.</p>
+              </div>
+              <button class="mob-dark-pill dark-pill wide" id="mobCopyAll"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="9" y="9" width="12" height="12" rx="2.5"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>Copy entire package</button>
+            </div>
+          </section>
+
+          <!-- EXPORT -->
+          <section class="mob-screen nonav" id="scr-export">
+            <div class="mob-scr-head scr-head">
+              <button class="mob-ibtn ibtn" data-back><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg></button>
+              <div class="ed-title"><b>Export</b><span id="mobExpSub">Framed video • MP4 • 30 FPS</span></div>
+            </div>
+            <div class="mob-scr-body scr-body">
+              <div class="mob-exp-prev exp-prev photo-bg p1" id="mobExpPrev"><span class="fr" id="mobExpPrevTag">4:5 • WARM FILM</span></div>
+              <div class="mob-opt-label opt-label">Format</div>
+              <div class="mob-seg seg wide" id="mobFmtSeg"><button class="on" data-fmt="mp4">Framed video (MP4)</button><button data-fmt="jpeg">Still photo (JPEG)</button></div>
+              <div id="mobMp4Opts">
+                <div class="mob-opt-label opt-label">Export duration (max 45s) <b id="mobDurVal">45.0s</b></div>
+                <div class="mob-zoom-row zoom-row" style="padding:0 4px"><input type="range" id="mobDurRange" min="5" max="45" value="45" style="accent-color:var(--mob-ink)"></div>
+                <div class="mob-opt-label opt-label">Frame rate</div>
+                <div class="mob-chips chips nowrap" id="mobFpsChips"><button class="mob-chip chip" data-fps="24">24 FPS</button><button class="mob-chip chip on" data-fps="30">30 FPS smooth</button><button class="mob-chip chip" data-fps="60">60 FPS</button></div>
+                <div class="mob-row row"><div class="grow"><b>Include original audio</b><span>Video only</span></div><label class="mob-switch switch"><input type="checkbox" id="mobSwAudio" checked><i></i></label></div>
+              </div>
+              <div class="mob-opt-label opt-label">Canvas size</div>
+              <div class="mob-chips chips nowrap" id="mobSizeChips"><button class="mob-chip chip on" data-size="4:5">4:5 • 1080×1350</button><button class="mob-chip chip" data-size="1:1">1:1 • 1080²</button><button class="mob-chip chip" data-size="9:16">9:16 • 1080×1920</button></div>
+              <div class="mob-row row"><div class="grow"><b>Hasselblad metadata</b><span>Watermark border text</span></div><label class="mob-switch switch"><input type="checkbox" id="mobSwWater" checked><i></i></label></div>
+              <div style="height:14px"></div>
+              <button class="mob-dark-pill dark-pill wide" id="mobStartExport"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="M7.5 7.5L12 3l4.5 4.5"/><path d="M5 13v6a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-6"/></svg>Start export</button>
+            </div>
+            <div class="mob-exp-veil exp-veil" id="mobExpVeil">
+              <div class="mob-exp-box exp-box" id="mobExpBoxProg">
+                <div class="mob-exp-pct exp-pct" id="mobExpPct">0%</div>
+                <h4 id="mobExpTitle">Rendering frames…</h4>
+                <span id="mobExpMsg">1080 × 1350 • 30 FPS • H.264</span>
+                <div class="mob-exp-track exp-track"><div class="mob-exp-fill exp-fill" id="mobExpFill"></div></div>
+              </div>
+              <div class="mob-exp-box exp-box" id="mobExpBoxDone" style="display:none">
+                <div class="mob-exp-done-ic exp-done-ic"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg></div>
+                <h4>Saved to Gallery</h4>
+                <span id="mobExpDoneName">Prismatik_4x5.mp4 • 45s • 30 FPS</span>
+                <div style="height:18px"></div>
+                <button class="mob-dark-pill dark-pill wide" id="mobExpDone">Done</button>
+              </div>
+            </div>
+          </section>
+
+          <!-- LUT -->
+          <section class="mob-screen nonav" id="scr-lut">
+            <div class="mob-scr-head scr-head">
+              <button class="mob-ibtn ibtn" data-back><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg></button>
+              <div class="ed-title"><b>3D LUT Color Lab</b><span>GPU-interpolated grades</span></div>
+            </div>
+            <div class="mob-scr-body scr-body">
+              <div class="mob-lut-prev lut-prev photo-bg p1" id="mobLutPrev">
+                <span class="lname" id="mobLutName">Warm Film</span>
+                <button class="hold" id="mobLutHold"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6-10-6-10-6z"/><circle cx="12" cy="12" r="2.6"/></svg>Hold to compare</button>
+              </div>
+              <div class="mob-opt-label opt-label" style="margin-top:0">Intensity <b id="mobLutIntVal">80%</b></div>
+              <div class="mob-zoom-row zoom-row" style="padding:0 4px 14px"><input type="range" id="mobLutInt" min="0" max="100" value="80" style="accent-color:var(--mob-ink)"></div>
+              <div class="mob-lut-grid lut-grid" id="mobLutGrid"></div>
+              <button class="mob-import-card import-card" data-toast=".cube import queued — demo ships built-in presets" style="width:100%"><b>Drop .cube files here</b><span>Adobe / DaVinci Resolve 3D LUT format (16³ – 64³)</span></button>
+              <p class="mob-hint hint">Grades apply live to the editor canvas</p>
+            </div>
+          </section>
+
+          <!-- SETTINGS -->
+          <section class="mob-screen" id="scr-settings">
+            <div class="mob-scr-head scr-head"><h2 class="mob-scr-title scr-title" style="flex:1">Settings</h2></div>
+            <div class="mob-scr-body scr-body" style="padding-top:0">
+              <button class="mob-prof-card prof-card" data-toast="Profile editor coming soon">
+                <div class="avatar" style="width:44px;height:44px;border-radius:50%;background:var(--mob-pnk);color:#4b1f36;display:grid;place-items:center;font-weight:700">AL</div>
+                <div class="grow" style="flex:1;text-align:left;padding-left:12px"><b style="font-size:15px;display:block">Alex Rivera</b><span style="font-size:12px;color:var(--mob-ink2)">Pro member • renews Dec 2</span></div>
+                <svg class="mob-chev chev" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg>
+              </button>
+
+              <div class="mob-card card" style="text-align:center">
+                <h6 style="text-align:left">Appearance • theme</h6>
+                <fieldset class="mob-switcher switcher" id="mobThemeSwitcher">
+                  <legend class="sr-only">Choose theme</legend>
+                  <label class="mob-switcher__option switcher__option">
+                    <input class="mob-switcher__input switcher__input" type="radio" name="theme" value="light" c-option="1" checked>
+                    <svg class="mob-switcher__icon switcher__icon" viewBox="0 0 36 36" fill="none">
+                      <path fill="var(--c)" fill-rule="evenodd" d="M18 12a6 6 0 1 1 0 12 6 6 0 0 1 0-12Zm0 2a4 4 0 1 0 0 8 4 4 0 0 0 0-8Z" clip-rule="evenodd"/>
+                      <path fill="var(--c)" d="M17 6.038a1 1 0 1 1 2 0v3a1 1 0 0 1-2 0v-3ZM24.244 7.742a1 1 0 1 1 1.618 1.176L24.1 11.345a1 1 0 1 1-1.618-1.176l1.763-2.427ZM29.104 13.379a1 1 0 0 1 .618 1.902l-2.854.927a1 1 0 1 1-.618-1.902l2.854-.927ZM29.722 20.795a1 1 0 0 1-.619 1.902l-2.853-.927a1 1 0 1 1 .618-1.902l2.854.927ZM25.862 27.159a1 1 0 0 1-1.618 1.175l-1.763-2.427a1 1 0 1 1 1.618-1.175l1.763 2.427ZM19 30.038a1 1 0 0 1-2 0v-3a1 1 0 1 1 2 0v3ZM11.755 28.334a1 1 0 0 1-1.618-1.175l1.764-2.427a1 1 0 1 1 1.618 1.175l-1.764 2.427ZM6.896 22.697a1 1 0 1 1-.618-1.902l2.853-.927a1 1 0 1 1 .618 1.902l-2.853.927ZM6.278 15.28a1 1 0 1 1 .618-1.901l2.853.927a1 1 0 1 1-.618 1.902l-2.853-.927ZM10.137 8.918a1 1 0 0 1 1.618-1.176l1.764 2.427a1 1 0 1 1-1.618 1.176l-1.764-2.427Z"/>
+                    </svg>
+                  </label>
+                  <label class="mob-switcher__option switcher__option">
+                    <input class="mob-switcher__input switcher__input" type="radio" name="theme" value="dark" c-option="2">
+                    <svg class="mob-switcher__icon switcher__icon" viewBox="0 0 36 36" fill="none">
+                      <path fill="var(--c)" d="M12.5 8.473a10.968 10.968 0 0 1 8.785-.97 7.435 7.435 0 0 0-3.737 4.672l-.09.373A7.454 7.454 0 0 0 28.732 20.4a10.97 10.97 0 0 1-5.232 7.125l-.497.27c-5.014 2.566-11.175.916-14.234-3.813l-.295-.483C5.53 18.403 7.13 11.93 12.017 8.77l.483-.297Zm4.234.616a8.946 8.946 0 0 0-2.805.883l-.429.234A9 9 0 0 0 10.206 22.5l.241.395A9 9 0 0 0 22.5 25.794l.416-.255a8.94 8.94 0 0 0 2.167-1.99 9.433 9.433 0 0 1-2.782-.313c-5.043-1.352-8.036-6.535-6.686-11.578l.147-.491c.242-.745.573-1.44.972-2.078Z"/>
+                    </svg>
+                  </label>
+                </fieldset>
+                <p class="mob-tiny-note tiny-note" style="padding-top:12px">Liquid glass refraction adapts to each theme</p>
+              </div>
+
+              <!-- PWA Install row -->
+              <div class="mob-card card" id="mobPwaInstallRow">
+                <h6>Home screen App (PWA)</h6>
+                <div class="mob-row row">
+                  <div class="grow"><b>Install App</b><span>Add to Android Home Screen</span></div>
+                  <button class="mob-dark-pill" id="mobBtnInstallPwa" style="padding:8px 16px;font-size:12px">Install 📲</button>
+                </div>
+              </div>
+
+              <div class="mob-card card">
+                <h6>Editor defaults</h6>
+                <div class="mob-row row"><div class="grow"><b>Alignment guides</b><span>Show thirds grid on open</span></div><label class="mob-switch switch"><input type="checkbox" id="mobSwGuides" checked><i></i></label></div>
+                <div class="mob-row row"><div class="grow"><b>Haptic feedback</b><span>Tick while nudging</span></div><label class="mob-switch switch"><input type="checkbox" checked><i></i></label></div>
+                <div class="mob-row row"><div class="grow"><b>Auto-analyze on import</b><span>Run Gemini Vision audit</span></div><label class="mob-switch switch"><input type="checkbox"><i></i></label></div>
+              </div>
+              <div class="mob-card card">
+                <h6>Storage</h6>
+                <div class="mob-storage-track storage-track"><div class="mob-storage-fill storage-fill"></div></div>
+                <span style="font-size:11.5px;color:var(--mob-ink2);font-weight:500">4.8 GB of 15 GB used • 214 frames</span>
+              </div>
+              <div class="mob-card card">
+                <h6>About</h6>
+                <div class="mob-row row"><div class="grow"><b>Version</b><span>2.1.0 • Android PWA Build</span></div><span class="mob-chev chev">›</span></div>
+                <div class="mob-row row" data-toast="Keyboard shortcuts are desktop-only"><div class="grow"><b>Keyboard shortcuts</b><span>Nudge, zoom, reset, guides</span></div><span class="mob-chev chev">›</span></div>
+                <div class="mob-row row" data-toast="Privacy policy opened (demo)"><div class="grow"><b>Privacy</b><span>On-device analysis first</span></div><span class="mob-chev chev">›</span></div>
+              </div>
+              <button class="mob-coral-pill coral-pill" data-toast="Signed out (demo)">Sign out</button>
+              <p class="mob-tiny-note tiny-note">Made with ♥ for Android • Pocket Frames 2026</p>
+            </div>
+          </section>
+        </div><!-- /mob-screens -->
+
+        <div class="mob-sheet-veil sheet-veil" id="mobSheetVeil"></div>
+        <div class="mob-sheet sheet" id="mobSheet">
+          <div class="mob-sheet-handle sheet-handle"></div>
+          <h4>New frame</h4>
+          <span class="head-sub">Pick a photo to start framing</span>
+          <div class="mob-grid3 grid3" id="mobSheetGrid"></div>
+          <div class="mob-sheet-row sheet-row">
+            <button class="mob-tool tool" id="mobBtnCamera"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h3l2-2.5h6L17 8h3a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1z"/><circle cx="12" cy="13" r="3.4"/></svg>Camera</button>
+            <button class="mob-tool tool" id="mobBtnImport"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="M7.5 7.5L12 3l4.5 4.5"/><path d="M5 13v6a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-6"/></svg>Import</button>
+          </div>
+        </div>
+
+        <!-- FLOATING LIQUID-GLASS NAVBAR -->
+        <nav class="mob-glassnav glassnav" id="mobGlassnav">
+          <span class="mob-nav-pill nav-pill" id="mobNavPill"></span>
+          <button class="mob-nbtn nbtn" data-nav-to="scr-home" title="Home"><svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10.5L12 3l9 7.5"/><path d="M5.5 9.5V20a1 1 0 0 0 1 1H10v-6h4v6h3.5a1 1 0 0 0 1-1V9.5"/></svg></button>
+          <button class="mob-nbtn nbtn" data-nav-to="scr-library" title="Library"><svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="3.5" width="7" height="7" rx="2"/><rect x="13.5" y="3.5" width="7" height="7" rx="2"/><rect x="3.5" y="13.5" width="7" height="7" rx="2"/><rect x="13.5" y="13.5" width="7" height="7" rx="2"/></svg></button>
+          <button class="mob-nbtn nbtn mob-fab fab" id="mobFab" title="New frame"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></button>
+          <button class="mob-nbtn nbtn" data-nav-to="scr-ai" title="AI Insights"><svg width="21" height="21" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2.8l1.9 4.9 4.9 1.9-4.9 1.9L12 16.4l-1.9-4.9-4.9-1.9 4.9-1.9z"/><circle cx="19" cy="18" r="1.6"/><circle cx="5.5" cy="19" r="1.2"/></svg></button>
+          <button class="mob-nbtn nbtn" data-nav-to="scr-settings" title="Settings"><svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3.2"/><path d="M19.4 15a1.7 1.7 0 0 0 .34 1.87l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.7 1.7 0 0 0-1.87-.34 1.7 1.7 0 0 0-1 1.55V21a2 2 0 1 1-4 0v-.09a1.7 1.7 0 0 0-1-1.55 1.7 1.7 0 0 0-1.87.34l-.06.06a2 2 0 1 1-2.83-2.83l.06.06a1.7 1.7 0 0 0 1.87.34h0a1.7 1.7 0 0 0 1-1.55V3a2 2 0 1 1 4 0v.09a1.7 1.7 0 0 0 1 1.55h0a1.7 1.7 0 0 0 1.87-.34l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.7 1.7 0 0 0-.34 1.87v0a1.7 1.7 0 0 0 1.55 1H21a2 2 0 1 1 0 4h-.09a1.7 1.7 0 0 0-1.55 1z"/></svg></button>
+        </nav>
+        <div class="mob-gesture gesture"></div>
+        <div class="mob-toast toast" id="mobToast">Copied</div>
+      </div>
+    </div>
+
+    <p class="mob-stage-cap"><b>Pocket Frames</b> — Android concept • liquid-glass navbar &amp; theme switcher • PWA Home Screen ready</p>
   </div>
 
   <!-- App Bootstrap JS -->

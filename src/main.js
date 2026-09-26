@@ -25,6 +25,7 @@ import { SidebarLutControl } from './lut/sidebarLutControl.js';
 import { VideoDock } from './video/videoDock.js';
 import { videoManager } from './video/videoManager.js';
 import { videoExportModal } from './video/videoExportModal.js';
+import { initMobileApp } from './mobile/mobileApp.js';
 
 // DOM Elements with Dual-Selector Support
 const previewCanvas = document.getElementById('previewCanvas');
@@ -819,6 +820,32 @@ async function tryRestoreSession() {
   } catch (err) {
     console.warn('Could not restore previous project session:', err);
   }
+
+  // Initialize Android Mobile PWA & Liquid Glass Experience
+  initMobileApp();
+
+  // Desktop Toggle for Mobile Phone View
+  const btnToggleMobilePreview = document.getElementById('btnToggleMobilePreview');
+  const mobileContainer = document.getElementById('mobileAppContainer');
+  const btnClosePreview = document.getElementById('mobBtnClosePreview');
+
+  const togglePreview = (forceState) => {
+    if (!mobileContainer) return;
+    const shouldShow = forceState !== undefined ? forceState : !mobileContainer.classList.contains('force-mobile-preview');
+    mobileContainer.classList.toggle('force-mobile-preview', shouldShow);
+    btnToggleMobilePreview?.classList.toggle('is-active', shouldShow);
+    if (shouldShow) {
+      showToast('📱 Android Phone Preview Mode Activated');
+    }
+  };
+
+  btnToggleMobilePreview?.addEventListener('click', () => togglePreview());
+  btnClosePreview?.addEventListener('click', () => togglePreview(false));
+  window.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && mobileContainer?.classList.contains('force-mobile-preview')) {
+      togglePreview(false);
+    }
+  });
 }
 
 // Boot application
