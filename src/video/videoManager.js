@@ -249,7 +249,55 @@ class VideoPlaybackManager {
   }
 
   /**
+   * Stop active recording and save output immediately
+   */
+  stopRecording() {
+    if (this._stopRecordingFn) {
+      this._stopRecordingFn();
+    }
+  }
+
+  /**
+   * Cancel active recording without saving
+   */
+  cancelRecording() {
+    this._abortRecording = true;
+    if (this._cancelRecordingFn) {
+      this._cancelRecordingFn();
+    }
+  }
+
+  /**
+   * Render single master export frame with 3D LUT grading onto export canvas
+   */
+  renderFrameForExport(exportCanvas, state, width, height) {
+    const video = this.getVideo();
+    if (!video) return;
+
+    const activeLut = lutManager.activeLut;
+    if (state.image && activeLut && !lutManager.isBypassed && lutManager.intensity > 0) {
+      const renderedCanvas = applyLut(
+        video,
+        activeLut,
+        lutManager.intensity,
+        state.image.lutElement || null
+      );
+      state.image.lutElement = renderedCanvas;
+      state.image.element = renderedCanvas;
+    } else if (state.image) {
+      state.image.element = video;
+    }
+
+    renderFrame(exportCanvas, state, {
+      isExport: true,
+      targetWidth: width,
+      targetHeight: height
+    });
+  }
+
+  /**
    * Export framed video with 3D LUT grading, Polaroid borders, and Hasselblad metadata
+   * Strict max 45.0s limit, real-time audio sync, and live progress reporting
    */
   async exportFramedVideo(state, options = {}, onProgress = null) {
     const video = this.getVideo();
@@ -257,10 +305,14 @@ class VideoPlaybackManager {
       throw new Error('No video loaded to export.');
     }
 
+    const MAX_ALLOWED_SECONDS = 45.0; // Hard max limit requested by user
     const {
       width = 1080,
       height = 1350,
-      fps = 30
+      fps = 30,
+      startTime = 0,
+      duration = 45.0,
+      includeAudio = true
     } = options;
 
     const exportCanvas = document.createElement('canvas');
@@ -273,34 +325,49 @@ class VideoPlaybackManager {
 
     const stream = exportCanvas.captureStream ? exportCanvas.captureStream(fps) : exportCanvas.mozCaptureStream(fps);
 
-    // Capture audio track if present
-    try {
-      if (video.captureStream) {
-        const audioTracks = video.captureStream().getAudioTracks();
-        if (audioTracks.length > 0) stream.addTrack(audioTracks[0]);
-      } else if (video.mozCaptureStream) {
-        const audioTracks = video.mozCaptureStream().getAudioTracks();
-        if (audioTracks.length > 0) stream.addTrack(audioTracks[0]);
+    // Audio capture if requested and present
+    let audioTrackAdded = false;
+    if (includeAudio) {
+      try {
+        let vStream = null;
+        if (typeof video.captureStream === 'function') {
+          vStream = video.captureStream();
+        } else if (typeof video.mozCaptureStream === 'function') {
+          vStream = video.mozCaptureStream();
+        }
+        if (vStream) {
+          const audioTracks = vStream.getAudioTracks();
+          if (audioTracks && audioTracks.length > 0) {
+            stream.addTrack(audioTracks[0]);
+            audioTrackAdded = true;
+          }
+        }
+      } catch (e) {
+        console.warn('[VideoManager] Audio capture notice:', e);
       }
-    } catch (e) {
-      console.warn('[VideoManager] Audio capture notice:', e);
     }
 
-    let mimeType = 'video/webm;codecs=vp9';
-    if (MediaRecorder.isTypeSupported('video/mp4;codecs=avc1')) {
-      mimeType = 'video/mp4;codecs=avc1';
-    } else if (MediaRecorder.isTypeSupported('video/mp4')) {
-      mimeType = 'video/mp4';
-    } else if (MediaRecorder.isTypeSupported('video/webm;codecs=vp9')) {
-      mimeType = 'video/webm;codecs=vp9';
-    } else if (MediaRecorder.isTypeSupported('video/webm')) {
-      mimeType = 'video/webm';
+    // Determine highest-fidelity supported mime type
+    const candidateMimes = [
+      'video/mp4;codecs=avc1.42E01E,mp4a.40.2',
+      'video/mp4;codecs=avc1',
+      'video/mp4',
+      'video/webm;codecs=vp9,opus',
+      'video/webm;codecs=vp8,opus',
+      'video/webm'
+    ];
+    let mimeType = 'video/webm';
+    for (const mime of candidateMimes) {
+      if (typeof MediaRecorder !== 'undefined' && MediaRecorder.isTypeSupported(mime)) {
+        mimeType = mime;
+        break;
+      }
     }
 
     const chunks = [];
     const recorder = new MediaRecorder(stream, {
       mimeType,
-      videoBitsPerSecond: 8000000
+      videoBitsPerSecond: 9000000 // 9 Mbps high bitrate for crisp video & metadata text
     });
 
     recorder.ondataavailable = (e) => {
@@ -309,83 +376,128 @@ class VideoPlaybackManager {
       }
     };
 
+    // Calculate strict duration boundaries
+    const totalVideoDur = Number.isFinite(video.duration) && video.duration > 0 ? video.duration : MAX_ALLOWED_SECONDS;
+    const startSec = Math.max(0, Math.min(totalVideoDur - 0.5, Number(startTime) || 0));
+    const availableDur = Math.max(0.5, totalVideoDur - startSec);
+    const targetDuration = Math.min(MAX_ALLOWED_SECONDS, Math.max(0.5, Number(duration) || availableDur), availableDur);
+
+    // Save initial state to restore after export
     const wasPlaying = !video.paused;
-    video.pause();
-    this.isRecording = true;
-
     const originalTime = video.currentTime;
-    const duration = video.duration || 10;
-    const totalFrames = Math.max(1, Math.round(duration * fps));
-    const frameInterval = 1 / fps;
+    const originalMuted = video.muted;
+    const originalLoop = video.loop;
 
-    recorder.start();
+    this.isRecording = true;
+    this._abortRecording = false;
 
-    try {
-      const videoTrack = stream.getVideoTracks ? stream.getVideoTracks()[0] : null;
+    // Seek to start position
+    video.pause();
+    video.loop = false;
+    video.currentTime = startSec;
 
-      for (let frameIndex = 0; frameIndex < totalFrames; frameIndex++) {
-        const targetTime = frameIndex * frameInterval;
-        video.currentTime = targetTime;
+    await new Promise(resolve => {
+      const onSeeked = () => {
+        video.removeEventListener('seeked', onSeeked);
+        resolve();
+      };
+      video.addEventListener('seeked', onSeeked, { once: true });
+      setTimeout(onSeeked, 300);
+    });
 
-        await new Promise(resolve => {
-          const onSeeked = () => {
-            video.removeEventListener('seeked', onSeeked);
-            resolve();
-          };
-          video.addEventListener('seeked', onSeeked, { once: true });
-          setTimeout(onSeeked, 150);
-        });
+    // Initial frame render
+    this.renderFrameForExport(exportCanvas, state, width, height);
 
-        // Grade frame with active LUT
-        const activeLut = lutManager.activeLut;
-        if (state.image && activeLut && !lutManager.isBypassed && lutManager.intensity > 0) {
-          const renderedCanvas = applyLut(
-            video,
-            activeLut,
-            lutManager.intensity,
-            state.image.lutElement || null
-          );
-          state.image.lutElement = renderedCanvas;
-          state.image.element = renderedCanvas;
-        } else if (state.image) {
-          state.image.element = video;
-        }
-
-        renderFrame(exportCanvas, state, {
-          isExport: true,
-          targetWidth: width,
-          targetHeight: height
-        });
-
-        if (videoTrack && typeof videoTrack.requestFrame === 'function') {
-          videoTrack.requestFrame();
-        }
-
-        if (onProgress) {
-          const pct = Math.round(((frameIndex + 1) / totalFrames) * 100);
-          onProgress(`Rendering video frame ${frameIndex + 1}/${totalFrames} (${pct}%)...`);
-        }
-      }
-    } finally {
-      this.isRecording = false;
+    // Unmute during export so captureStream audio track streams sound
+    if (audioTrackAdded) {
+      video.muted = false;
     }
 
-    return new Promise((resolve, reject) => {
-      recorder.onstop = () => {
-        const ext = mimeType.includes('mp4') ? 'mp4' : 'webm';
-        const blob = new Blob(chunks, { type: mimeType });
-        const deviceName = state.metadata?.device?.replace(/[^\w\s-]/g, '').trim().replace(/\s+/g, '_') || 'Hasselblad';
-        const filename = `PocketFrames_${deviceName}_FramedVideo.${ext}`;
+    recorder.start(100);
 
-        video.currentTime = originalTime;
-        if (wasPlaying) video.play().catch(() => {});
+    try {
+      await video.play().catch(err => {
+        console.warn('[VideoManager] Play prevented during export:', err);
+      });
 
-        resolve({ blob, filename });
-      };
+      await new Promise((resolve) => {
+        let animId = null;
+        let isStopped = false;
+        const startWallTime = performance.now();
 
-      recorder.onerror = (err) => reject(err);
-      recorder.stop();
-    });
+        const finishRecording = (cancelled = false) => {
+          if (isStopped) return;
+          isStopped = true;
+          if (animId) cancelAnimationFrame(animId);
+
+          if (recorder.state !== 'inactive') {
+            recorder.onstop = () => resolve({ cancelled });
+            recorder.stop();
+          } else {
+            resolve({ cancelled });
+          }
+        };
+
+        this._stopRecordingFn = () => finishRecording(false);
+        this._cancelRecordingFn = () => finishRecording(true);
+
+        const onFrame = () => {
+          if (this._abortRecording) {
+            finishRecording(true);
+            return;
+          }
+
+          // Measure elapsed time from video clock and wall clock for resilience
+          const elapsedVideo = Math.max(0, video.currentTime - startSec);
+          const elapsedWall = (performance.now() - startWallTime) / 1000;
+          const elapsed = Math.max(elapsedVideo, elapsedWall);
+          const progressPct = Math.min(100, Math.round((elapsed / targetDuration) * 100));
+
+          // Render live frame onto export canvas
+          this.renderFrameForExport(exportCanvas, state, width, height);
+
+          if (onProgress) {
+            onProgress({
+              currentSec: Math.min(elapsed, targetDuration),
+              totalSec: targetDuration,
+              percent: progressPct
+            });
+          }
+
+          // Strict termination: when duration reached or video ended or 45s reached
+          if (elapsed >= targetDuration || video.currentTime >= (startSec + targetDuration) || video.ended) {
+            finishRecording(false);
+            return;
+          }
+
+          animId = requestAnimationFrame(onFrame);
+        };
+
+        animId = requestAnimationFrame(onFrame);
+      });
+    } finally {
+      this.isRecording = false;
+      this._stopRecordingFn = null;
+      this._cancelRecordingFn = null;
+
+      // Restore video playback state
+      video.pause();
+      video.currentTime = originalTime;
+      video.muted = originalMuted;
+      video.loop = originalLoop;
+      if (wasPlaying) video.play().catch(() => {});
+    }
+
+    if (this._abortRecording) {
+      throw new Error('Export cancelled by user.');
+    }
+
+    const ext = mimeType.includes('mp4') ? 'mp4' : 'webm';
+    const blob = new Blob(chunks, { type: mimeType });
+    const deviceName = (state.metadata?.device || 'Hasselblad').replace(/[^\w\s-]/g, '').trim().replace(/\s+/g, '_') || 'Hasselblad';
+    const filename = `PocketFrames_${deviceName}_FramedVideo.${ext}`;
+
+    return { blob, filename, ext, duration: targetDuration };
   }
 }
 

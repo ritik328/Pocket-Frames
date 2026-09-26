@@ -6,6 +6,7 @@ import { store } from '../state.js';
 import { videoManager } from './videoManager.js';
 import { showToast } from '../main.js';
 import { downloadFrame } from '../export/exportEngine.js';
+import { videoExportModal } from './videoExportModal.js';
 
 function formatTime(seconds) {
   if (!Number.isFinite(seconds) || seconds < 0) return '00:00';
@@ -197,44 +198,14 @@ export class VideoDock {
 
     // Export Framed Video
     if (btnExport) {
-      btnExport.addEventListener('click', async () => {
+      btnExport.addEventListener('click', () => {
         const state = store.getState();
         const isVideo = state.image && (state.image.type === 'video' || state.image.isVideo || state.image.videoElement);
         if (!isVideo) {
           showToast('Load a video to export.');
           return;
         }
-
-        const btnText = document.getElementById('exportVideoBtnText');
-        try {
-          btnExport.disabled = true;
-          if (btnText) btnText.textContent = 'Recording...';
-
-          const result = await videoManager.exportFramedVideo(state, {
-            width: 1080,
-            height: 1350,
-            fps: 30
-          }, (msg) => {
-            if (btnText) btnText.textContent = msg;
-          });
-
-          // Trigger download
-          const url = URL.createObjectURL(result.blob);
-          const a = document.createElement('a');
-          a.href = url;
-          a.download = result.filename;
-          document.body.appendChild(a);
-          a.click();
-          document.body.removeChild(a);
-          setTimeout(() => URL.revokeObjectURL(url), 2000);
-
-          showToast('Framed video exported successfully!');
-        } catch (err) {
-          showToast(`Export error: ${err.message}`);
-        } finally {
-          btnExport.disabled = false;
-          if (btnText) btnText.textContent = 'Export Video';
-        }
+        videoExportModal.open();
       });
     }
   }

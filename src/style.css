@@ -2690,5 +2690,367 @@ body[data-theme="light"] .ai-btn--full:hover {
   cursor: not-allowed;
 }
 
+/* ==========================================================================
+   Video Export Modal & Live Recording System (Strict 45s Max Duration)
+   ========================================================================== */
+.video-export-card {
+  width: 480px;
+  max-width: 94vw;
+  background: var(--app-bg);
+  border: 1px solid var(--border);
+  box-shadow: 0 24px 60px -12px var(--glass-shadow);
+  border-radius: var(--radius-md);
+  padding: 24px;
+  position: relative;
+  overflow: hidden;
+}
 
+.video-export-header-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
 
+.video-export-header-title h3 {
+  margin: 0;
+  font-size: 1.15rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.video-export-icon {
+  color: var(--accent);
+}
+
+.video-export-view.hidden {
+  display: none !important;
+}
+
+/* Limit & Info Callout Banner */
+.video-export-banner {
+  background: rgba(var(--accent-rgb, 235, 94, 40), 0.08);
+  border: 1px solid rgba(var(--accent-rgb, 235, 94, 40), 0.22);
+  border-radius: 8px;
+  padding: 12px 14px;
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin-top: 6px;
+  margin-bottom: 16px;
+}
+
+.video-export-badge {
+  background: var(--accent);
+  color: var(--accent-ink, #000);
+  font-weight: 700;
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding: 3px 8px;
+  border-radius: 5px;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.video-export-banner-text {
+  font-size: 0.8rem;
+  color: var(--text-dim);
+  line-height: 1.45;
+  margin: 0;
+}
+
+/* Video Config Form Fields */
+.video-export-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin-bottom: 20px;
+}
+
+.video-export-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--border-soft);
+}
+
+.video-export-field {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.video-export-field-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.video-export-label {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.video-export-val {
+  font-size: 0.85rem;
+  font-family: var(--font-mono);
+  color: var(--text);
+}
+
+.video-export-val--highlight {
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.video-range-slider {
+  width: 100%;
+  cursor: pointer;
+}
+
+.video-export-slider-hints {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.72rem;
+  color: var(--text-faint);
+  font-family: var(--font-mono);
+  padding: 0 2px;
+}
+
+.video-export-cap-hint {
+  color: var(--accent);
+  font-weight: 600;
+}
+
+/* Meta summary pill box */
+.video-export-meta-box {
+  background: var(--surface);
+  border: 1px solid var(--border-soft);
+  border-radius: 8px;
+  padding: 10px 14px;
+  display: grid;
+  grid-template-columns: 1.4fr 1fr 1fr;
+  gap: 10px;
+  margin-top: 4px;
+}
+
+.video-export-meta-item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.video-export-meta-label {
+  font-size: 0.68rem;
+  color: var(--text-faint);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.video-export-meta-val {
+  font-size: 0.78rem;
+  font-weight: 500;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.video-export-checkbox-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.82rem;
+  color: var(--text-dim);
+  cursor: pointer;
+  user-select: none;
+  padding: 4px 0;
+}
+
+.video-export-checkbox-row input[type="checkbox"] {
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+
+/* Action Buttons */
+.video-export-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.video-export-primary-btn {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 12px 18px;
+  font-weight: 600;
+  border-radius: 8px;
+}
+
+.video-export-secondary-btn {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 9px 14px;
+  font-size: 0.82rem;
+  color: var(--text-dim);
+}
+
+/* Live Recording View */
+.video-recording-status {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin: 16px 0 14px;
+}
+
+.video-recording-live-pill {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(229, 57, 53, 0.15);
+  border: 1px solid rgba(229, 57, 53, 0.45);
+  color: #E53935;
+  font-weight: 700;
+  font-size: 0.75rem;
+  padding: 4px 10px;
+  border-radius: 20px;
+  letter-spacing: 0.05em;
+}
+
+.video-recording-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #E53935;
+  box-shadow: 0 0 8px #E53935;
+  animation: pulseRec 1.2s infinite ease-in-out;
+}
+
+@keyframes pulseRec {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.35;
+    transform: scale(0.85);
+  }
+}
+
+.video-recording-timer {
+  font-family: var(--font-mono);
+  font-size: 1.2rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  color: var(--text);
+}
+
+.video-recording-pct {
+  font-family: var(--font-mono);
+  font-size: 0.95rem;
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.video-recording-progress-track {
+  width: 100%;
+  height: 8px;
+  background: var(--surface);
+  border: 1px solid var(--border-soft);
+  border-radius: 6px;
+  overflow: hidden;
+  margin-bottom: 16px;
+}
+
+.video-recording-progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--accent), #ff7e47);
+  border-radius: 6px;
+  transition: width 0.12s linear;
+  box-shadow: 0 0 10px rgba(var(--accent-rgb, 235, 94, 40), 0.5);
+}
+
+.video-recording-note {
+  font-size: 0.8rem;
+  color: var(--text-dim);
+  line-height: 1.45;
+  text-align: center;
+  margin-bottom: 22px;
+}
+
+.video-recording-actions {
+  display: flex;
+  gap: 10px;
+}
+
+.video-stop-save-btn {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  background: #2E7D32 !important;
+  color: #fff !important;
+  border-color: #2E7D32 !important;
+}
+
+.video-stop-save-btn:hover {
+  background: #1B5E20 !important;
+  border-color: #1B5E20 !important;
+}
+
+.video-cancel-btn {
+  padding: 10px 16px;
+  color: var(--text-dim);
+}
+
+/* Completion View */
+.video-done-container {
+  text-align: center;
+  padding: 20px 10px 8px;
+}
+
+.video-done-check {
+  width: 54px;
+  height: 54px;
+  border-radius: 50%;
+  background: rgba(76, 175, 80, 0.15);
+  border: 2px solid #4CAF50;
+  color: #4CAF50;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 16px;
+}
+
+.video-done-container h4 {
+  margin: 0 0 6px;
+  font-size: 1.15rem;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.video-done-filename {
+  font-family: var(--font-mono);
+  font-size: 0.82rem;
+  color: var(--accent);
+  margin-bottom: 20px;
+  word-break: break-all;
+}
+
+/* Download button active video styling */
+.btn--video-export {
+  background: var(--accent) !important;
+  color: var(--accent-ink, #000) !important;
+  box-shadow: 0 4px 18px rgba(var(--accent-rgb, 235, 94, 40), 0.35);
+  font-weight: 600;
+}

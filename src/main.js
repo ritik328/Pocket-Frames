@@ -24,6 +24,7 @@ import { playSecretTapSound, playBackdoorUnlockSound } from './lut/audioFx.js';
 import { SidebarLutControl } from './lut/sidebarLutControl.js';
 import { VideoDock } from './video/videoDock.js';
 import { videoManager } from './video/videoManager.js';
+import { videoExportModal } from './video/videoExportModal.js';
 
 // DOM Elements with Dual-Selector Support
 const previewCanvas = document.getElementById('previewCanvas');
@@ -189,6 +190,24 @@ function onStateChange(state, changeType) {
   // Header resolution label
   const preset = EXPORT_PRESETS[state.export.resolution] || EXPORT_PRESETS['2160x2700'];
   if (headerResLabel) headerResLabel.textContent = `${preset.width} × ${preset.height}`;
+
+  // Download button text & mode sync (Framed Video vs Photo)
+  const isVideo = Boolean(state.image && (state.image.type === 'video' || state.image.isVideo || state.image.videoElement));
+  if (downloadBtnText) {
+    if (isVideo) {
+      downloadBtnText.textContent = 'Download Framed Video';
+      if (btnDownload) {
+        btnDownload.title = 'Export playing video inside frame (45s max limit)';
+        btnDownload.classList.add('btn--video-export');
+      }
+    } else {
+      downloadBtnText.textContent = 'Download frame';
+      if (btnDownload) {
+        btnDownload.title = 'Download master high-resolution photo';
+        btnDownload.classList.remove('btn--video-export');
+      }
+    }
+  }
 }
 
 let updatePreviewRaf = null;
@@ -269,9 +288,10 @@ function updateAlignmentUI(state) {
 function updatePreflightUI() {
   const state = store.getState();
   const preflight = getPreflightSummary(state);
+  const isVideo = Boolean(state.image && (state.image.type === 'video' || state.image.isVideo || state.image.videoElement));
 
-  if (pfResolution) pfResolution.textContent = preflight.resolutionLabel;
-  if (pfFormat) pfFormat.textContent = preflight.formatLabel;
+  if (pfResolution) pfResolution.textContent = isVideo ? '1080 × 1350' : preflight.resolutionLabel;
+  if (pfFormat) pfFormat.textContent = isVideo ? 'MP4 Video (Max 45s)' : preflight.formatLabel;
 }
 
 /**
@@ -588,13 +608,25 @@ function setupEventListeners() {
   // Size & Quality Select Buttons
   if (sizeSelectBtn) {
     sizeSelectBtn.addEventListener('click', () => {
-      showToast('Master resolution: 2160 × 2700 (Instagram Portrait 4:5)');
+      const state = store.getState();
+      const isVideo = Boolean(state.image && (state.image.type === 'video' || state.image.isVideo || state.image.videoElement));
+      if (isVideo) {
+        videoExportModal.open();
+      } else {
+        showToast('Master resolution: 2160 × 2700 (Instagram Portrait 4:5)');
+      }
     });
   }
 
   if (qualitySelectBtn) {
     qualitySelectBtn.addEventListener('click', () => {
-      showToast('Master format: JPEG (99% archival quality)');
+      const state = store.getState();
+      const isVideo = Boolean(state.image && (state.image.type === 'video' || state.image.isVideo || state.image.videoElement));
+      if (isVideo) {
+        videoExportModal.open();
+      } else {
+        showToast('Master format: JPEG (99% archival quality)');
+      }
     });
   }
 
@@ -607,6 +639,14 @@ function setupEventListeners() {
         return;
       }
 
+      const isVideo = Boolean(state.image && (state.image.type === 'video' || state.image.isVideo || state.image.videoElement));
+
+      // If video is loaded, export framed video playing with max 45s limit
+      if (isVideo) {
+        videoExportModal.open();
+        return;
+      }
+
       try {
         btnDownload.disabled = true;
         if (downloadBtnText) downloadBtnText.textContent = 'Rendering...';
@@ -616,9 +656,7 @@ function setupEventListeners() {
         });
 
         if (downloadBtnText) downloadBtnText.textContent = 'Downloaded!';
-        showToast(state.image.type === 'video'
-          ? 'Video frame captured & downloaded! Use Export Video in dock for video file.'
-          : 'Frame downloaded successfully.');
+        showToast('Frame downloaded successfully.');
         setTimeout(() => {
           if (downloadBtnText) downloadBtnText.textContent = 'Download frame';
           btnDownload.disabled = false;
