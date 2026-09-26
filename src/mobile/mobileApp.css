@@ -89,14 +89,14 @@
   --mob-page2: #e2dac9;
   --mob-cap: #8a8272;
 
-  /* Liquid Glass Refraction Tokens */
+  /* Liquid Glass Refraction Tokens (Vadik Matveev concept) */
   --c-light: #ffffff;
   --c-dark: #000000;
   --c-glass: #bbbbbc;
-  --grl: 1;
-  --grd: 1;
+  --grl: 1.15;          /* glass reflex light */
+  --grd: 0.6;           /* glass reflex dark  */
   --saturation: 150%;
-  --glass-mix: 13%;
+  --glass-mix: 34%;
 
   font-family: var(--mob-font);
   color: var(--mob-ink);
@@ -131,10 +131,10 @@
   --mob-page1: #101014;
   --mob-page2: #060608;
   --mob-cap: #6d6a60;
-  --grl: 0.35;
-  --grd: 2;
+  --grl: 0.55;
+  --grd: 1.5;
   --saturation: 165%;
-  --glass-mix: 10%;
+  --glass-mix: 38%;
 }
 
 #mobileAppContainer * {
@@ -1580,30 +1580,25 @@
   display: flex;
   align-items: center;
   justify-content: space-around;
-  background: rgba(255, 255, 255, 0.65);
-  -webkit-backdrop-filter: blur(24px) saturate(180%);
-  backdrop-filter: blur(24px) saturate(180%);
-  transform: translateZ(0);
-  will-change: transform;
-  border: 1px solid rgba(255, 255, 255, 0.55);
-  box-shadow: 
-    0 16px 36px rgba(0, 0, 0, 0.10),
-    0 4px 12px rgba(0, 0, 0, 0.05),
-    inset 0 1px 2px rgba(255, 255, 255, 0.9),
-    inset 0 -1px 2px rgba(0, 0, 0, 0.04);
-  transition: transform 0.45s cubic-bezier(0.3, 0.9, 0.3, 1), opacity 0.35s;
+  background-color: color-mix(in srgb, var(--c-glass) var(--glass-mix), transparent);
+  -webkit-backdrop-filter: blur(14px) saturate(var(--saturation));
+  backdrop-filter: blur(14px) saturate(var(--saturation));
+  backdrop-filter: blur(10px) url(#liquidGlass) saturate(var(--saturation));
+  box-shadow:
+    inset 0 0 0 1px color-mix(in srgb, var(--c-light) calc(var(--grl) * 10%), transparent),
+    inset 1.8px 3px 0px -2px color-mix(in srgb, var(--c-light) calc(var(--grl) * 90%), transparent),
+    inset -2px -2px 0px -2px color-mix(in srgb, var(--c-light) calc(var(--grl) * 80%), transparent),
+    inset -3px -8px 1px -6px color-mix(in srgb, var(--c-light) calc(var(--grl) * 60%), transparent),
+    inset -0.3px -1px 4px 0px color-mix(in srgb, var(--c-dark) calc(var(--grd) * 12%), transparent),
+    inset -1.5px 2.5px 0px -2px color-mix(in srgb, var(--c-dark) calc(var(--grd) * 20%), transparent),
+    inset 0px 3px 4px -2px color-mix(in srgb, var(--c-dark) calc(var(--grd) * 20%), transparent),
+    inset 2px -6.5px 1px -4px color-mix(in srgb, var(--c-dark) calc(var(--grd) * 10%), transparent),
+    0px 1px 5px 0px color-mix(in srgb, var(--c-dark) calc(var(--grd) * 10%), transparent),
+    0px 6px 16px 0px color-mix(in srgb, var(--c-dark) calc(var(--grd) * 8%), transparent),
+    0 18px 44px rgba(20, 14, 4, 0.24);
+  transition: transform 0.45s cubic-bezier(0.3, 0.9, 0.3, 1), opacity 0.35s,
+    background-color 0.4s cubic-bezier(1, 0, 0.4, 1), box-shadow 0.4s cubic-bezier(1, 0, 0.4, 1);
   pointer-events: auto !important;
-}
-
-#mobileAppContainer[data-theme="dark"] .mob-glassnav,
-:root[data-theme="dark"] #mobileAppContainer .mob-glassnav {
-  background: rgba(28, 28, 34, 0.75);
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  box-shadow: 
-    0 20px 48px rgba(0, 0, 0, 0.55),
-    0 6px 18px rgba(0, 0, 0, 0.35),
-    inset 0 1px 2px rgba(255, 255, 255, 0.2),
-    inset 0 -1px 2px rgba(0, 0, 0, 0.5);
 }
 
 .mob-phone[data-nav="off"] .mob-glassnav {
@@ -1620,27 +1615,26 @@
   height: 32px;
   border-radius: 999px;
   pointer-events: none;
-  background: rgba(25, 25, 25, 0.08);
-  border: 1px solid rgba(255, 255, 255, 0.4);
-  box-shadow: inset 0 1px 2px rgba(255, 255, 255, 0.6), 0 2px 6px rgba(0, 0, 0, 0.08);
-  transition: left 0.35s cubic-bezier(0.35, 1.25, 0.4, 1);
+  background-color: color-mix(in srgb, var(--c-glass) 34%, transparent);
+  box-shadow:
+    inset 0 0 0 1px color-mix(in srgb, var(--c-light) calc(var(--grl) * 10%), transparent),
+    inset 2px 1px 0px -1px color-mix(in srgb, var(--c-light) calc(var(--grl) * 90%), transparent),
+    inset -1.5px -1px 0px -1px color-mix(in srgb, var(--c-light) calc(var(--grl) * 80%), transparent),
+    inset -2px -6px 1px -5px color-mix(in srgb, var(--c-light) calc(var(--grl) * 60%), transparent),
+    inset -1px 2px 3px -1px color-mix(in srgb, var(--c-dark) calc(var(--grd) * 20%), transparent),
+    inset 0px -4px 1px -2px color-mix(in srgb, var(--c-dark) calc(var(--grd) * 10%), transparent),
+    0px 3px 6px 0px color-mix(in srgb, var(--c-dark) calc(var(--grd) * 8%), transparent);
+  transition: left 0.38s cubic-bezier(0.35, 1.3, 0.4, 1), background-color 0.4s, box-shadow 0.4s;
   transform: translateZ(0);
 }
 
-#mobileAppContainer[data-theme="dark"] .mob-nav-pill,
-:root[data-theme="dark"] #mobileAppContainer .mob-nav-pill {
-  background: rgba(255, 255, 255, 0.12);
-  border: 1px solid rgba(255, 255, 255, 0.15);
-  box-shadow: inset 0 1px 2px rgba(255, 255, 255, 0.25), 0 2px 6px rgba(0, 0, 0, 0.3);
-}
-
 .mob-nav-pill.squish {
-  animation: mobPillSquish 0.42s ease;
+  animation: mobPillSquish 0.45s ease;
 }
 @keyframes mobPillSquish {
-  0% { transform: translateZ(0) scale(1, 1); }
-  50% { transform: translateZ(0) scale(1.18, 1); }
-  100% { transform: translateZ(0) scale(1, 1); }
+  0% { transform: scale(1, 1); }
+  50% { transform: scale(1.22, 1); }
+  100% { transform: scale(1, 1); }
 }
 
 .mob-nbtn {
@@ -1650,25 +1644,39 @@
   height: 52px;
   display: grid;
   place-items: center;
-  color: var(--mob-ink2);
-  transition: color 0.2s, transform 0.15s;
+  color: #fff;
+  opacity: 0.82;
+  transition: opacity 0.25s, transform 0.15s;
   border-radius: 50%;
   pointer-events: auto !important;
   touch-action: manipulation;
   cursor: pointer;
 }
-.mob-nbtn:active { transform: scale(0.92); }
-.mob-nbtn.on { color: var(--mob-ink); }
+.mob-nbtn svg {
+  mix-blend-mode: difference;
+}
+.mob-nbtn:active {
+  transform: scale(0.9);
+}
+.mob-nbtn.on {
+  opacity: 1;
+}
 .mob-nbtn.fab {
   width: 56px;
   height: 56px;
   background: var(--mob-pnk);
   color: #40203a;
+  opacity: 1;
   transform: translateY(-16px);
   box-shadow: 0 12px 26px rgba(190, 90, 150, 0.4), inset 0 1.5px 0 rgba(255, 255, 255, 0.65), inset -1.5px -2px 0 rgba(0, 0, 0, 0.12);
   pointer-events: auto !important;
 }
-.mob-nbtn.fab:active { transform: translateY(-16px) scale(0.92); }
+.mob-nbtn.fab svg {
+  mix-blend-mode: normal;
+}
+.mob-nbtn.fab:active {
+  transform: translateY(-16px) scale(0.9);
+}
 
 .mob-gesture {
   position: absolute;
@@ -1696,20 +1704,25 @@
   max-width: 168px;
   height: 64px;
   padding: 8px 12px 10px;
-  border: 1px solid rgba(255, 255, 255, 0.35);
+  border: none;
   border-radius: 99em;
-  background: rgba(255, 255, 255, 0.45);
-  -webkit-backdrop-filter: blur(20px) saturate(180%);
-  backdrop-filter: blur(20px) saturate(180%);
-  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.08), inset 0 1px 1px rgba(255, 255, 255, 0.7);
-  transform: translateZ(0);
+  background-color: color-mix(in srgb, var(--c-glass) 12%, transparent);
+  -webkit-backdrop-filter: blur(10px) saturate(var(--saturation));
+  backdrop-filter: blur(10px) saturate(var(--saturation));
+  backdrop-filter: blur(8px) url(#liquidGlassSoft) saturate(var(--saturation));
+  box-shadow:
+    inset 0 0 0 1px color-mix(in srgb, var(--c-light) calc(var(--grl) * 10%), transparent),
+    inset 1.8px 3px 0px -2px color-mix(in srgb, var(--c-light) calc(var(--grl) * 90%), transparent),
+    inset -2px -2px 0px -2px color-mix(in srgb, var(--c-light) calc(var(--grl) * 80%), transparent),
+    inset -3px -8px 1px -6px color-mix(in srgb, var(--c-light) calc(var(--grl) * 60%), transparent),
+    inset -0.3px -1px 4px 0px color-mix(in srgb, var(--c-dark) calc(var(--grd) * 12%), transparent),
+    inset -1.5px 2.5px 0px -2px color-mix(in srgb, var(--c-dark) calc(var(--grd) * 20%), transparent),
+    inset 0px 3px 4px -2px color-mix(in srgb, var(--c-dark) calc(var(--grd) * 20%), transparent),
+    inset 2px -6.5px 1px -4px color-mix(in srgb, var(--c-dark) calc(var(--grd) * 10%), transparent),
+    0px 1px 5px 0px color-mix(in srgb, var(--c-dark) calc(var(--grd) * 10%), transparent),
+    0px 6px 16px 0px color-mix(in srgb, var(--c-dark) calc(var(--grd) * 8%), transparent);
+  transition: background-color 0.4s cubic-bezier(1, 0, 0.4, 1), box-shadow 0.4s cubic-bezier(1, 0, 0.4, 1);
 }
-#mobileAppContainer[data-theme="dark"] .mob-switcher {
-  background: rgba(30, 30, 36, 0.55);
-  border-color: rgba(255, 255, 255, 0.12);
-  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4), inset 0 1px 1px rgba(255, 255, 255, 0.15);
-}
-
 .mob-switcher::after {
   content: '';
   position: absolute;
@@ -1718,14 +1731,17 @@
   width: 84px;
   height: calc(100% - 10px);
   border-radius: 99em;
-  background: rgba(255, 255, 255, 0.65);
+  background-color: color-mix(in srgb, var(--c-glass) 36%, transparent);
   z-index: -1;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1), inset 0 1px 1px rgba(255, 255, 255, 0.9);
-  transition: translate 0.35s cubic-bezier(0.35, 1.25, 0.4, 1), background 0.3s;
-}
-#mobileAppContainer[data-theme="dark"] .mob-switcher::after {
-  background: rgba(255, 255, 255, 0.15);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35), inset 0 1px 1px rgba(255, 255, 255, 0.25);
+  box-shadow:
+    inset 0 0 0 1px color-mix(in srgb, var(--c-light) calc(var(--grl) * 10%), transparent),
+    inset 2px 1px 0px -1px color-mix(in srgb, var(--c-light) calc(var(--grl) * 90%), transparent),
+    inset -1.5px -1px 0px -1px color-mix(in srgb, var(--c-light) calc(var(--grl) * 80%), transparent),
+    inset -2px -6px 1px -5px color-mix(in srgb, var(--c-light) calc(var(--grl) * 60%), transparent),
+    inset -1px 2px 3px -1px color-mix(in srgb, var(--c-dark) calc(var(--grd) * 20%), transparent),
+    inset 0px -4px 1px -2px color-mix(in srgb, var(--c-dark) calc(var(--grd) * 10%), transparent),
+    0px 3px 6px 0px color-mix(in srgb, var(--c-dark) calc(var(--grd) * 8%), transparent);
+  transition: translate 0.4s cubic-bezier(1, 0, 0.4, 1), background-color 0.4s, box-shadow 0.4s;
 }
 
 .mob-switcher:has(input[c-option="1"]:checked)::after { translate: 0 0; animation: mobSqA 440ms ease; }
@@ -1760,24 +1776,23 @@
   opacity: 0;
   z-index: 999;
   border-radius: 999px;
-  padding: 11px 20px;
+  padding: 11px 18px;
   font-size: 12.5px;
   font-weight: 700;
   color: var(--mob-ink);
   white-space: nowrap;
   pointer-events: none;
-  background: rgba(255, 255, 255, 0.75);
-  -webkit-backdrop-filter: blur(20px) saturate(180%);
-  backdrop-filter: blur(20px) saturate(180%);
-  border: 1px solid rgba(255, 255, 255, 0.5);
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15), inset 0 1px 1px rgba(255, 255, 255, 0.85);
+  background-color: color-mix(in srgb, var(--c-glass) 30%, transparent);
+  -webkit-backdrop-filter: blur(12px) saturate(var(--saturation));
+  backdrop-filter: blur(12px) saturate(var(--saturation));
+  backdrop-filter: blur(8px) url(#liquidGlassSoft) saturate(var(--saturation));
+  box-shadow:
+    inset 0 0 0 1px color-mix(in srgb, var(--c-light) calc(var(--grl) * 10%), transparent),
+    inset 1.8px 2px 0px -1px color-mix(in srgb, var(--c-light) calc(var(--grl) * 85%), transparent),
+    inset -1.5px -1.5px 0px -1px color-mix(in srgb, var(--c-light) calc(var(--grl) * 70%), transparent),
+    inset -1px 2px 3px -1px color-mix(in srgb, var(--c-dark) calc(var(--grd) * 18%), transparent),
+    0px 4px 14px 0px color-mix(in srgb, var(--c-dark) calc(var(--grd) * 12%), transparent);
   transition: 0.35s cubic-bezier(0.3, 1.2, 0.4, 1);
-  transform: translateZ(0);
-}
-#mobileAppContainer[data-theme="dark"] .mob-toast {
-  background: rgba(30, 30, 36, 0.85);
-  border-color: rgba(255, 255, 255, 0.12);
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5), inset 0 1px 1px rgba(255, 255, 255, 0.2);
 }
 .mob-toast.on {
   transform: translate(-50%, 0);
@@ -1787,10 +1802,10 @@
 .mob-sheet-veil {
   position: absolute;
   inset: 0;
-  background: rgba(10, 8, 4, 0.45);
+  background: rgba(10, 8, 4, 0.4);
   opacity: 0;
   pointer-events: none;
-  transition: opacity 0.32s;
+  transition: 0.35s;
   z-index: 940;
 }
 .mob-sheet-veil.on {
@@ -1810,23 +1825,22 @@
   max-height: 70%;
   overflow-y: auto;
   scrollbar-width: none;
-  background: rgba(255, 255, 255, 0.88);
-  -webkit-backdrop-filter: blur(28px) saturate(180%);
-  backdrop-filter: blur(28px) saturate(180%);
-  border: 1px solid rgba(255, 255, 255, 0.6);
-  box-shadow: 0 -14px 45px rgba(0, 0, 0, 0.18), inset 0 1px 2px rgba(255, 255, 255, 0.9);
-  transition: transform 0.42s cubic-bezier(0.3, 0.95, 0.3, 1);
+  background-color: color-mix(in srgb, var(--mob-bg) 72%, transparent);
+  -webkit-backdrop-filter: blur(24px) saturate(var(--saturation));
+  backdrop-filter: blur(24px) saturate(var(--saturation));
+  backdrop-filter: blur(18px) url(#liquidGlassSoft) saturate(var(--saturation));
+  box-shadow:
+    inset 0 0 0 1px color-mix(in srgb, var(--c-light) calc(var(--grl) * 12%), transparent),
+    inset 2px 3px 0px -1px color-mix(in srgb, var(--c-light) calc(var(--grl) * 80%), transparent),
+    inset -2px -2px 0px -1px color-mix(in srgb, var(--c-light) calc(var(--grl) * 60%), transparent),
+    inset -1px -4px 6px -2px color-mix(in srgb, var(--c-dark) calc(var(--grd) * 14%), transparent),
+    0 -14px 50px rgba(0, 0, 0, 0.25);
+  transition: transform 0.45s cubic-bezier(0.3, 0.95, 0.3, 1), background-color 0.4s, box-shadow 0.4s;
   pointer-events: none;
   visibility: hidden;
-  transform: translateZ(0);
-}
-#mobileAppContainer[data-theme="dark"] .mob-sheet {
-  background: rgba(24, 24, 28, 0.92);
-  border-color: rgba(255, 255, 255, 0.12);
-  box-shadow: 0 -14px 45px rgba(0, 0, 0, 0.65), inset 0 1px 1px rgba(255, 255, 255, 0.2);
 }
 .mob-sheet.on {
-  transform: translateY(0);
+  transform: none;
   pointer-events: auto;
   visibility: visible;
 }

@@ -116,7 +116,7 @@ export class MobileAppCoordinator {
     const isNav = this.NAV_SCREENS.includes(id);
     this.phone.dataset.nav = isNav ? 'on' : 'off';
     if (isNav) {
-      document.querySelectorAll('#mobileAppContainer .mob-nbtn[data-nav-to]').forEach((b) => {
+      document.querySelectorAll('#mobileAppContainer .mob-nbtn[data-nav-to], #mobileAppContainer .nbtn[data-nav-to]').forEach((b) => {
         b.classList.toggle('on', b.dataset.navTo === id);
       });
       this.movePill(id);
@@ -124,13 +124,14 @@ export class MobileAppCoordinator {
   }
 
   movePill(id) {
-    const btn = document.querySelector(`#mobileAppContainer .mob-nbtn[data-nav-to="${id}"]`);
-    const pill = document.getElementById('mobNavPill');
+    const btn = document.querySelector(`#mobileAppContainer .mob-nbtn[data-nav-to="${id}"]`) || document.querySelector(`#mobileAppContainer .nbtn[data-nav-to="${id}"]`);
+    const pill = document.getElementById('mobNavPill') || document.getElementById('navPill');
     if (!btn || !pill) return;
     requestAnimationFrame(() => {
       pill.style.left = (btn.offsetLeft + btn.offsetWidth / 2 - 23) + 'px';
+      pill.classList.remove('squish');
+      void pill.offsetWidth;
       pill.classList.add('squish');
-      setTimeout(() => pill.classList.remove('squish'), 420);
     });
   }
 
@@ -141,13 +142,18 @@ export class MobileAppCoordinator {
     if (!to) return;
 
     // Reset any dangling classes across all screens
-    document.querySelectorAll('#mobileAppContainer .mob-screen').forEach((s) => {
+    document.querySelectorAll('#mobileAppContainer .mob-screen, #mobileAppContainer .screen').forEach((s) => {
       if (s.id !== id && s !== from) {
         s.classList.remove('active', 'exit-fwd', 'exit-back', 'pre-fwd', 'pre-back');
       }
     });
 
     const dir = opts.back ? 'back' : 'fwd';
+
+    to.classList.add(dir === 'fwd' ? 'pre-fwd' : 'pre-back');
+    to.classList.add('active');
+    void to.offsetWidth; // Reflow commit to ensure hardware accelerated transition
+    to.classList.remove('pre-fwd', 'pre-back');
 
     if (from) {
       from.classList.add(dir === 'fwd' ? 'exit-fwd' : 'exit-back');
@@ -156,10 +162,6 @@ export class MobileAppCoordinator {
         from.classList.remove('exit-fwd', 'exit-back');
       }, 460);
     }
-
-    to.classList.add(dir === 'fwd' ? 'pre-fwd' : 'pre-back');
-    to.classList.add('active');
-    to.classList.remove('pre-fwd', 'pre-back');
 
     if (!opts.back && !opts.root) this.history.push(this.current);
     if (opts.root) this.history = [];
@@ -182,17 +184,17 @@ export class MobileAppCoordinator {
   cardHTML(p) {
     const isFav = Boolean(this.state.favs[p.id]);
     return `
-      <button class="mob-pcard" data-open-photo="${p.id}" data-type="${p.type}" data-title="${p.title.toLowerCase()}">
-        <i class="mob-pthumb photo-bg ${p.id}"></i>
-        ${p.type === 'video' ? `<span class="mob-playdot"><svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><path d="M7 4.5v15l13-7.5z"/></svg></span>` : ''}
-        <span class="mob-fav ${isFav ? 'on' : ''}" data-fav="${p.id}">
+      <button class="mob-pcard pcard" data-open-photo="${p.id}" data-type="${p.type}" data-title="${p.title.toLowerCase()}">
+        <i class="mob-pthumb pthumb photo-bg ${p.id}"></i>
+        ${p.type === 'video' ? `<span class="mob-playdot playdot"><svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><path d="M7 4.5v15l13-7.5z"/></svg></span>` : ''}
+        <span class="mob-fav fav ${isFav ? 'on' : ''}" data-fav="${p.id}">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="${isFav ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round">
             <path d="M19 14c1.5-1.5 3-3.3 3-5.5A4.5 4.5 0 0 0 17.5 4c-1.8 0-3 .9-4 2.1a1.9 1.9 0 0 0-3 0C9.5 4.9 8.3 4 6.5 4A4.5 4.5 0 0 0 2 8.5c0 2.2 1.5 4 3 5.5l7 6.6z"/>
           </svg>
         </span>
-        <div class="mob-pmeta">
+        <div class="mob-pmeta pmeta">
           <b>${p.title}</b>
-          <span class="mob-score">★ ${p.score.toFixed(1)}</span>
+          <span class="mob-score score">★ ${p.score.toFixed(1)}</span>
         </div>
       </button>
     `;
@@ -511,89 +513,60 @@ export class MobileAppCoordinator {
     const container = this.container;
     if (!container) return;
 
-    // Dedicated zero-lag navbar button handlers
-    const navButtons = container.querySelectorAll('.mob-nbtn');
-    navButtons.forEach((btn) => {
-      let touchMoved = false;
-      const triggerNav = (e) => {
-        if (e) {
-          e.stopPropagation();
-          if (e.cancelable) e.preventDefault();
-        }
-        if (btn.id === 'mobFab') {
-          this.openSheet();
-          return;
-        }
-        const targetScreen = btn.dataset.navTo;
-        if (targetScreen) {
-          this.go(targetScreen, { root: this.NAV_SCREENS.includes(targetScreen) });
-        }
-      };
-
-      btn.addEventListener('touchstart', () => { touchMoved = false; }, { passive: true });
-      btn.addEventListener('touchmove', () => { touchMoved = true; }, { passive: true });
-      btn.addEventListener('touchend', (e) => {
-        if (!touchMoved) triggerNav(e);
-      });
-      btn.addEventListener('click', (e) => {
-        triggerNav(e);
-      });
-    });
-
-    // Global tap delegate for cards, faves, open photo, back, toasts
-    const handleTapAction = (target) => {
-      const favBtn = target.closest('.mob-fav');
+    // Clean, instant event delegation for all mobile taps (cards, faves, nav buttons, back, toasts)
+    container.addEventListener('click', (e) => {
+      // 1. Favorites toggle
+      const favBtn = e.target.closest('.mob-fav, .fav');
       if (favBtn) {
+        e.stopPropagation();
         const id = favBtn.dataset.fav;
         this.state.favs[id] = !this.state.favs[id];
         this.renderGrids();
         this.toast(this.state.favs[id] ? 'Added to favorites' : 'Removed from favorites');
-        return true;
+        return;
       }
 
-      const op = target.closest('[data-open-photo]');
+      // 2. Open photo card
+      const op = e.target.closest('[data-open-photo]');
       if (op) {
         this.closeSheet();
         this.openEditor(op.dataset.openPhoto);
-        return true;
+        return;
       }
 
-      const nt = target.closest('[data-nav-to]');
-      if (nt && !nt.classList.contains('mob-nbtn')) {
-        this.go(nt.dataset.navTo, { root: this.NAV_SCREENS.includes(nt.dataset.navTo) });
-        return true;
+      // 3. Navigation link or navbar button
+      const nt = e.target.closest('[data-nav-to]');
+      if (nt) {
+        const targetScreen = nt.dataset.navTo;
+        if (targetScreen) {
+          this.go(targetScreen, { root: this.NAV_SCREENS.includes(targetScreen) });
+        }
+        return;
       }
 
-      const backBtn = target.closest('[data-back]');
+      // 4. Back button
+      const backBtn = e.target.closest('[data-back]');
       if (backBtn) {
         this.back();
-        return true;
+        return;
       }
 
-      const tt = target.closest('[data-toast]');
+      // 5. Toast button
+      const tt = e.target.closest('[data-toast]');
       if (tt) {
         this.toast(tt.dataset.toast);
-        return true;
-      }
-
-      return false;
-    };
-
-    container.addEventListener('click', (e) => {
-      handleTapAction(e.target);
-    });
-
-    let containerTouchMoved = false;
-    container.addEventListener('touchstart', () => { containerTouchMoved = false; }, { passive: true });
-    container.addEventListener('touchmove', () => { containerTouchMoved = true; }, { passive: true });
-    container.addEventListener('touchend', (e) => {
-      if (containerTouchMoved) return;
-      const interactive = e.target.closest('[data-open-photo], [data-back], [data-toast], [data-nav-to], .mob-fav');
-      if (interactive && !interactive.classList.contains('mob-nbtn')) {
-        if (e.cancelable) e.preventDefault();
-        handleTapAction(e.target);
+        return;
       }
     });
+
+    // Dedicated FAB button for opening bottom sheet
+    const fab = document.getElementById('mobFab') || document.getElementById('fab');
+    if (fab) {
+      fab.addEventListener('click', (e) => {
+        e.stopPropagation();
+        this.openSheet();
+      });
+    }
 
 
     // Chips filter binding
@@ -795,11 +768,11 @@ export class MobileAppCoordinator {
 
         if (expMsg) {
           expMsg.textContent = isVideo
-            ? `${sizeMap[this.state.size]} • ${this.state.fps} FPS • H.264 HD`
-            : `${sizeMap[this.state.size]} • JPEG • 99% Archival`;
+            ? `${sizeMap[this.state.size]} • ${this.state.fps} FPS • H.264`
+            : `${sizeMap[this.state.size]} • JPEG • quality 96`;
         }
         if (expTitle) {
-          expTitle.textContent = isVideo ? 'Recording framed video…' : 'Rendering master frame…';
+          expTitle.textContent = isVideo ? 'Rendering frames…' : 'Capturing still…';
         }
 
         // If user loaded real media into Pocket Frames, execute real export engine
@@ -846,7 +819,7 @@ export class MobileAppCoordinator {
         clearInterval(this.expTimer);
 
         this.expTimer = setInterval(() => {
-          p += isVideo ? 2.8 : 10;
+          p += isVideo ? 2.2 : 9;
           if (p >= 100) {
             p = 100;
             clearInterval(this.expTimer);
@@ -862,7 +835,7 @@ export class MobileAppCoordinator {
               if (doneName) {
                 doneName.textContent = isVideo
                   ? `Prismatik_${this.state.size.replace(':', 'x')}.mp4 • ${this.state.dur}s • ${this.state.fps} FPS`
-                  : `Prismatik_${this.state.size.replace(':', 'x')}.jpg • quality 99%`;
+                  : `Prismatik_${this.state.size.replace(':', 'x')}.jpg • quality 96`;
               }
             }, 260);
           }
@@ -872,14 +845,18 @@ export class MobileAppCoordinator {
       });
     }
 
-    document.getElementById('mobExpDone')?.addEventListener('click', () => {
-      document.getElementById('mobExpVeil')?.classList.remove('on');
-      this.toast('Saved to Gallery ✓');
-      this.back();
-    });
+    const expDone = document.getElementById('mobExpDone') || document.getElementById('expDone');
+    if (expDone) {
+      expDone.addEventListener('click', () => {
+        document.getElementById('mobExpVeil')?.classList.remove('on');
+        document.getElementById('expVeil')?.classList.remove('on');
+        this.toast('Saved to Gallery ✓');
+        this.back();
+      });
+    }
 
     // Theme Switcher physics
-    const switcher = document.getElementById('mobThemeSwitcher');
+    const switcher = document.getElementById('mobThemeSwitcher') || document.getElementById('themeSwitcher');
     if (switcher) {
       const trackPrevious = (el) => {
         const radios = el.querySelectorAll('input[type="radio"]');
@@ -900,6 +877,7 @@ export class MobileAppCoordinator {
 
       const setTheme = (t, silent) => {
         container.dataset.theme = t;
+        document.body.dataset.theme = t;
         document.documentElement.setAttribute('data-theme', t);
         localStorage.setItem('pocketframes-theme', t);
         if (!silent) this.toast(t === 'dark' ? 'Dark mode on 🌙' : 'Light mode on ☀️');
@@ -913,13 +891,9 @@ export class MobileAppCoordinator {
     }
 
     // Bottom sheet controls
-    const sheetVeil = document.getElementById('mobSheetVeil');
+    const sheetVeil = document.getElementById('mobSheetVeil') || document.getElementById('sheetVeil');
     if (sheetVeil) {
       sheetVeil.addEventListener('click', () => this.closeSheet());
-      sheetVeil.addEventListener('touchend', (e) => {
-        if (e.cancelable) e.preventDefault();
-        this.closeSheet();
-      });
     }
 
     // Native file input connection for Camera & Import
@@ -959,43 +933,27 @@ export class MobileAppCoordinator {
     }
 
     // Onboarding slides listeners
-    let onbMoved = false;
-    const advanceOnboard = (e) => {
-      if (e) {
-        e.stopPropagation();
-        if (e.cancelable) e.preventDefault();
-      }
-      if (this.onbSlide === 0) {
-        this.onbSlide = 1;
-        container.querySelectorAll('.mob-onb-slide').forEach(s => s.classList.toggle('active', s.dataset.slide === '1'));
-        container.querySelectorAll('#mobOnbDots i').forEach((d, i) => d.classList.toggle('on', i === 1));
-        const btn = document.getElementById('mobOnbNext');
-        if (btn) btn.innerHTML = `Get started <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg>`;
-      } else {
-        this.go('scr-home', { root: true });
-      }
-    };
-    const skipOnboard = (e) => {
-      if (e) {
-        e.stopPropagation();
-        if (e.cancelable) e.preventDefault();
-      }
-      this.go('scr-home', { root: true });
-    };
-
-    const onbNext = document.getElementById('mobOnbNext');
+    const onbNext = document.getElementById('mobOnbNext') || document.getElementById('onbNext');
     if (onbNext) {
-      onbNext.addEventListener('touchstart', () => { onbMoved = false; }, { passive: true });
-      onbNext.addEventListener('touchmove', () => { onbMoved = true; }, { passive: true });
-      onbNext.addEventListener('touchend', (e) => { if (!onbMoved) advanceOnboard(e); });
-      onbNext.addEventListener('click', advanceOnboard);
+      onbNext.addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (this.onbSlide === 0) {
+          this.onbSlide = 1;
+          container.querySelectorAll('.mob-onb-slide, .onb-slide').forEach(s => s.classList.toggle('active', s.dataset.slide === '1'));
+          container.querySelectorAll('#mobOnbDots i, #onbDots i').forEach((d, i) => d.classList.toggle('on', i === 1));
+          if (onbNext.childNodes[0]) onbNext.childNodes[0].textContent = 'Get started ';
+        } else {
+          this.go('scr-home', { root: true });
+        }
+      });
     }
-    const onbSkip = document.getElementById('mobOnbSkip');
+
+    const onbSkip = document.getElementById('mobOnbSkip') || document.getElementById('onbSkip');
     if (onbSkip) {
-      onbSkip.addEventListener('touchstart', () => { onbMoved = false; }, { passive: true });
-      onbSkip.addEventListener('touchmove', () => { onbMoved = true; }, { passive: true });
-      onbSkip.addEventListener('touchend', (e) => { if (!onbMoved) skipOnboard(e); });
-      onbSkip.addEventListener('click', skipOnboard);
+      onbSkip.addEventListener('click', (e) => {
+        e.stopPropagation();
+        this.go('scr-home', { root: true });
+      });
     }
 
   }
