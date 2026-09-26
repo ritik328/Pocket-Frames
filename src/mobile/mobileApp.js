@@ -926,6 +926,27 @@ export class MobileAppCoordinator {
         }
         return;
       }
+
+      // 27. Force clear cache & reload fresh
+      const clrBtn = e.target.closest('#mobBtnCheckUpdates');
+      if (clrBtn) {
+        e.preventDefault();
+        this.toast('Clearing cache and reloading fresh…');
+        setTimeout(async () => {
+          try {
+            if ('caches' in window) {
+              const keys = await caches.keys();
+              await Promise.all(keys.map(k => caches.delete(k)));
+            }
+            if ('serviceWorker' in navigator) {
+              const regs = await navigator.serviceWorker.getRegistrations();
+              await Promise.all(regs.map(r => r.unregister()));
+            }
+          } catch (e) {}
+          window.location.reload(true);
+        }, 300);
+        return;
+      }
     });
 
     // Library search live input
