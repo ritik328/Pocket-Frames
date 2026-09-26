@@ -501,42 +501,203 @@ export class MobileAppCoordinator {
 
     // Register service worker if available
     if ('serviceWorker' in navigator && window.location.protocol.startsWith('http')) {
-      navigator.serviceWorker.register('/sw.js').then(() => {
+      navigator.serviceWorker.register('/sw.js').then((reg) => {
         console.log('[PWA] Service Worker registered successfully');
+        reg.update().catch(() => {});
       }).catch((err) => {
         console.warn('[PWA] Service Worker registration failed:', err);
       });
+      navigator.serviceWorker.addEventListener('controllerchange', () => {
+        console.log('[PWA] Service Worker controller updated');
+      });
     }
+  }
+
+  async executeExport() {
+    const veil = document.getElementById('mobExpVeil');
+    const prog = document.getElementById('mobExpBoxProg');
+    const doneB = document.getElementById('mobExpBoxDone');
+    const expFill = document.getElementById('mobExpFill');
+    const expPct = document.getElementById('mobExpPct');
+    const expTitle = document.getElementById('mobExpTitle');
+    const expMsg = document.getElementById('mobExpMsg');
+    const doneName = document.getElementById('mobExpDoneName');
+
+    if (veil) veil.classList.add('on');
+    if (prog) prog.style.display = '';
+    if (doneB) doneB.style.display = 'none';
+
+    const isVideo = this.state.fmt === 'mp4';
+    const sizeMap = { '4:5': '1080 × 1350', '1:1': '1080 × 1080', '9:16': '1080 × 1920' };
+
+    if (expMsg) {
+      expMsg.textContent = isVideo
+        ? `${sizeMap[this.state.size]} • ${this.state.fps} FPS • H.264`
+        : `${sizeMap[this.state.size]} • JPEG • quality 96`;
+    }
+    if (expTitle) {
+      expTitle.textContent = isVideo ? 'Rendering frames…' : 'Capturing still…';
+    }
+
+    // If user loaded real media into Pocket Frames, execute real export engine
+    const appState = store.getState();
+    const hasRealVideo = isVideo && appState.image && (appState.image.type === 'video' || appState.image.isVideo);
+
+    if (hasRealVideo) {
+      try {
+        const swAudio = document.getElementById('mobSwAudio')?.checked ?? true;
+        const result = await videoManager.exportFramedVideo(appState, {
+          duration: Math.min(45.0, this.state.dur),
+          fps: this.state.fps || 30,
+          includeAudio: swAudio,
+          width: 1080,
+          height: 1350
+        }, (progress) => {
+          if (expFill) expFill.style.width = `${progress.percent}%`;
+          if (expPct) expPct.textContent = `${progress.percent}%`;
+        });
+
+        // Trigger real download to phone
+        const url = URL.createObjectURL(result.blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = result.filename;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        setTimeout(() => URL.revokeObjectURL(url), 2500);
+
+        if (prog) prog.style.display = 'none';
+        if (doneB) doneB.style.display = '';
+        if (doneName) doneName.textContent = `${result.filename} (${this.state.dur}s max)`;
+        return;
+      } catch (err) {
+        this.toast(`Export notice: ${err.message}`);
+      }
+    }
+
+    // Animated progress for still export or sample demonstration
+    let p = 0;
+    if (expFill) expFill.style.width = '0%';
+    if (expPct) expPct.textContent = '0%';
+    clearInterval(this.expTimer);
+
+    this.expTimer = setInterval(() => {
+      p += isVideo ? 2.2 : 9;
+      if (p >= 100) {
+        p = 100;
+        clearInterval(this.expTimer);
+
+        // If real photo loaded, download it
+        if (!isVideo && appState.image) {
+          downloadFrame(appState).catch(() => {});
+        }
+
+        setTimeout(() => {
+          if (prog) prog.style.display = 'none';
+          if (doneB) doneB.style.display = '';
+          if (doneName) {
+            doneName.textContent = isVideo
+              ? `Prismatik_${this.state.size.replace(':', 'x')}.mp4 • ${this.state.dur}s • ${this.state.fps} FPS`
+              : `Prismatik_${this.state.size.replace(':', 'x')}.jpg • quality 96`;
+          }
+        }, 260);
+      }
+      if (expFill) expFill.style.width = `${p}%`;
+      if (expPct) expPct.textContent = `${Math.round(p)}%`;
+    }, 55);
   }
 
   bindEvents() {
     const container = this.container;
     if (!container) return;
 
-    // Clean, instant event delegation for all mobile taps (cards, faves, nav buttons, back, toasts)
-    container.addEventListener('click', (e) => {
-      // 1. Favorites toggle
-      const favBtn = e.target.closest('.mob-fav, .fav');
-      if (favBtn) {
+    // Central Universal Click Dispatcher: captures ALL taps inside #mobileAppContainer with 0ms delay
+    document.addEventListener('click', (e) => {
+      const inMob = e.target.closest('#mobileAppContainer');
+      if (!inMob) return;
+
+      // 1. Onboarding Next button
+      const onbNext = e.target.closest('#mobOnbNext, #onbNext');
+      if (onbNext) {
+        e.preventDefault();
         e.stopPropagation();
-        const id = favBtn.dataset.fav;
-        this.state.favs[id] = !this.state.favs[id];
-        this.renderGrids();
-        this.toast(this.state.favs[id] ? 'Added to favorites' : 'Removed from favorites');
+        if (this.onbSlide === 0) {
+          this.onbSlide = 1;
+          document.querySelectorAll('#mobileAppContainer .mob-onb-slide, #mobileAppContainer .onb-slide').forEach(s => s.classList.toggle('active', s.dataset.slide === '1'));
+          document.querySelectorAll('#mobileAppContainer #mobOnbDots i, #mobileAppContainer #onbDots i').forEach((d, i) => d.classList.toggle('on', i === 1));
+          onbNext.innerHTML = 'Get started <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg>';
+        } else {
+          this.go('scr-home', { root: true });
+        }
         return;
       }
 
-      // 2. Open photo card
+      // 2. Onboarding Skip button
+      const onbSkip = e.target.closest('#mobOnbSkip, #onbSkip');
+      if (onbSkip) {
+        e.preventDefault();
+        e.stopPropagation();
+        this.go('scr-home', { root: true });
+        return;
+      }
+
+      // 3. Onboarding slide dots
+      const onbDot = e.target.closest('#mobOnbDots i, #onbDots i');
+      if (onbDot) {
+        e.preventDefault();
+        const dots = [...(onbDot.parentElement?.children || [])];
+        const idx = dots.indexOf(onbDot);
+        this.onbSlide = idx >= 0 ? idx : 0;
+        document.querySelectorAll('#mobileAppContainer .mob-onb-slide, #mobileAppContainer .onb-slide').forEach(s => s.classList.toggle('active', s.dataset.slide === String(this.onbSlide)));
+        dots.forEach((d, i) => d.classList.toggle('on', i === this.onbSlide));
+        const btnNext = document.getElementById('mobOnbNext') || document.getElementById('onbNext');
+        if (btnNext) {
+          btnNext.innerHTML = this.onbSlide === 1
+            ? 'Get started <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg>'
+            : 'Next <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg>';
+        }
+        return;
+      }
+
+      // 4. Favorites toggle on cards
+      const favBtn = e.target.closest('.mob-fav, .fav, [data-fav]');
+      if (favBtn) {
+        e.preventDefault();
+        e.stopPropagation();
+        const id = favBtn.dataset.fav || favBtn.closest('[data-open-photo]')?.dataset.openPhoto;
+        if (id) {
+          this.state.favs[id] = !this.state.favs[id];
+          this.renderGrids();
+          this.toast(this.state.favs[id] ? 'Added to favorites' : 'Removed from favorites');
+        }
+        return;
+      }
+
+      // 5. Open photo card
       const op = e.target.closest('[data-open-photo]');
       if (op) {
+        e.preventDefault();
+        e.stopPropagation();
         this.closeSheet();
         this.openEditor(op.dataset.openPhoto);
         return;
       }
 
-      // 3. Navigation link or navbar button
+      // 6. Dedicated FAB (+) button
+      const fabBtn = e.target.closest('#mobFab, #fab, .mob-fab, .fab');
+      if (fabBtn) {
+        e.preventDefault();
+        e.stopPropagation();
+        this.openSheet();
+        return;
+      }
+
+      // 7. Navigation link or navbar button
       const nt = e.target.closest('[data-nav-to]');
       if (nt) {
+        e.preventDefault();
+        e.stopPropagation();
         const targetScreen = nt.dataset.navTo;
         if (targetScreen) {
           this.go(targetScreen, { root: this.NAV_SCREENS.includes(targetScreen) });
@@ -544,45 +705,230 @@ export class MobileAppCoordinator {
         return;
       }
 
-      // 4. Back button
+      // 8. Back button
       const backBtn = e.target.closest('[data-back]');
       if (backBtn) {
+        e.preventDefault();
+        e.stopPropagation();
         this.back();
         return;
       }
 
-      // 5. Toast button
+      // 9. Toast button / notification icon
       const tt = e.target.closest('[data-toast]');
       if (tt) {
+        e.preventDefault();
+        e.stopPropagation();
         this.toast(tt.dataset.toast);
+        return;
+      }
+
+      // 10. Sheet Veil click to dismiss
+      const veil = e.target.closest('#mobSheetVeil, #sheetVeil');
+      if (veil) {
+        e.preventDefault();
+        this.closeSheet();
+        return;
+      }
+
+      // 11. Camera button in bottom sheet
+      const btnCam = e.target.closest('#mobBtnCamera');
+      if (btnCam) {
+        e.preventDefault();
+        this.closeSheet();
+        const fi = document.getElementById('mobNativeFileInput');
+        if (fi) {
+          fi.setAttribute('capture', 'environment');
+          fi.click();
+        }
+        return;
+      }
+
+      // 12. Import button in bottom sheet
+      const btnImp = e.target.closest('#mobBtnImport');
+      if (btnImp) {
+        e.preventDefault();
+        this.closeSheet();
+        const fi = document.getElementById('mobNativeFileInput');
+        if (fi) {
+          fi.removeAttribute('capture');
+          fi.click();
+        }
+        return;
+      }
+
+      // 13. Chips (Home filter, Library filter, FPS, Size)
+      const chip = e.target.closest('.mob-chips .mob-chip, .chips .chip');
+      if (chip) {
+        e.preventDefault();
+        const parent = chip.closest('.mob-chips, .chips');
+        if (parent) {
+          parent.querySelectorAll('.mob-chip, .chip').forEach(c => c.classList.remove('on'));
+          chip.classList.add('on');
+          const filter = chip.dataset.filter;
+          if (parent.id === 'mobHomeChips' || parent.id === 'homeChips') {
+            this.state.homeFilter = filter;
+            this.renderGrids();
+          } else if (parent.id === 'mobLibChips' || parent.id === 'libChips') {
+            this.state.libFilter = filter;
+            this.renderGrids();
+          } else if (parent.id === 'mobFpsChips') {
+            this.state.fps = parseInt(chip.dataset.fps, 10);
+            this.syncExport();
+          } else if (parent.id === 'mobSizeChips') {
+            this.state.size = chip.dataset.size;
+            this.syncExport();
+            if (this.current === 'scr-editor') this.renderEditor();
+            else this.applyLUT();
+          }
+        }
+        return;
+      }
+
+      // 14. Editor Guides toggle
+      const tGuides = e.target.closest('#mobTGuides, #tGuides');
+      if (tGuides) {
+        e.preventDefault();
+        this.state.guides = !this.state.guides;
+        this.renderEditor();
+        return;
+      }
+
+      // 15. Editor Reset button
+      const tReset = e.target.closest('#mobTReset, #tReset');
+      if (tReset) {
+        e.preventDefault();
+        this.state.zoom = 1;
+        this.state.ox = 0;
+        this.state.oy = 0;
+        this.renderEditor();
+        this.toast('Position & zoom reset');
+        return;
+      }
+
+      // 16. Editor Frame selector
+      const fBtn = e.target.closest('[data-frame]');
+      if (fBtn) {
+        e.preventDefault();
+        this.state.frame = fBtn.dataset.frame;
+        this.renderEditor();
+        return;
+      }
+
+      // 17. AI Refresh button
+      const aiRef = e.target.closest('#mobAiRefresh, #aiRefresh');
+      if (aiRef) {
+        e.preventDefault();
+        this.animateAI();
+        this.toast('Re-analyzing with Gemini Vision…');
+        return;
+      }
+
+      // 18. AI Apply Recommendation
+      const applyRec = e.target.closest('#mobApplyRec, #applyRec');
+      if (applyRec) {
+        e.preventDefault();
+        this.state.zoom = 1.02;
+        const clip = document.getElementById('mobClip');
+        const h = clip?.getBoundingClientRect().height || 340;
+        this.state.oy = -0.06 * h;
+        this.state.ox = 0;
+        this.renderEditor();
+        this.toast('Recommendation applied to canvas ✓');
+        this.go('scr-editor', { back: true });
+        return;
+      }
+
+      // 19. AI Dismiss Recommendation
+      const ignRec = e.target.closest('#mobIgnoreRec, #ignoreRec');
+      if (ignRec) {
+        e.preventDefault();
+        this.toast('Recommendation dismissed');
+        return;
+      }
+
+      // 20. Post Caption Segment
+      const capBtn = e.target.closest('#mobCapSeg button');
+      if (capBtn) {
+        e.preventDefault();
+        document.querySelectorAll('#mobCapSeg button').forEach(b => b.classList.remove('on'));
+        capBtn.classList.add('on');
+        this.state.cap = capBtn.dataset.cap;
+        const capTxt = document.getElementById('mobCaptionText');
+        if (capTxt) capTxt.textContent = this.captions[this.state.cap];
+        return;
+      }
+
+      // 21. Post Copy buttons
+      const copyBtn = e.target.closest('[data-copy]');
+      if (copyBtn) {
+        e.preventDefault();
+        const k = copyBtn.dataset.copy;
+        const tagText = () => [...document.querySelectorAll('#mobHtagWrap .mob-htag')].map(h => h.textContent).join(' ');
+        if (k === 'caption') this.copyText(this.captions[this.state.cap], 'Caption copied');
+        if (k === 'tags') this.copyText(tagText(), 'Hashtags copied');
+        if (k === 'story') this.copyText('DAY 18/47 — Shot on OPPO Find X9', 'Story note copied');
+        if (k === 'alt') this.copyText('An abstract close-up photograph featuring a diagonal gradient of warm orange, white, and deep blue light.', 'Alt text copied');
+        return;
+      }
+
+      // 22. Copy All button
+      const copyAll = e.target.closest('#mobCopyAll, #copyAll');
+      if (copyAll) {
+        e.preventDefault();
+        const tagText = () => [...document.querySelectorAll('#mobHtagWrap .mob-htag')].map(h => h.textContent).join(' ');
+        this.copyText(
+          `${this.captions[this.state.cap]}\n\n${tagText()}\n\nDAY 18/47 — Shot on OPPO Find X9\n\nAlt: An abstract close-up photograph featuring a diagonal gradient of warm orange, white, and deep blue light.`,
+          'Entire post package copied ✓'
+        );
+        return;
+      }
+
+      // 23. Export Format Segment
+      const fmtBtn = e.target.closest('#mobFmtSeg button');
+      if (fmtBtn) {
+        e.preventDefault();
+        document.querySelectorAll('#mobFmtSeg button').forEach(b => b.classList.remove('on'));
+        fmtBtn.classList.add('on');
+        this.state.fmt = fmtBtn.dataset.fmt;
+        this.syncExport();
+        return;
+      }
+
+      // 24. Start Export button
+      const startExp = e.target.closest('#mobStartExport, #startExport');
+      if (startExp) {
+        e.preventDefault();
+        this.executeExport();
+        return;
+      }
+
+      // 25. Export Done button
+      const expDone = e.target.closest('#mobExpDone, #expDone');
+      if (expDone) {
+        e.preventDefault();
+        document.getElementById('mobExpVeil')?.classList.remove('on');
+        this.toast('Saved to Gallery ✓');
+        this.back();
+        return;
+      }
+
+      // 26. LUT preset swatch
+      const swatch = e.target.closest('.mob-swatch');
+      if (swatch) {
+        e.preventDefault();
+        const k = swatch.dataset.lut;
+        if (k && this.luts[k]) {
+          this.state.lut = k;
+          document.querySelectorAll('#mobLutGrid .mob-swatch').forEach(x => x.classList.toggle('on', x === swatch));
+          this.applyLUT();
+          this.toast(`Grade: ${this.luts[k].name}`);
+        }
         return;
       }
     });
 
-    // Dedicated FAB button for opening bottom sheet
-    const fab = document.getElementById('mobFab') || document.getElementById('fab');
-    if (fab) {
-      fab.addEventListener('click', (e) => {
-        e.stopPropagation();
-        this.openSheet();
-      });
-    }
-
-
-    // Chips filter binding
-    const bindChips = (sel, cb) => {
-      container.querySelectorAll(`${sel} .mob-chip`).forEach((c) => {
-        c.addEventListener('click', () => {
-          container.querySelectorAll(`${sel} .mob-chip`).forEach(x => x.classList.remove('on'));
-          c.classList.add('on');
-          cb(c.dataset.filter);
-        });
-      });
-    };
-    bindChips('#mobHomeChips', (f) => { this.state.homeFilter = f; this.renderGrids(); });
-    bindChips('#mobLibChips', (f) => { this.state.libFilter = f; this.renderGrids(); });
-
-    // Library search
+    // Library search live input
     const libSearch = document.getElementById('mobLibSearch');
     if (libSearch) {
       libSearch.addEventListener('input', (e) => {
@@ -623,25 +969,6 @@ export class MobileAppCoordinator {
       });
     }
 
-    // Tool buttons (Guides, Reset, Frames)
-    document.getElementById('mobTGuides')?.addEventListener('click', () => {
-      this.state.guides = !this.state.guides;
-      this.renderEditor();
-    });
-    document.getElementById('mobTReset')?.addEventListener('click', () => {
-      this.state.zoom = 1;
-      this.state.ox = 0;
-      this.state.oy = 0;
-      this.renderEditor();
-      this.toast('Position & zoom reset');
-    });
-    container.querySelectorAll('[data-frame]').forEach((b) => {
-      b.addEventListener('click', () => {
-        this.state.frame = b.dataset.frame;
-        this.renderEditor();
-      });
-    });
-
     // LUT intensity
     const lutInt = document.getElementById('mobLutInt');
     const lutIntVal = document.getElementById('mobLutIntVal');
@@ -663,195 +990,14 @@ export class MobileAppCoordinator {
       });
     }
 
-    // AI actions
-    document.getElementById('mobAiRefresh')?.addEventListener('click', () => {
-      this.animateAI();
-      this.toast('Re-analyzing with Gemini Vision…');
-    });
-    document.getElementById('mobApplyRec')?.addEventListener('click', () => {
-      this.state.zoom = 1.02;
-      const h = clip?.getBoundingClientRect().height || 340;
-      this.state.oy = -0.06 * h;
-      this.state.ox = 0;
-      this.renderEditor();
-      this.toast('Recommendation applied to canvas ✓');
-      this.go('scr-editor', { back: true });
-    });
-    document.getElementById('mobIgnoreRec')?.addEventListener('click', () => {
-      this.toast('Recommendation dismissed');
-    });
-
-    // Post captions
-    container.querySelectorAll('#mobCapSeg button').forEach((b) => {
-      b.addEventListener('click', () => {
-        container.querySelectorAll('#mobCapSeg button').forEach(x => x.classList.remove('on'));
-        b.classList.add('on');
-        this.state.cap = b.dataset.cap;
-        const capTxt = document.getElementById('mobCaptionText');
-        if (capTxt) capTxt.textContent = this.captions[this.state.cap];
-      });
-    });
-    const tagText = () => [...container.querySelectorAll('#mobHtagWrap .mob-htag')].map(h => h.textContent).join(' ');
-    container.querySelectorAll('[data-copy]').forEach((b) => {
-      b.addEventListener('click', () => {
-        const k = b.dataset.copy;
-        if (k === 'caption') this.copyText(this.captions[this.state.cap], 'Caption copied');
-        if (k === 'tags') this.copyText(tagText(), 'Hashtags copied');
-        if (k === 'story') this.copyText('DAY 18/47 — Shot on OPPO Find X9', 'Story note copied');
-        if (k === 'alt') this.copyText('An abstract close-up photograph featuring a diagonal gradient of warm orange, white, and deep blue light.', 'Alt text copied');
-      });
-    });
-    document.getElementById('mobCopyAll')?.addEventListener('click', () => {
-      this.copyText(
-        `${this.captions[this.state.cap]}\n\n${tagText()}\n\nDAY 18/47 — Shot on OPPO Find X9\n\nAlt: An abstract close-up photograph featuring a diagonal gradient of warm orange, white, and deep blue light.`,
-        'Entire post package copied ✓'
-      );
-    });
-
-    // Export formats & limits
-    container.querySelectorAll('#mobFmtSeg button').forEach((b) => {
-      b.addEventListener('click', () => {
-        container.querySelectorAll('#mobFmtSeg button').forEach(x => x.classList.remove('on'));
-        b.classList.add('on');
-        this.state.fmt = b.dataset.fmt;
-        this.syncExport();
-      });
-    });
+    // Export duration range
     const durRange = document.getElementById('mobDurRange');
     const durVal = document.getElementById('mobDurVal');
     if (durRange) {
       durRange.addEventListener('input', (e) => {
-        // Enforce maximum 45.0s limit
         this.state.dur = Math.min(45, parseInt(e.target.value, 10));
         if (durVal) durVal.textContent = `${this.state.dur}.0s`;
         this.syncExport();
-      });
-    }
-    container.querySelectorAll('#mobFpsChips .mob-chip').forEach((c) => {
-      c.addEventListener('click', () => {
-        container.querySelectorAll('#mobFpsChips .mob-chip').forEach(x => x.classList.remove('on'));
-        c.classList.add('on');
-        this.state.fps = parseInt(c.dataset.fps, 10);
-        this.syncExport();
-      });
-    });
-    container.querySelectorAll('#mobSizeChips .mob-chip').forEach((c) => {
-      c.addEventListener('click', () => {
-        container.querySelectorAll('#mobSizeChips .mob-chip').forEach(x => x.classList.remove('on'));
-        c.classList.add('on');
-        this.state.size = c.dataset.size;
-        this.syncExport();
-        if (this.current === 'scr-editor') this.renderEditor();
-        else this.applyLUT();
-      });
-    });
-
-    // Start Export button
-    const startExp = document.getElementById('mobStartExport');
-    if (startExp) {
-      startExp.addEventListener('click', async () => {
-        const veil = document.getElementById('mobExpVeil');
-        const prog = document.getElementById('mobExpBoxProg');
-        const doneB = document.getElementById('mobExpBoxDone');
-        const expFill = document.getElementById('mobExpFill');
-        const expPct = document.getElementById('mobExpPct');
-        const expTitle = document.getElementById('mobExpTitle');
-        const expMsg = document.getElementById('mobExpMsg');
-        const doneName = document.getElementById('mobExpDoneName');
-
-        if (veil) veil.classList.add('on');
-        if (prog) prog.style.display = '';
-        if (doneB) doneB.style.display = 'none';
-
-        const isVideo = this.state.fmt === 'mp4';
-        const sizeMap = { '4:5': '1080 × 1350', '1:1': '1080 × 1080', '9:16': '1080 × 1920' };
-
-        if (expMsg) {
-          expMsg.textContent = isVideo
-            ? `${sizeMap[this.state.size]} • ${this.state.fps} FPS • H.264`
-            : `${sizeMap[this.state.size]} • JPEG • quality 96`;
-        }
-        if (expTitle) {
-          expTitle.textContent = isVideo ? 'Rendering frames…' : 'Capturing still…';
-        }
-
-        // If user loaded real media into Pocket Frames, execute real export engine
-        const appState = store.getState();
-        const hasRealVideo = isVideo && appState.image && (appState.image.type === 'video' || appState.image.isVideo);
-
-        if (hasRealVideo) {
-          try {
-            const swAudio = document.getElementById('mobSwAudio')?.checked ?? true;
-            const result = await videoManager.exportFramedVideo(appState, {
-              duration: Math.min(45.0, this.state.dur),
-              fps: this.state.fps || 30,
-              includeAudio: swAudio,
-              width: 1080,
-              height: 1350
-            }, (progress) => {
-              if (expFill) expFill.style.width = `${progress.percent}%`;
-              if (expPct) expPct.textContent = `${progress.percent}%`;
-            });
-
-            // Trigger real download to phone
-            const url = URL.createObjectURL(result.blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = result.filename;
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-            setTimeout(() => URL.revokeObjectURL(url), 2500);
-
-            if (prog) prog.style.display = 'none';
-            if (doneB) doneB.style.display = '';
-            if (doneName) doneName.textContent = `${result.filename} (${this.state.dur}s max)`;
-            return;
-          } catch (err) {
-            this.toast(`Export notice: ${err.message}`);
-          }
-        }
-
-        // Animated progress for still export or sample demonstration
-        let p = 0;
-        if (expFill) expFill.style.width = '0%';
-        if (expPct) expPct.textContent = '0%';
-        clearInterval(this.expTimer);
-
-        this.expTimer = setInterval(() => {
-          p += isVideo ? 2.2 : 9;
-          if (p >= 100) {
-            p = 100;
-            clearInterval(this.expTimer);
-
-            // If real photo loaded, download it
-            if (!isVideo && appState.image) {
-              downloadFrame(appState).catch(() => {});
-            }
-
-            setTimeout(() => {
-              if (prog) prog.style.display = 'none';
-              if (doneB) doneB.style.display = '';
-              if (doneName) {
-                doneName.textContent = isVideo
-                  ? `Prismatik_${this.state.size.replace(':', 'x')}.mp4 • ${this.state.dur}s • ${this.state.fps} FPS`
-                  : `Prismatik_${this.state.size.replace(':', 'x')}.jpg • quality 96`;
-              }
-            }, 260);
-          }
-          if (expFill) expFill.style.width = `${p}%`;
-          if (expPct) expPct.textContent = `${Math.round(p)}%`;
-        }, 55);
-      });
-    }
-
-    const expDone = document.getElementById('mobExpDone') || document.getElementById('expDone');
-    if (expDone) {
-      expDone.addEventListener('click', () => {
-        document.getElementById('mobExpVeil')?.classList.remove('on');
-        document.getElementById('expVeil')?.classList.remove('on');
-        this.toast('Saved to Gallery ✓');
-        this.back();
       });
     }
 
@@ -890,33 +1036,8 @@ export class MobileAppCoordinator {
       });
     }
 
-    // Bottom sheet controls
-    const sheetVeil = document.getElementById('mobSheetVeil') || document.getElementById('sheetVeil');
-    if (sheetVeil) {
-      sheetVeil.addEventListener('click', () => this.closeSheet());
-    }
-
     // Native file input connection for Camera & Import
     const mobFileInput = document.getElementById('mobNativeFileInput');
-    const btnCamera = document.getElementById('mobBtnCamera');
-    const btnImport = document.getElementById('mobBtnImport');
-
-    if (btnCamera && mobFileInput) {
-      btnCamera.addEventListener('click', () => {
-        this.closeSheet();
-        mobFileInput.setAttribute('capture', 'environment');
-        mobFileInput.click();
-      });
-    }
-
-    if (btnImport && mobFileInput) {
-      btnImport.addEventListener('click', () => {
-        this.closeSheet();
-        mobFileInput.removeAttribute('capture');
-        mobFileInput.click();
-      });
-    }
-
     if (mobFileInput) {
       mobFileInput.addEventListener('change', async (e) => {
         const file = e.target.files?.[0];
@@ -929,30 +1050,6 @@ export class MobileAppCoordinator {
         } catch (err) {
           this.toast(`Error: ${err.message}`);
         }
-      });
-    }
-
-    // Onboarding slides listeners
-    const onbNext = document.getElementById('mobOnbNext') || document.getElementById('onbNext');
-    if (onbNext) {
-      onbNext.addEventListener('click', (e) => {
-        e.stopPropagation();
-        if (this.onbSlide === 0) {
-          this.onbSlide = 1;
-          container.querySelectorAll('.mob-onb-slide, .onb-slide').forEach(s => s.classList.toggle('active', s.dataset.slide === '1'));
-          container.querySelectorAll('#mobOnbDots i, #onbDots i').forEach((d, i) => d.classList.toggle('on', i === 1));
-          if (onbNext.childNodes[0]) onbNext.childNodes[0].textContent = 'Get started ';
-        } else {
-          this.go('scr-home', { root: true });
-        }
-      });
-    }
-
-    const onbSkip = document.getElementById('mobOnbSkip') || document.getElementById('onbSkip');
-    if (onbSkip) {
-      onbSkip.addEventListener('click', (e) => {
-        e.stopPropagation();
-        this.go('scr-home', { root: true });
       });
     }
 

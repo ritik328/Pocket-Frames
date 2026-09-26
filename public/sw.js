@@ -1,4 +1,4 @@
-const CACHE_NAME = 'pocketframes-v1';
+const CACHE_NAME = 'pocketframes-v4';
 const PRECACHE_URLS = [
   '/',
   '/index.html',
@@ -10,6 +10,7 @@ const PRECACHE_URLS = [
 ];
 
 self.addEventListener('install', (event) => {
+  self.skipWaiting();
   event.waitUntil(
     caches.open(CACHE_NAME).then(async (cache) => {
       for (const url of PRECACHE_URLS) {
@@ -19,10 +20,9 @@ self.addEventListener('install', (event) => {
           console.warn('[SW] Precache skipped:', url, err);
         }
       }
-    }).then(() => self.skipWaiting())
+    })
   );
 });
-
 
 self.addEventListener('activate', (event) => {
   event.waitUntil(
@@ -41,7 +41,14 @@ self.addEventListener('fetch', (event) => {
 
   const url = new URL(event.request.url);
 
-  // For navigation requests, network first, fallback to cached index.html
+  // During local development or testing over LAN, always use live network
+  const isDev = url.hostname === 'localhost' || url.hostname === '127.0.0.1' || url.hostname.startsWith('192.168.') || url.port === '5173';
+  if (isDev) {
+    event.respondWith(fetch(event.request).catch(() => caches.match(event.request)));
+    return;
+  }
+
+  // 1. Navigation requests: Network first, fallback to cached /index.html
   if (event.request.mode === 'navigate') {
     event.respondWith(
       fetch(event.request).catch(() => {
@@ -51,7 +58,21 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Cache first for fonts and static icons
+  // 2. JavaScript, CSS, and module requests: Network first to ensure immediate updates on mobile
+  if (url.pathname.endsWith('.js') || url.pathname.endsWith('.css') || url.pathname.includes('/src/') || url.pathname.includes('/@')) {
+    event.respondWith(
+      fetch(event.request).then((networkResponse) => {
+        if (networkResponse && networkResponse.status === 200) {
+          const clone = networkResponse.clone();
+          caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
+        }
+        return networkResponse;
+      }).catch(() => caches.match(event.request))
+    );
+    return;
+  }
+
+  // 3. Cache first for static icons and external fonts
   if (url.pathname.startsWith('/icons/') || url.hostname.includes('fonts.')) {
     event.respondWith(
       caches.match(event.request).then((cached) => {
@@ -65,17 +86,14 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Stale-while-revalidate for everything else
+  // 4. Default: Network first with cache fallback
   event.respondWith(
-    caches.match(event.request).then((cached) => {
-      const fetchPromise = fetch(event.request).then((networkResponse) => {
-        if (networkResponse && networkResponse.status === 200) {
-          const clone = networkResponse.clone();
-          caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
-        }
-        return networkResponse;
-      }).catch(() => cached);
-      return cached || fetchPromise;
-    })
+    fetch(event.request).then((networkResponse) => {
+      if (networkResponse && networkResponse.status === 200) {
+        const clone = networkResponse.clone();
+        caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
+      }
+      return networkResponse;
+    }).catch(() => caches.match(event.request))
   );
 });

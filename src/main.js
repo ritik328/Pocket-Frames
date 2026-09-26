@@ -99,6 +99,36 @@ export function showToast(msg) {
 
 // Initialize App
 async function initApp() {
+  // 1. Immediately boot Android Mobile PWA & Liquid Glass Experience (0ms latency, non-blocking)
+  try {
+    initMobileApp();
+
+    const btnToggleMobilePreview = document.getElementById('btnToggleMobilePreview');
+    const mobileContainer = document.getElementById('mobileAppContainer');
+    const btnClosePreview = document.getElementById('mobBtnClosePreview');
+
+    const togglePreview = (forceState) => {
+      if (!mobileContainer) return;
+      const shouldShow = forceState !== undefined ? forceState : !mobileContainer.classList.contains('force-mobile-preview');
+      mobileContainer.classList.toggle('force-mobile-preview', shouldShow);
+      btnToggleMobilePreview?.classList.toggle('is-active', shouldShow);
+      if (shouldShow) {
+        showToast('📱 Android Phone Preview Mode Activated');
+      }
+    };
+
+    btnToggleMobilePreview?.addEventListener('click', () => togglePreview());
+    btnClosePreview?.addEventListener('click', () => togglePreview(false));
+    window.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && mobileContainer?.classList.contains('force-mobile-preview')) {
+        togglePreview(false);
+      }
+    });
+  } catch (err) {
+    console.error('[PocketFrames] Error initializing mobile app:', err);
+  }
+
+  // 2. Setup desktop canvas and async dependencies
   await ensureFontsReady();
 
   // Setup sub-managers
@@ -150,36 +180,6 @@ async function initApp() {
   // Initial render
   updatePreview();
   updatePreflightUI();
-
-  // Initialize Android Mobile PWA & Liquid Glass Experience
-  try {
-    initMobileApp();
-
-    // Desktop Toggle for Mobile Phone View
-    const btnToggleMobilePreview = document.getElementById('btnToggleMobilePreview');
-    const mobileContainer = document.getElementById('mobileAppContainer');
-    const btnClosePreview = document.getElementById('mobBtnClosePreview');
-
-    const togglePreview = (forceState) => {
-      if (!mobileContainer) return;
-      const shouldShow = forceState !== undefined ? forceState : !mobileContainer.classList.contains('force-mobile-preview');
-      mobileContainer.classList.toggle('force-mobile-preview', shouldShow);
-      btnToggleMobilePreview?.classList.toggle('is-active', shouldShow);
-      if (shouldShow) {
-        showToast('📱 Android Phone Preview Mode Activated');
-      }
-    };
-
-    btnToggleMobilePreview?.addEventListener('click', () => togglePreview());
-    btnClosePreview?.addEventListener('click', () => togglePreview(false));
-    window.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape' && mobileContainer?.classList.contains('force-mobile-preview')) {
-        togglePreview(false);
-      }
-    });
-  } catch (err) {
-    console.error('[PocketFrames] Error initializing mobile app:', err);
-  }
 }
 
 

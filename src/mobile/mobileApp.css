@@ -261,12 +261,12 @@
 }
 
 /* ================= SCREENS ================= */
-.mob-screens {
+.mob-screens, .screens {
   position: absolute;
   inset: 0;
 }
 
-.mob-screen {
+.mob-screen, .screen {
   position: absolute;
   inset: 0;
   display: flex;
@@ -274,20 +274,27 @@
   padding-top: 46px;
   opacity: 0;
   transform: translateX(46px);
-  pointer-events: none;
-  transition: transform 0.42s cubic-bezier(0.22, 0.85, 0.28, 1), opacity 0.42s;
+  pointer-events: none !important;
+  visibility: hidden !important;
+  transition: transform 0.42s cubic-bezier(0.22, 0.85, 0.28, 1), opacity 0.42s, visibility 0.42s;
 }
 
-.mob-screen.active {
-  opacity: 1;
-  transform: none;
-  pointer-events: auto;
+.mob-screen:not(.active) * {
+  pointer-events: none !important;
 }
 
-.mob-screen.pre-fwd { transform: translateX(46px) !important; opacity: 0 !important; transition: none !important; }
-.mob-screen.pre-back { transform: translateX(-46px) !important; opacity: 0 !important; transition: none !important; }
-.mob-screen.exit-fwd { transform: translateX(-46px); opacity: 0; }
-.mob-screen.exit-back { transform: translateX(46px); opacity: 0; }
+.mob-screen.active, .screen.active {
+  opacity: 1 !important;
+  transform: none !important;
+  pointer-events: auto !important;
+  visibility: visible !important;
+  z-index: 10;
+}
+
+.mob-screen.pre-fwd, .screen.pre-fwd { transform: translateX(46px) !important; opacity: 0 !important; visibility: visible !important; transition: none !important; }
+.mob-screen.pre-back, .screen.pre-back { transform: translateX(-46px) !important; opacity: 0 !important; visibility: visible !important; transition: none !important; }
+.mob-screen.exit-fwd, .screen.exit-fwd { transform: translateX(-46px); opacity: 0; visibility: visible; pointer-events: none !important; }
+.mob-screen.exit-back, .screen.exit-back { transform: translateX(46px); opacity: 0; visibility: visible; pointer-events: none !important; }
 
 .mob-scr-body {
   flex: 1;
@@ -589,13 +596,24 @@
   50% { opacity: 1; transform: scale(1.15); }
 }
 
+#scr-onboard {
+  overflow-y: auto;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+  display: flex;
+  flex-direction: column;
+}
+
 .mob-onb-visual {
-  padding: 26px 44px 8px;
+  padding: 16px 36px 8px;
   display: flex;
   justify-content: center;
+  flex: 0 0 auto;
 }
 .mob-onb-frame {
   width: 100%;
+  max-width: 280px;
+  max-height: 38vh;
   aspect-ratio: 4 / 4.6;
   border-radius: 26px;
   background-color: #111;
@@ -618,7 +636,7 @@
 }
 .mob-onb-copy {
   flex: 1;
-  padding: 26px 28px 34px;
+  padding: 16px 24px 28px;
   display: flex;
   flex-direction: column;
 }
@@ -634,23 +652,23 @@
   to { opacity: 1; transform: none; }
 }
 .mob-onb-slide h2 {
-  font-size: 29px;
+  font-size: 26px;
   font-weight: 700;
   letter-spacing: -0.6px;
-  line-height: 1.12;
-  margin-bottom: 12px;
+  line-height: 1.15;
+  margin-bottom: 10px;
 }
 .mob-onb-slide p {
-  font-size: 14px;
+  font-size: 13.5px;
   color: var(--mob-ink2);
-  line-height: 1.55;
-  max-width: 280px;
+  line-height: 1.5;
+  max-width: 290px;
 }
 .mob-onb-dots {
   display: flex;
   gap: 6px;
   margin-top: auto;
-  padding: 22px 0 18px;
+  padding: 14px 0 16px;
 }
 .mob-onb-dots i {
   width: 7px;
@@ -658,6 +676,8 @@
   border-radius: 999px;
   background: var(--mob-pill);
   transition: 0.3s;
+  cursor: pointer;
+  touch-action: manipulation;
 }
 .mob-onb-dots i.on {
   width: 22px;
@@ -671,6 +691,10 @@
   position: relative;
   z-index: 80;
   pointer-events: auto;
+}
+.mob-onb-cta button {
+  touch-action: manipulation;
+  cursor: pointer;
 }
 
 
@@ -1581,9 +1605,8 @@
   align-items: center;
   justify-content: space-around;
   background-color: color-mix(in srgb, var(--c-glass) var(--glass-mix), transparent);
-  -webkit-backdrop-filter: blur(14px) saturate(var(--saturation));
-  backdrop-filter: blur(14px) saturate(var(--saturation));
-  backdrop-filter: blur(10px) url(#liquidGlass) saturate(var(--saturation));
+  -webkit-backdrop-filter: blur(20px) saturate(var(--saturation));
+  backdrop-filter: blur(20px) saturate(var(--saturation));
   box-shadow:
     inset 0 0 0 1px color-mix(in srgb, var(--c-light) calc(var(--grl) * 10%), transparent),
     inset 1.8px 3px 0px -2px color-mix(in srgb, var(--c-light) calc(var(--grl) * 90%), transparent),
@@ -1707,9 +1730,8 @@
   border: none;
   border-radius: 99em;
   background-color: color-mix(in srgb, var(--c-glass) 12%, transparent);
-  -webkit-backdrop-filter: blur(10px) saturate(var(--saturation));
-  backdrop-filter: blur(10px) saturate(var(--saturation));
-  backdrop-filter: blur(8px) url(#liquidGlassSoft) saturate(var(--saturation));
+  -webkit-backdrop-filter: blur(16px) saturate(var(--saturation));
+  backdrop-filter: blur(16px) saturate(var(--saturation));
   box-shadow:
     inset 0 0 0 1px color-mix(in srgb, var(--c-light) calc(var(--grl) * 10%), transparent),
     inset 1.8px 3px 0px -2px color-mix(in srgb, var(--c-light) calc(var(--grl) * 90%), transparent),
@@ -1783,9 +1805,8 @@
   white-space: nowrap;
   pointer-events: none;
   background-color: color-mix(in srgb, var(--c-glass) 30%, transparent);
-  -webkit-backdrop-filter: blur(12px) saturate(var(--saturation));
-  backdrop-filter: blur(12px) saturate(var(--saturation));
-  backdrop-filter: blur(8px) url(#liquidGlassSoft) saturate(var(--saturation));
+  -webkit-backdrop-filter: blur(16px) saturate(var(--saturation));
+  backdrop-filter: blur(16px) saturate(var(--saturation));
   box-shadow:
     inset 0 0 0 1px color-mix(in srgb, var(--c-light) calc(var(--grl) * 10%), transparent),
     inset 1.8px 2px 0px -1px color-mix(in srgb, var(--c-light) calc(var(--grl) * 85%), transparent),
@@ -1799,18 +1820,20 @@
   opacity: 1;
 }
 
-.mob-sheet-veil {
+.mob-sheet-veil, .sheet-veil {
   position: absolute;
   inset: 0;
   background: rgba(10, 8, 4, 0.4);
   opacity: 0;
   pointer-events: none;
-  transition: 0.35s;
+  visibility: hidden;
+  transition: opacity 0.35s, visibility 0.35s;
   z-index: 940;
 }
-.mob-sheet-veil.on {
+.mob-sheet-veil.on, .sheet-veil.on {
   opacity: 1;
   pointer-events: auto;
+  visibility: visible;
 }
 
 .mob-sheet {
@@ -1828,7 +1851,6 @@
   background-color: color-mix(in srgb, var(--mob-bg) 72%, transparent);
   -webkit-backdrop-filter: blur(24px) saturate(var(--saturation));
   backdrop-filter: blur(24px) saturate(var(--saturation));
-  backdrop-filter: blur(18px) url(#liquidGlassSoft) saturate(var(--saturation));
   box-shadow:
     inset 0 0 0 1px color-mix(in srgb, var(--c-light) calc(var(--grl) * 12%), transparent),
     inset 2px 3px 0px -1px color-mix(in srgb, var(--c-light) calc(var(--grl) * 80%), transparent),
