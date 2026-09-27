@@ -30,6 +30,12 @@ export default defineConfig(({ command, mode }) => {
       {
         name: 'pocket-frames-ai-backend',
         configureServer(server) {
+          server.middlewares.use((req, res, next) => {
+            if (req.url === '/app' || req.url === '/app/' || req.url === '/mobile' || req.url === '/mobile/') {
+              req.url = '/app.html';
+            }
+            next();
+          });
           server.middlewares.use(async (req, res, next) => {
             if (req.url && (req.url.startsWith('/api/stickers') || req.url.startsWith('/api/stickers/'))) {
               try {
