@@ -1,4 +1,4 @@
-const CACHE_NAME = 'pocketframes-v4';
+const CACHE_NAME = 'pocketframes-v5';
 const PRECACHE_URLS = [
   '/',
   '/index.html',
