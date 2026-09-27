@@ -822,35 +822,120 @@ export class MobileAppCoordinator {
   }
 
   bindPwaInstall() {
+    // 1. Pick up prompt if captured early in <head>
+    if (window.__deferredPrompt) {
+      this.deferredInstallPrompt = window.__deferredPrompt;
+      const installRow = document.getElementById('mobPwaInstallRow');
+      if (installRow) installRow.style.display = 'block';
+    }
+
+    // 2. Listen for custom event or native beforeinstallprompt
+    window.addEventListener('pwa-prompt-ready', (e) => {
+      this.deferredInstallPrompt = e.detail || window.__deferredPrompt;
+      const installRow = document.getElementById('mobPwaInstallRow');
+      if (installRow) installRow.style.display = 'block';
+      this.updatePwaInstallUi(false);
+    });
+
     window.addEventListener('beforeinstallprompt', (e) => {
       e.preventDefault();
       this.deferredInstallPrompt = e;
+      window.__deferredPrompt = e;
       const installRow = document.getElementById('mobPwaInstallRow');
-      if (installRow) installRow.style.display = 'flex';
+      if (installRow) installRow.style.display = 'block';
+      this.updatePwaInstallUi(false);
     });
 
+    // 3. Handle successful install
+    window.addEventListener('appinstalled', () => {
+      this.deferredInstallPrompt = null;
+      window.__deferredPrompt = null;
+      this.updatePwaInstallUi(true);
+      this.toast('Pocket Frames installed! 🎉 Check your home screen');
+    });
+
+    // 4. Check initial standalone status
+    const isStandalone = window.matchMedia('(display-mode: standalone)').matches ||
+                         window.matchMedia('(display-mode: fullscreen)').matches ||
+                         window.navigator.standalone === true ||
+                         document.documentElement.classList.contains('is-standalone');
+    this.updatePwaInstallUi(isStandalone);
+
+    // 5. Direct click fallback on install button
     const installBtn = document.getElementById('mobBtnInstallPwa');
     if (installBtn) {
-      installBtn.addEventListener('click', async () => {
-        if (this.deferredInstallPrompt) {
-          this.deferredInstallPrompt.prompt();
-          const { outcome } = await this.deferredInstallPrompt.userChoice;
-          if (outcome === 'accepted') {
-            this.toast('Pocket Frames installed! ✓');
-          }
-          this.deferredInstallPrompt = null;
-        } else {
-          this.toast('To install: Tap browser menu ⋮ and select "Add to Home screen"');
-        }
+      installBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        this.handlePwaInstallAction();
       });
     }
 
+    // 6. Service worker registration fallback
     if ('serviceWorker' in navigator && window.location.protocol.startsWith('http')) {
-      navigator.serviceWorker.register('/sw.js').then((reg) => {
+      navigator.serviceWorker.register('/sw.js', { scope: '/' }).then((reg) => {
         reg.update().catch(() => {});
       }).catch((err) => {
         console.warn('[PWA] Service Worker registration failed:', err);
       });
+    }
+  }
+
+  updatePwaInstallUi(isInstalled) {
+    const installBtn = document.getElementById('mobBtnInstallPwa');
+    const installRow = document.getElementById('mobPwaInstallRow');
+    if (isInstalled) {
+      if (installBtn) {
+        installBtn.textContent = 'Installed ✓';
+        installBtn.disabled = true;
+        installBtn.style.opacity = '0.7';
+        installBtn.style.pointerEvents = 'none';
+      }
+      if (installRow) {
+        const sub = installRow.querySelector('span');
+        if (sub) sub.textContent = 'Installed as standalone Android app';
+      }
+    } else if (this.deferredInstallPrompt || window.__deferredPrompt) {
+      if (installBtn) {
+        installBtn.textContent = 'Install 📲';
+        installBtn.disabled = false;
+        installBtn.style.opacity = '1';
+        installBtn.style.pointerEvents = 'auto';
+      }
+    }
+  }
+
+  async handlePwaInstallAction() {
+    const isStandalone = window.matchMedia('(display-mode: standalone)').matches ||
+                         window.matchMedia('(display-mode: fullscreen)').matches ||
+                         window.navigator.standalone === true ||
+                         document.documentElement.classList.contains('is-standalone');
+
+    if (isStandalone) {
+      this.toast('Pocket Frames is already installed on your device! ✓');
+      return;
+    }
+
+    const promptEvent = this.deferredInstallPrompt || window.__deferredPrompt;
+    if (promptEvent) {
+      try {
+        promptEvent.prompt();
+        const choice = await promptEvent.userChoice;
+        if (choice && choice.outcome === 'accepted') {
+          this.toast('Installing Pocket Frames to Home Screen… 🎉');
+          this.deferredInstallPrompt = null;
+          window.__deferredPrompt = null;
+          this.updatePwaInstallUi(true);
+        } else {
+          this.toast('Installation dismissed');
+        }
+      } catch (err) {
+        console.warn('[PWA] Prompt error:', err);
+        this.toast('To install: Tap Chrome menu ⋮ and select "Add to Home screen"');
+      }
+    } else {
+      // In case beforeinstallprompt hasn't fired yet or browser requires manual menu tap:
+      this.toast('Tap Chrome menu ⋮ (top right) → "Add to Home screen" or "Install app"');
     }
   }
 
@@ -980,6 +1065,12 @@ export class MobileAppCoordinator {
       if (e.target.id === 'alOk') {
         document.getElementById('alertVeil')?.classList.remove('on');
         if (this.alertFn) this.alertFn();
+        return;
+      }
+
+      // PWA Install button in Settings
+      if (e.target.closest('#mobBtnInstallPwa')) {
+        this.handlePwaInstallAction();
         return;
       }
 

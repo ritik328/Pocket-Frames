@@ -4,10 +4,10 @@
 
 /* Responsive visibility between Desktop Web App and Mobile App */
 @media (min-width: 769px) {
-  #mobileAppContainer:not(.force-mobile-preview) {
+  html:not(.is-mobile-device):not(.is-standalone) #mobileAppContainer:not(.force-mobile-preview) {
     display: none !important;
   }
-  #mobileAppContainer.force-mobile-preview {
+  html:not(.is-mobile-device):not(.is-standalone) #mobileAppContainer.force-mobile-preview {
     display: flex !important;
     position: fixed;
     inset: 0;
@@ -24,7 +24,7 @@
   }
 }
 
-@media (max-width: 768px) {
+@media (max-width: 768px), (display-mode: standalone), (display-mode: fullscreen) {
   .shell {
     display: none !important;
   }
@@ -67,6 +67,56 @@
   #mobileAppContainer .glassnav {
     bottom: max(16px, env(safe-area-inset-bottom, 16px)) !important;
   }
+}
+
+/* Explicit class-based fallback for mobile devices and standalone PWA apps */
+html.is-mobile-device .shell,
+html.is-standalone .shell {
+  display: none !important;
+}
+
+html.is-mobile-device #mobileAppContainer,
+html.is-standalone #mobileAppContainer {
+  display: flex !important;
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100vh;
+  height: 100svh;
+  overflow: hidden;
+  padding: 0 !important;
+  margin: 0 !important;
+  background: var(--bg) !important;
+}
+
+html.is-mobile-device #mobileAppContainer .device,
+html.is-standalone #mobileAppContainer .device {
+  width: 100% !important;
+  height: 100% !important;
+  transform: none !important;
+  display: flex;
+  flex-direction: column;
+}
+
+html.is-mobile-device #mobileAppContainer .phone,
+html.is-standalone #mobileAppContainer .phone {
+  width: 100% !important;
+  height: 100% !important;
+  border: none !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  background: var(--bg) !important;
+}
+
+html.is-mobile-device #mobileAppContainer .side-btn,
+html.is-mobile-device #mobileAppContainer .punch,
+html.is-mobile-device #mobileAppContainer .stage-cap,
+html.is-mobile-device #mobileAppContainer .mob-preview-close,
+html.is-standalone #mobileAppContainer .side-btn,
+html.is-standalone #mobileAppContainer .punch,
+html.is-standalone #mobileAppContainer .stage-cap,
+html.is-standalone #mobileAppContainer .mob-preview-close {
+  display: none !important;
 }
 
 /* ================= TOKENS (LIGHT THEME) ================= */

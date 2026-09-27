@@ -6,7 +6,7 @@
   <title>Pocket Frames — Frame your moment.</title>
   <meta name="description" content="Minimalist, deterministic Polaroid photo framing studio with Hasselblad typography and camera EXIF metadata for Instagram 4:5 portrait." />
 
-  <!-- Fast Inline Theme Bootstrap (Eliminates Theme Flash) -->
+  <!-- Fast Inline Theme & PWA Lifecycle Bootstrap -->
   <script>
     (function(){
       try{
@@ -17,6 +17,49 @@
       }catch(e){
         document.documentElement.setAttribute('data-theme','dark');
         document.documentElement.setAttribute('data-theme-choice','auto');
+      }
+
+      // 1. Early Standalone & Mobile Mode Detection
+      var isStandalone = window.matchMedia('(display-mode: standalone)').matches ||
+                         window.matchMedia('(display-mode: fullscreen)').matches ||
+                         window.navigator.standalone === true ||
+                         (document.referrer && document.referrer.includes('android-app://'));
+      
+      var isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) ||
+                     (window.innerWidth <= 768);
+
+      if (isStandalone) {
+        document.documentElement.classList.add('is-standalone');
+      }
+      if (isMobile || isStandalone) {
+        document.documentElement.classList.add('is-mobile-device');
+      }
+
+      // 2. Early beforeinstallprompt Capture (Never Miss Android Install Event)
+      window.__deferredPrompt = null;
+      window.addEventListener('beforeinstallprompt', function(e) {
+        e.preventDefault();
+        window.__deferredPrompt = e;
+        window.dispatchEvent(new CustomEvent('pwa-prompt-ready', { detail: e }));
+        var row = document.getElementById('mobPwaInstallRow');
+        if (row) row.style.display = 'block';
+      });
+
+      window.addEventListener('appinstalled', function() {
+        window.__deferredPrompt = null;
+        document.documentElement.classList.add('is-standalone');
+        window.dispatchEvent(new CustomEvent('pwa-installed'));
+      });
+
+      // 3. Immediate Service Worker Registration (Passes Chromium Installability Check)
+      if ('serviceWorker' in navigator && window.location.protocol.startsWith('http')) {
+        navigator.serviceWorker.register('/sw.js', { scope: '/' })
+          .then(function(reg) {
+            reg.update().catch(function(){});
+          })
+          .catch(function(err) {
+            console.warn('[PWA] SW register error:', err);
+          });
       }
     })();
   </script>
@@ -37,6 +80,7 @@
   <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
   <link rel="icon" type="image/svg+xml" href="/icons/icon.svg" />
   <link rel="icon" type="image/png" sizes="192x192" href="/icons/icon-192.png" />
+  <link rel="icon" type="image/png" sizes="512x512" href="/icons/icon-512.png" />
 
   <!-- DM Sans Font for Android Mobile Experience -->
   <link href="https://cdn.jsdelivr.net/fontsource/css/dm-sans@latest/400.css" rel="stylesheet" />
