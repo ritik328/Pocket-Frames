@@ -1,9 +1,9 @@
 {
-  "id": "/",
+  "id": "/app.html",
   "name": "Pocket Frames",
   "short_name": "Pocket Frames",
   "description": "Minimalist Polaroid & Hasselblad photo framing and cinematic video creator with 3D LUT grading.",
-  "start_url": "/",
+  "start_url": "/app.html",
   "scope": "/",
   "display": "standalone",
   "orientation": "portrait",

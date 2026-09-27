@@ -1,7 +1,8 @@
-const CACHE_NAME = 'pocketframes-v6';
+const CACHE_NAME = 'pocketframes-v8';
 const PRECACHE_URLS = [
   '/',
   '/index.html',
+  '/app.html',
   '/manifest.json',
   '/icons/icon-192.png',
   '/icons/icon-512.png',
@@ -42,8 +43,8 @@ self.addEventListener('fetch', (event) => {
 
   const url = new URL(event.request.url);
 
-  // During local development over localhost, always use live network
-  const isDev = (url.hostname === 'localhost' || url.hostname === '127.0.0.1') && url.port === '5173';
+  // During local development (localhost or IP on dev server), always use live network
+  const isDev = url.port === '5173' || url.port === '3000' || url.hostname === 'localhost' || url.hostname === '127.0.0.1';
   if (isDev) {
     event.respondWith(fetch(event.request).catch(() => caches.match(event.request)));
     return;
@@ -62,8 +63,9 @@ self.addEventListener('fetch', (event) => {
         })
         .catch(async () => {
           const cached = (await caches.match(event.request)) ||
-                         (await caches.match('/')) ||
-                         (await caches.match('/index.html'));
+                         (await caches.match('/app.html')) ||
+                         (await caches.match('/index.html')) ||
+                         (await caches.match('/'));
           if (cached) return cached;
 
           return new Response(

@@ -6,6 +6,14 @@
   },
   "rewrites": [
     {
+      "source": "/app",
+      "destination": "/app.html"
+    },
+    {
+      "source": "/mobile",
+      "destination": "/app.html"
+    },
+    {
       "source": "/ai-director",
       "destination": "/ai-director.html"
     },
@@ -14,11 +22,24 @@
       "destination": "/studio.html"
     },
     {
-      "source": "/((?!api/.*|ai-director\\.html|studio\\.html|\\..*|custom-stickers/.*).*)",
+      "source": "/((?!api/.*|app|app\\.html|mobile|ai-director\\.html|studio\\.html|\\..*|custom-stickers/.*).*)",
       "destination": "/index.html"
     }
   ],
   "headers": [
+    {
+      "source": "/sw.js",
+      "headers": [
+        { "key": "Cache-Control", "value": "no-cache, no-store, must-revalidate" },
+        { "key": "Service-Worker-Allowed", "value": "/" }
+      ]
+    },
+    {
+      "source": "/manifest.json",
+      "headers": [
+        { "key": "Cache-Control", "value": "no-cache, no-store, must-revalidate" }
+      ]
+    },
     {
       "source": "/api/(.*)",
       "headers": [
