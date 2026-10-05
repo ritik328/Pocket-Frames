@@ -1,13 +1,22 @@
 /**
  * Pocket Frames — Android Mobile Experience Coordinator
- * Powers the adaptive liquid-glass navigation, context sheets, pull-to-refresh,
- * accessibility scaling, AI insights, 3D LUT grading, and 45s video export.
+ * Exclusively powers the Studio Frames system with 17 original layouts from web app,
+ * live camera with frame overlay & Snapchat-style circle slider, and User ID Card.
  */
 import { store } from '../state.js';
 import { videoManager } from '../video/videoManager.js';
 import { downloadFrame } from '../export/exportEngine.js';
 import { loadUserImage } from '../image/imageLoader.js';
 import { lutManager } from '../lut/lutManager.js';
+import { getBuiltinPresets, BUILTIN_PRESET_DEFINITIONS } from '../lut/lutPresets.js';
+import { parseCubeLut } from '../lut/lutParser.js';
+import { applyLut } from '../lut/lutProcessor.js';
+
+import { FRAME_CATALOG, FRAME_CATEGORIES, getFrameById, getFramesByCategory } from '../v2/frameDefinitions.js';
+import { SceneStore, createDefaultScene, createStickerElement, createTextElement, createPhotoEntry, LOGICAL_W, LOGICAL_H } from '../v2/scene.js';
+import { renderScene, renderFrameThumbnail } from '../v2/sceneRenderer.js';
+import { STICKER_CATALOG, getStickersByPack, STICKER_PACKS, getStickerById } from '../v2/stickerCatalog.js';
+import { triggerHaptic, saveToDeviceGallery, shareFramedPhoto } from './nativeBridge.js';
 
 const storage = {
   get(k, d) {
@@ -29,20 +38,53 @@ const SCREEN_NAMES = {
   'scr-splash': 'Splash',
   'scr-onboard': 'Welcome',
   'scr-home': 'Home',
-  'scr-library': 'Library',
-  'scr-editor': 'Editor',
-  'scr-ai': 'Insights',
-  'scr-post': 'Post',
-  'scr-export': 'Export',
-  'scr-lut': 'Color Lab',
+  'scr-frames': 'Frames',
+  'scr-editor': 'Frames',
+  'scr-camera': 'Camera',
   'scr-settings': 'Settings'
 };
+
+const FRAME_ICONS = {
+  'plain-strip': '🎞️',
+  'ticket-stub': '🎫',
+  'love-notes': '💌',
+  'vintage-lace': '🌿',
+  'coastal-ring': '🌊',
+  'camera-cutout': '📸',
+  'playing-card': '🃏',
+  'love-scribble': '💖',
+  'digital-camera': '📷',
+  'citrus-collage': '🍊',
+  'handwritten-caption': '✍️',
+  'retro-phone-collage': '☎️',
+  'postcard': '📮',
+  'story-of-love': '📖',
+  'camera-screen': '📹',
+  'editor-toolbar': '🎨',
+  'film-roll': '🎞'
+};
+
+const LUT_CATALOG = [
+  { id: 'original', title: 'Original (Bypass)', category: 'Neutral', colorTag: '#999999', desc: 'No color grade applied' },
+  { id: 'hasselblad_natural', title: 'Hasselblad Natural (HNCS)', category: 'Medium Format', colorTag: '#C49A45', desc: 'Authentic medium-format tone curve' },
+  { id: 'kodak_portra_400', title: 'Kodak Portra 400', category: 'Negative Film', colorTag: '#E6A770', desc: 'Warm golden skin tones & lifted blacks' },
+  { id: 'fuji_pro_400h', title: 'Fujifilm Pro 400H', category: 'Negative Film', colorTag: '#68C3B5', desc: 'Cool airy cyan highlights & pastel depth' },
+  { id: 'cinematic_teal_orange', title: 'Cine Teal & Orange', category: 'Cinematic', colorTag: '#3A9BB2', desc: 'Blockbuster complementary split-toning' },
+  { id: 'leica_monochrome', title: 'Leica Monochrom Noir', category: 'Black & White', colorTag: '#8E8E93', desc: 'Velvety street photography micro-contrast' },
+  { id: 'kodachrome_64', title: 'Kodak Kodachrome 64', category: 'Slide Film', colorTag: '#E04A36', desc: '1970s rich saturated slide film look' }
+];
+
+const STICKERS = ['🌸', '✨', '💖', '⭐', '🎧', '🦋', '🌈', '🐻', '🌙', '📸', '🎞️', '🕊️', '🌿', '🌻', '🔥', '⚡'];
+const TXTCOLORS = ['#FFFFFF', '#191919', '#F1D377', '#F0B6D8', '#B5CDF1'];
 
 export class MobileAppCoordinator {
   constructor() {
     this.container = document.getElementById('mobileAppContainer');
     this.phone = document.getElementById('phone') || document.getElementById('mobPhone');
-    if (!this.container || !this.phone) return;
+    if (!this.container || !this.phone) {
+      console.error('[MobileApp] Critical DOM elements not found. Expected #mobileAppContainer and #phone in the document.');
+      return;
+    }
 
     this.current = 'scr-splash';
     this.history = [];
@@ -55,6 +97,54 @@ export class MobileAppCoordinator {
     this.lpStart = null;
     this.lpSuppress = false;
     this.ctxId = null;
+
+    // User ID Card Profile State
+    this.profile = storage.get('pf-user-profile', {
+      name: 'Alex Rivera',
+      age: '24 Years',
+      dob: '2001-03-12',
+      role: 'Studio Creator',
+      idNum: 'PF-8842-STUDIO',
+      joined: '2026',
+      status: 'Active Pro',
+      avatar: '',
+      hue: 38
+    });
+
+    // Webapp Frames & Uploaded Frames State
+    this.uploadedFrames = storage.get('pf-uploaded-frames', []);
+    this.activeFrameId = storage.get('pf-active-frame', 'plain-strip');
+    this.activeFrameCat = 'all';
+    this.selectedAperture = 0;
+    this.camFrameIndex = 0;
+
+    // Webapp 3D LUT State
+    this.activeLut = storage.get('pf-active-lut', 'original');
+    this.lutIntensity = 100;
+    this.isLutBypassed = false;
+    this.customLuts = [];
+
+    // Layers & Editor State
+    this.layers = [];
+    this.layerSeq = 0;
+    this.txtColor = TXTCOLORS[0];
+    this.STICKERS = STICKERS;
+    this.TXTCOLORS = TXTCOLORS;
+
+    // Live Camera AR Frame State
+    this.camStream = null;
+    this.camFacingMode = 'environment';
+    this.camZoom = 1.0;
+    this.camEv = 0.0;
+    this.initialPinchDist = null;
+    this.initialPinchZoom = 1.0;
+    this.camTried = false;
+
+    // V2 Studio Frame Document State & Renderer
+    this.sceneStore = new SceneStore();
+    this.sceneStore.setFrame(this.activeFrameId);
+    this.selectedTextFont = 'Caveat';
+    this.selectedTextColor = '#1a1a1a';
 
     this.samplePhotos = [
       { id: 'p1', title: 'Prismatik', score: 8.2, type: 'print' },
@@ -87,7 +177,7 @@ export class MobileAppCoordinator {
       ox: 0,
       oy: 0,
       guides: false,
-      frame: 'matte',
+      frame: 'plain-strip',
       lut: 'warm',
       lutInt: 80,
       favs: storage.get('pf-favs', { p3: true, p6: true }),
@@ -102,22 +192,19 @@ export class MobileAppCoordinator {
       libQuery: ''
     };
 
-    this.NAV_SCREENS = ['scr-home', 'scr-library', 'scr-ai', 'scr-settings'];
+    // Exactly 4 Navigation Tabs from User Diagram: Home, Frames, Camera, Settings
+    this.NAV_SCREENS = ['scr-home', 'scr-frames', 'scr-camera', 'scr-settings'];
 
     this.init();
   }
 
   init() {
-    this.skeletonGrid(document.getElementById('homeGrid'), 4);
-    this.skeletonGrid(document.getElementById('libGrid'), 6);
-    this.buildLutGrid();
-    this.syncExport();
-
-    setTimeout(() => this.renderGrids(), 450);
+    this.initUserIdCard();
+    this.initFramesScreen();
+    this.initCameraScreen();
+    this.initSheets();
 
     this.bindEvents();
-    this.bindPTR('#homeBody', '#ptrHome', 'Feed updated');
-    this.bindPTR('#libBody', '#ptrLib', 'Library updated');
     this.bindPwaInstall();
     this.initClock();
     this.initFit();
@@ -135,12 +222,12 @@ export class MobileAppCoordinator {
     this.setNav('scr-splash');
 
     const splashT = setTimeout(() => {
-      if (this.current === 'scr-splash') this.go('scr-onboard');
-    }, 1600);
+      if (this.current === 'scr-splash') this.go('scr-home', { root: true });
+    }, 1500);
 
     splash?.addEventListener('click', () => {
       clearTimeout(splashT);
-      if (this.current === 'scr-splash') this.go('scr-onboard');
+      if (this.current === 'scr-splash') this.go('scr-home', { root: true });
     });
 
     // Subscribe to central desktop store to sync user media when uploaded
@@ -190,15 +277,30 @@ export class MobileAppCoordinator {
   toast(msg, actionLabel, actionFn) {
     const t = document.getElementById('toast') || document.getElementById('mobToast');
     if (!t) return;
-    t.innerHTML = `<span id="toastMsg">${msg}</span>` + (actionLabel ? `<button type="button" class="t-act" id="toastAct">${actionLabel}</button>` : '');
-    const actBtn = t.querySelector('#toastAct');
-    if (actBtn && actionFn) {
-      actBtn.onclick = (e) => {
-        e.stopPropagation();
-        t.classList.remove('on');
-        actionFn();
-      };
+
+    // Build toast content safely — never use innerHTML for user/runtime strings
+    t.innerHTML = ''; // clear previous content
+    const msgSpan = document.createElement('span');
+    msgSpan.id = 'toastMsg';
+    msgSpan.textContent = msg;
+    t.appendChild(msgSpan);
+
+    if (actionLabel) {
+      const actBtn = document.createElement('button');
+      actBtn.type = 'button';
+      actBtn.className = 't-act';
+      actBtn.id = 'toastAct';
+      actBtn.textContent = actionLabel;
+      if (actionFn) {
+        actBtn.onclick = (e) => {
+          e.stopPropagation();
+          t.classList.remove('on');
+          actionFn();
+        };
+      }
+      t.appendChild(actBtn);
     }
+
     t.classList.add('on');
     clearTimeout(this.toastTimer);
     this.toastTimer = setTimeout(() => t.classList.remove('on'), actionLabel ? 3600 : 1800);
@@ -287,9 +389,23 @@ export class MobileAppCoordinator {
     this.current = id;
     this.setNav(id);
 
-    if (id === 'scr-ai') this.animateAI();
-    if (id === 'scr-editor') this.renderEditor();
-    if (id === 'scr-lut') this.applyLUT();
+    if (id === 'scr-camera') {
+      this.startCamera();
+    } else {
+      this.stopCamera();
+    }
+    if (id === 'scr-frames') {
+      this.renderFramesCanvas();
+      this.updateSlidePills();
+      this.updateSlideReplaceBar();
+      this.renderLayers();
+    }
+    if (id === 'scr-editor') {
+      this.renderFramesCanvas();
+    }
+    if (id === 'scr-home') {
+      this.renderUserIdCard();
+    }
   }
 
   back() {
@@ -461,8 +577,1599 @@ export class MobileAppCoordinator {
     if (navigator.vibrate) navigator.vibrate(12);
   }
 
+  /* ================= TAB 1: USER ID CARD ================= */
+  openEditIdSheet() {
+    this.openSheet('profile');
+  }
+
+  saveEditId() {
+    const nameVal = document.getElementById('pfName')?.value?.trim() || document.getElementById('inputEditName')?.value?.trim() || this.profile.name;
+    const ageRaw = document.getElementById('pfAge')?.value?.trim() || document.getElementById('inputEditAge')?.value?.trim() || '24';
+    const ageVal = ageRaw.includes('Years') ? ageRaw : `${ageRaw} Years`;
+    const dobVal = document.getElementById('pfDob')?.value?.trim() || document.getElementById('inputEditDob')?.value?.trim() || this.profile.dob;
+    const roleVal = document.getElementById('inputEditRole')?.value?.trim() || this.profile.role;
+    const hueVal = +(document.getElementById('pfHue')?.value || this.profile.hue || 38);
+
+    this.profile.name = nameVal;
+    this.profile.age = ageVal;
+    this.profile.dob = dobVal;
+    this.profile.role = roleVal;
+    this.profile.hue = hueVal;
+    storage.set('pf-user-profile', this.profile);
+
+    this.renderUserIdCard();
+    this.closeSheets();
+    this.toast('Profile updated ✓');
+  }
+
+  async shareIdCard() {
+    const shareData = {
+      title: `${this.profile.name}'s Pocket Frames ID`,
+      text: `Pocket Frames Creator: ${this.profile.name} (${this.profile.role}) • ${this.profile.idNum}`,
+      url: window.location.href
+    };
+    if (navigator.share) {
+      try {
+        await navigator.share(shareData);
+        this.toast('ID Card shared');
+      } catch (e) {}
+    } else {
+      this.copyText(`${shareData.title}\n${shareData.text}`, 'Creator ID copied to clipboard ✓');
+    }
+  }
+
+  initUserIdCard() {
+    this.renderUserIdCard();
+
+    document.getElementById('btnEditIdCard')?.addEventListener('click', () => this.openSheet('profile'));
+    document.getElementById('btnEditProfileSheet')?.addEventListener('click', () => this.openSheet('profile'));
+    document.getElementById('ucEdit')?.addEventListener('click', () => this.openSheet('profile'));
+    document.getElementById('setProfile')?.addEventListener('click', () => this.openSheet('profile'));
+    document.getElementById('btnShareIdCard')?.addEventListener('click', () => this.shareIdCard());
+
+    const profCard = document.querySelector('#mobileAppContainer .prof-card');
+    profCard?.addEventListener('click', () => this.openSheet('profile'));
+
+    const pfHue = document.getElementById('pfHue');
+    pfHue?.addEventListener('input', (e) => {
+      const prev = document.getElementById('pfPrev');
+      if (prev) prev.style.background = this.hueGrad(+e.target.value);
+    });
+
+    document.getElementById('pfSave')?.addEventListener('click', () => this.saveEditId());
+    document.getElementById('btnSaveEditId')?.addEventListener('click', () => this.saveEditId());
+    document.getElementById('btnCancelEditId')?.addEventListener('click', () => this.closeSheets());
+
+    // Avatar upload if input exists
+    const avatarInput = document.getElementById('mobAvatarUploadInput');
+    avatarInput?.addEventListener('change', (e) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        this.profile.avatar = ev.target.result;
+        storage.set('pf-user-profile', this.profile);
+        this.renderUserIdCard();
+        this.toast('Profile photo updated ✓');
+      };
+      reader.readAsDataURL(file);
+    });
+  }
+
+  hueGrad(h) {
+    return `linear-gradient(135deg, hsl(${h} 75% 78%), hsl(${(h + 45) % 360} 70% 68%))`;
+  }
+
+  renderUserIdCard() {
+    const nameEl = document.getElementById('idCardName') || document.getElementById('ucName');
+    const ageEl = document.getElementById('idCardAge') || document.getElementById('ucAge');
+    const dobEl = document.getElementById('idCardDob') || document.getElementById('ucDob');
+    const roleEl = document.getElementById('idCardRole');
+    const numEl = document.getElementById('idCardNum');
+    const joinedEl = document.getElementById('idCardJoined');
+    const statusEl = document.getElementById('idCardStatus');
+    const avatarEl = document.getElementById('idCardAvatar') || document.getElementById('ucAvatar');
+    const setProfName = document.getElementById('setProfName') || document.getElementById('setUserName');
+    const pfPrev = document.getElementById('pfPrev');
+    const pfName = document.getElementById('pfName');
+    const pfAge = document.getElementById('pfAge');
+    const pfDob = document.getElementById('pfDob');
+    const pfHue = document.getElementById('pfHue');
+
+    if (nameEl) nameEl.textContent = this.profile.name;
+    if (ageEl) ageEl.textContent = this.profile.age;
+    if (dobEl) dobEl.textContent = this.profile.dob;
+    if (roleEl) roleEl.textContent = this.profile.role || 'Studio Creator';
+    if (numEl) numEl.textContent = `ID: ${this.profile.idNum || 'PF-8842-STUDIO'}`;
+    if (joinedEl) joinedEl.textContent = this.profile.joined || '2026';
+    if (statusEl) statusEl.textContent = this.profile.status || 'Active Pro';
+    if (setProfName) setProfName.textContent = this.profile.name;
+
+    const initials = this.profile.name
+      .split(' ')
+      .filter(Boolean)
+      .map((n) => n[0])
+      .join('')
+      .toUpperCase()
+      .slice(0, 2) || 'AR';
+
+    const bgGrad = this.hueGrad(this.profile.hue || 38);
+
+    if (avatarEl) {
+      if (this.profile.avatar) {
+        avatarEl.innerHTML = `<img src="${this.profile.avatar}" alt="${this.profile.name}" style="width:100%;height:100%;object-fit:cover;border-radius:50%;" />`;
+      } else {
+        avatarEl.textContent = initials;
+        avatarEl.style.background = bgGrad;
+      }
+    }
+    if (pfPrev) {
+      pfPrev.textContent = initials;
+      pfPrev.style.background = bgGrad;
+    }
+    if (pfName) pfName.value = this.profile.name;
+    if (pfAge) pfAge.value = parseInt(this.profile.age, 10) || 24;
+    if (pfDob) pfDob.value = this.profile.dob || '2001-03-12';
+    if (pfHue) pfHue.value = this.profile.hue || 38;
+  }
+
+  /* ================= TAB 2: WEBAPP FRAMES, CUSTOM UPLOADS & 3D LUT COLOR LAB ================= */
+  getAllFrames() {
+    return [...(this.uploadedFrames || []), ...FRAME_CATALOG];
+  }
+
+  getFrameDef(id) {
+    const uploaded = (this.uploadedFrames || []).find((f) => f.id === id);
+    if (uploaded) return uploaded;
+    return getFrameById(id) || FRAME_CATALOG[0];
+  }
+
+  getLutTitle(id) {
+    const custom = (this.customLuts || []).find((l) => l.id === id);
+    if (custom) return custom.title || custom.name;
+    const cat = LUT_CATALOG.find((l) => l.id === id);
+    return cat ? cat.title : 'Original';
+  }
+
+  getLutCssFilter(lutId, intensity = 100) {
+    const k = Math.max(0, Math.min(1, intensity / 100));
+    if (k <= 0 || lutId === 'original') return 'none';
+
+    switch (lutId) {
+      case 'hasselblad_natural': {
+        const c = (1 + 0.08 * k).toFixed(2);
+        const s = (1 + 0.12 * k).toFixed(2);
+        const b = (1 + 0.02 * k).toFixed(2);
+        const sep = (0.04 * k).toFixed(2);
+        return `contrast(${c}) saturate(${s}) brightness(${b}) sepia(${sep})`;
+      }
+      case 'kodak_portra_400': {
+        const c = (1 + 0.06 * k).toFixed(2);
+        const s = (1 + 0.08 * k).toFixed(2);
+        const b = (1 + 0.04 * k).toFixed(2);
+        const sep = (0.16 * k).toFixed(2);
+        const h = (-3 * k).toFixed(1);
+        return `contrast(${c}) saturate(${s}) brightness(${b}) sepia(${sep}) hue-rotate(${h}deg)`;
+      }
+      case 'fuji_pro_400h': {
+        const c = (1 + 0.04 * k).toFixed(2);
+        const s = (1 - 0.04 * k).toFixed(2);
+        const b = (1 + 0.06 * k).toFixed(2);
+        const h = (5 * k).toFixed(1);
+        return `contrast(${c}) saturate(${s}) brightness(${b}) hue-rotate(${h}deg)`;
+      }
+      case 'cinematic_teal_orange': {
+        const c = (1 + 0.22 * k).toFixed(2);
+        const s = (1 + 0.25 * k).toFixed(2);
+        const b = (1 - 0.02 * k).toFixed(2);
+        const h = (-8 * k).toFixed(1);
+        return `contrast(${c}) saturate(${s}) brightness(${b}) hue-rotate(${h}deg)`;
+      }
+      case 'leica_monochrome': {
+        const g = (1.0 * k).toFixed(2);
+        const c = (1 + 0.3 * k).toFixed(2);
+        const b = (1 - 0.04 * k).toFixed(2);
+        return `grayscale(${g}) contrast(${c}) brightness(${b})`;
+      }
+      case 'kodachrome_64': {
+        const c = (1 + 0.18 * k).toFixed(2);
+        const s = (1 + 0.35 * k).toFixed(2);
+        const b = (1 + 0.02 * k).toFixed(2);
+        const sep = (0.08 * k).toFixed(2);
+        const h = (-4 * k).toFixed(1);
+        return `contrast(${c}) saturate(${s}) brightness(${b}) sepia(${sep}) hue-rotate(${h}deg)`;
+      }
+      default:
+        return 'none';
+    }
+  }
+
+  selectFrame(id) {
+    this.activeFrameId = id;
+    const def = this.getFrameDef(id);
+    if (!def.isUploaded) {
+      this.sceneStore.setFrame(id);
+    }
+    this.selectedAperture = 0;
+    storage.set('pf-active-frame', id);
+
+    const edNameEl = document.getElementById('edFrameName');
+    if (edNameEl) {
+      edNameEl.textContent = (def.name || id).toUpperCase();
+    }
+
+    this.renderFramesCanvas();
+    this.updateSlidePills();
+    this.updateSlideReplaceBar();
+
+    // Sync dots and camera frame
+    const all = this.getAllFrames();
+    const idx = all.findIndex((f) => f.id === id);
+    if (idx !== -1) {
+      this.setCamFrame(idx, false);
+    }
+  }
+
+  setLut(id) {
+    this.activeLut = id;
+    storage.set('pf-active-lut', id);
+
+    // Update camera LUT circle dot color
+    const lutDef = LUT_CATALOG.find((l) => l.id === id);
+    const lutDot = document.getElementById('camLutDot');
+    if (lutDot) {
+      lutDot.style.background = lutDef?.colorTag || '#999';
+    }
+
+    // Update active class in LUT sheet
+    document.querySelectorAll('#mobileAppContainer .lut-card').forEach((c) => {
+      c.classList.toggle('on', c.dataset.lutId === id);
+    });
+
+    this.renderFramesCanvas();
+    this.applyCameraVideoFilters();
+    this.toast(`Grade: ${this.getLutTitle(id)}`);
+  }
+
+  initFramesScreen() {
+    this.buildFrameCategoryTabs();
+    this.buildFrameGrid();
+    this.buildLutGrid();
+    this.initLutControls();
+
+    // Initial frame render
+    this.renderFramesCanvas();
+    this.updateSlidePills();
+    this.updateSlideReplaceBar();
+    this.renderLayers();
+
+    // Custom Frame Upload wiring
+    document.getElementById('btnUploadCustomFrame')?.addEventListener('click', () => {
+      document.getElementById('customFrameFileInput')?.click();
+    });
+
+    const frameFileInput = document.getElementById('customFrameFileInput');
+    frameFileInput?.addEventListener('change', (e) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = () => {
+        const newFrame = {
+          id: `custom-frame-${Date.now()}`,
+          name: file.name.replace(/\.[^/.]+$/, '') || 'Custom Frame',
+          category: 'uploaded',
+          isUploaded: true,
+          dataUrl: reader.result,
+          background: '#FAF7F2',
+          borderColor: '#E3DDD2',
+          pattern: 'none',
+          apertures: [
+            { x: 180, y: 180, w: 1800, h: 2340, shape: 'rect', emptyFill: '#ECE6DC' }
+          ],
+          capabilities: { photoCount: 1 }
+        };
+        this.uploadedFrames.unshift(newFrame);
+        storage.set('pf-uploaded-frames', this.uploadedFrames);
+        this.activeFrameCat = 'uploaded';
+        this.buildFrameCategoryTabs();
+        this.buildFrameGrid();
+        this.selectFrame(newFrame.id);
+        this.buildDots();
+        this.closeSheets();
+        this.toast('Custom frame uploaded & selected! 🖼️');
+      };
+      reader.readAsDataURL(file);
+    });
+
+    // Stickers sheet grid
+    const stkGrid = document.getElementById('stkGrid');
+    if (stkGrid) {
+      stkGrid.innerHTML = this.STICKERS.map((s) => `<button type="button" class="stk" data-stk="${s}">${s}</button>`).join('');
+      stkGrid.addEventListener('click', (e) => {
+        const b = e.target.closest('[data-stk]');
+        if (!b) return;
+        this.layers.push({
+          id: ++this.layerSeq,
+          type: 'sticker',
+          content: b.dataset.stk,
+          x: 50,
+          y: 50,
+          vis: true,
+          size: 44
+        });
+        this.renderLayers();
+        this.closeSheets();
+        this.toast('Sticker added — drag it around');
+      });
+    }
+
+    // Text sheet swatches & add button
+    const txtSwatches = document.getElementById('txtSwatches');
+    if (txtSwatches) {
+      txtSwatches.innerHTML = this.TXTCOLORS.map((c, i) => `
+        <button type="button" class="swdot ${i === 0 ? 'on' : ''}" data-c="${c}" style="background:${c};box-shadow:inset 0 0 0 1px rgba(0,0,0,.15)"></button>
+      `).join('');
+      txtSwatches.addEventListener('click', (e) => {
+        const d = e.target.closest('.swdot');
+        if (!d) return;
+        this.txtColor = d.dataset.c;
+        txtSwatches.querySelectorAll('.swdot').forEach((x) => x.classList.toggle('on', x === d));
+      });
+    }
+
+    document.getElementById('txtAdd')?.addEventListener('click', () => {
+      const input = document.getElementById('txtInput');
+      const v = input?.value.trim();
+      if (!v) {
+        this.toast('Type something first');
+        return;
+      }
+      this.layers.push({
+        id: ++this.layerSeq,
+        type: 'text',
+        content: v,
+        x: 50,
+        y: 62,
+        vis: true,
+        size: 20,
+        color: this.txtColor
+      });
+      if (input) input.value = '';
+      this.renderLayers();
+      this.closeSheets();
+      this.toast('Text layer added');
+    });
+
+    // Toolbar buttons
+    document.getElementById('toolFrame')?.addEventListener('click', () => this.openSheet('framesel'));
+    document.getElementById('toolLut')?.addEventListener('click', () => this.openSheet('luts'));
+    document.getElementById('toolSticker')?.addEventListener('click', () => this.openSheet('stickers'));
+    document.getElementById('toolText')?.addEventListener('click', () => this.openSheet('text'));
+    document.getElementById('toolLayers')?.addEventListener('click', () => {
+      this.renderLayerList();
+      this.openSheet('layers');
+    });
+
+    // Upload & Replace buttons
+    document.getElementById('uploadBtn')?.addEventListener('click', () => document.getElementById('fileInput')?.click());
+    document.getElementById('btnReplaceImg')?.addEventListener('click', () => document.getElementById('fileInput')?.click());
+    document.getElementById('btnRemoveImg')?.addEventListener('click', () => this.clearActiveSlidePhoto());
+
+    // File input change: place photo into active aperture
+    const fileInput = document.getElementById('fileInput');
+    fileInput?.addEventListener('change', (e) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = () => {
+        const img = new Image();
+        img.onload = () => {
+          const assetId = `mob-asset-${Date.now()}`;
+          this.sceneStore.assets.set(assetId, {
+            img,
+            w: img.naturalWidth || img.width || 1080,
+            h: img.naturalHeight || img.height || 1080
+          });
+
+          this.sceneStore.scene.photos[this.selectedAperture] = {
+            id: `photo-${Date.now()}`,
+            assetId,
+            scale: 1,
+            x: 0,
+            y: 0,
+            rotation: 0
+          };
+
+          this.renderFramesCanvas();
+          this.updateSlidePills();
+          this.updateSlideReplaceBar();
+
+          const curAp = this.selectedAperture;
+          const frameDef = this.getFrameDef(this.activeFrameId);
+          // Advance to next empty slide if available
+          if (frameDef.apertures && frameDef.apertures.length > 1) {
+            for (let i = 0; i < frameDef.apertures.length; i++) {
+              if (!this.sceneStore.scene.photos[i]) {
+                this.selectedAperture = i;
+                this.updateSlidePills();
+                this.updateSlideReplaceBar();
+                break;
+              }
+            }
+          }
+
+          this.toast(`Photo placed in Slide ${curAp + 1} ✓`);
+        };
+        img.src = reader.result;
+      };
+      reader.readAsDataURL(file);
+    });
+  }
+
+  buildFrameCategoryTabs() {
+    const wrap = document.getElementById('frameCatChips');
+    if (!wrap) return;
+    wrap.innerHTML = '';
+    const cats = [
+      { id: 'all', label: `All (${FRAME_CATALOG.length})` },
+      { id: 'strip', label: 'Photo Strip' },
+      { id: 'editorial', label: 'Editorial' },
+      { id: 'playful', label: 'Playful' },
+      { id: 'camera', label: 'Camera' },
+      { id: 'uploaded', label: `Uploaded (${this.uploadedFrames?.length || 0})` }
+    ];
+
+    cats.forEach((c) => {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = `chip ${c.id === this.activeFrameCat ? 'on' : ''}`;
+      btn.dataset.cat = c.id;
+      btn.textContent = c.label;
+      btn.addEventListener('click', () => {
+        this.activeFrameCat = c.id;
+        wrap.querySelectorAll('.chip').forEach((b) => b.classList.toggle('on', b.dataset.cat === c.id));
+        this.buildFrameGrid();
+      });
+      wrap.appendChild(btn);
+    });
+  }
+
+  buildFrameGrid() {
+    const grid = document.getElementById('fselGrid');
+    if (!grid) return;
+    grid.innerHTML = '';
+
+    let list = [];
+    if (this.activeFrameCat === 'all') {
+      list = this.getAllFrames();
+    } else if (this.activeFrameCat === 'uploaded') {
+      list = this.uploadedFrames || [];
+    } else {
+      list = FRAME_CATALOG.filter((f) => f.category === this.activeFrameCat);
+    }
+
+    if (list.length === 0) {
+      grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:24px 12px;color:var(--ink2);font-size:12px">No frames in this category yet.</div>';
+      return;
+    }
+
+    list.forEach((frame) => {
+      const tile = document.createElement('button');
+      tile.type = 'button';
+      const isSelected = frame.id === this.activeFrameId;
+      tile.className = `fsel ${isSelected ? 'on' : ''}`;
+      tile.dataset.frame = frame.id;
+
+      const box = document.createElement('div');
+      box.className = 'fsel-box';
+
+      if (frame.isUploaded) {
+        const img = document.createElement('img');
+        img.src = frame.dataUrl;
+        img.style.width = '100%';
+        img.style.height = '100%';
+        img.style.objectFit = 'contain';
+        img.style.borderRadius = '12px';
+        box.appendChild(img);
+      } else {
+        const thumbCanvas = document.createElement('canvas');
+        thumbCanvas.className = 'fsel-thumb-canvas';
+        renderFrameThumbnail(thumbCanvas, frame.id);
+        box.appendChild(thumbCanvas);
+      }
+
+      if (frame.capabilities?.photoCount > 1) {
+        const badge = document.createElement('span');
+        badge.className = 'fsel-multi-badge';
+        badge.textContent = `${frame.capabilities.photoCount} Slides`;
+        box.appendChild(badge);
+      }
+
+      tile.appendChild(box);
+
+      const title = document.createElement('b');
+      title.textContent = frame.name;
+      tile.appendChild(title);
+
+      tile.addEventListener('click', () => {
+        this.selectFrame(frame.id);
+        this.closeSheets();
+        this.toast(`Frame: ${frame.name}`);
+      });
+
+      grid.appendChild(tile);
+    });
+  }
+
+  buildLutGrid() {
+    const grid = document.getElementById('lutGrid');
+    if (!grid) return;
+    grid.innerHTML = '';
+
+    const allLuts = [...LUT_CATALOG, ...(this.customLuts || [])];
+
+    allLuts.forEach((lut) => {
+      const card = document.createElement('div');
+      const isSelected = lut.id === this.activeLut;
+      card.className = `lut-card ${isSelected ? 'on' : ''}`;
+      card.dataset.lutId = lut.id;
+
+      const swatch = document.createElement('div');
+      swatch.className = 'lut-swatch-box';
+      swatch.style.background = lut.colorTag || '#777';
+
+      // Test swatch filter preview
+      const filter = this.getLutCssFilter(lut.id, 100);
+      swatch.innerHTML = `<span style="filter:${filter}">🎨</span>`;
+      card.appendChild(swatch);
+
+      const info = document.createElement('div');
+      info.className = 'lut-info';
+      info.innerHTML = `
+        <span class="lut-name">${lut.title || lut.name}</span>
+        <span class="lut-desc">${lut.category || 'Film Grade'}</span>
+      `;
+      card.appendChild(info);
+
+      card.addEventListener('click', () => {
+        this.setLut(lut.id);
+        this.closeSheets();
+      });
+
+      grid.appendChild(card);
+    });
+  }
+
+  initLutControls() {
+    const range = document.getElementById('lutInt');
+    const valText = document.getElementById('lutIntVal');
+    if (range) {
+      range.value = this.lutIntensity;
+      range.addEventListener('input', (e) => {
+        this.lutIntensity = parseInt(e.target.value, 10);
+        if (valText) valText.textContent = `${this.lutIntensity}%`;
+        this.renderFramesCanvas();
+        this.applyCameraVideoFilters();
+      });
+    }
+
+    const holdBtn = document.getElementById('lutHold');
+    if (holdBtn) {
+      const onHold = (e) => {
+        e.preventDefault();
+        this.isLutBypassed = true;
+        this.renderFramesCanvas();
+      };
+      const onRelease = (e) => {
+        e.preventDefault();
+        this.isLutBypassed = false;
+        this.renderFramesCanvas();
+      };
+      holdBtn.addEventListener('pointerdown', onHold);
+      ['pointerup', 'pointercancel', 'pointerleave'].forEach((ev) => {
+        holdBtn.addEventListener(ev, onRelease);
+      });
+    }
+
+    // Import .cube file
+    document.getElementById('btnUploadCubeLut')?.addEventListener('click', () => {
+      document.getElementById('cubeLutFileInput')?.click();
+    });
+
+    const cubeInput = document.getElementById('cubeLutFileInput');
+    cubeInput?.addEventListener('change', (e) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = () => {
+        try {
+          const parsed = parseCubeLut(reader.result, file.name);
+          parsed.id = `custom-lut-${Date.now()}`;
+          parsed.title = parsed.title || file.name.replace(/\.[^/.]+$/, '');
+          parsed.category = 'Custom 3D LUT';
+          parsed.colorTag = '#4ade80';
+          this.customLuts.push(parsed);
+          this.buildLutGrid();
+          this.setLut(parsed.id);
+          this.toast(`3D LUT "${parsed.title}" imported ✓`);
+        } catch (err) {
+          this.toast(`LUT error: ${err.message}`);
+        }
+      };
+      reader.readAsText(file);
+    });
+  }
+
+  renderFramesCanvas() {
+    const canvas = document.getElementById('edCanvas');
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    const frameDef = this.getFrameDef(this.activeFrameId);
+    const W = 1080;
+    const H = 1350;
+    canvas.width = W;
+    canvas.height = H;
+
+    // Apply active LUT filter directly to photo renderings
+    const lutFilter = this.isLutBypassed ? 'none' : this.getLutCssFilter(this.activeLut, this.lutIntensity);
+
+    if (frameDef.isUploaded) {
+      ctx.clearRect(0, 0, W, H);
+      ctx.fillStyle = frameDef.background || '#FAF7F2';
+      ctx.fillRect(0, 0, W, H);
+
+      // Render photo in aperture if present
+      const ap = frameDef.apertures?.[0];
+      const photo = this.sceneStore.scene.photos?.[0];
+      if (ap && photo) {
+        const asset = this.sceneStore.assets.get(photo.assetId);
+        if (asset?.img) {
+          const ax = (ap.x / LOGICAL_W) * W;
+          const ay = (ap.y / LOGICAL_H) * H;
+          const aw = (ap.w / LOGICAL_W) * W;
+          const ah = (ap.h / LOGICAL_H) * H;
+          ctx.save();
+          ctx.beginPath();
+          ctx.rect(ax, ay, aw, ah);
+          ctx.clip();
+          if (lutFilter !== 'none') ctx.filter = lutFilter;
+          ctx.drawImage(asset.img, ax, ay, aw, ah);
+          ctx.restore();
+        }
+      }
+
+      // Draw custom frame overlay
+      if (frameDef.dataUrl) {
+        const frameImg = new Image();
+        frameImg.src = frameDef.dataUrl;
+        if (frameImg.complete) {
+          ctx.drawImage(frameImg, 0, 0, W, H);
+        } else {
+          frameImg.onload = () => ctx.drawImage(frameImg, 0, 0, W, H);
+        }
+      }
+    } else {
+      // Catalog template rendered via V2 unified renderer
+      // Set display images for photos with active LUT
+      const photos = this.sceneStore.scene.photos || [];
+      photos.forEach((p) => {
+        if (p) p._lutFilter = lutFilter;
+      });
+
+      renderScene(ctx, this.sceneStore.scene, this.sceneStore.assets, {
+        targetWidth: W,
+        targetHeight: H,
+        isExport: false,
+        editorState: { selectedId: null, gridVisible: false, guidesVisible: false }
+      });
+    }
+
+    // Update interactive aperture overlay
+    const overlay = document.getElementById('edApertureOverlay');
+    if (overlay) {
+      overlay.innerHTML = '';
+      const aps = frameDef.apertures || [];
+      aps.forEach((ap, idx) => {
+        const slot = document.createElement('div');
+        const isActive = idx === this.selectedAperture;
+        const hasPhoto = Boolean(this.sceneStore.scene.photos?.[idx]);
+
+        slot.className = `ed-aperture-slot ${isActive ? 'is-active' : ''} ${hasPhoto ? '' : 'is-empty'}`;
+        slot.style.left = `${(ap.x / LOGICAL_W) * 100}%`;
+        slot.style.top = `${(ap.y / LOGICAL_H) * 100}%`;
+        slot.style.width = `${(ap.w / LOGICAL_W) * 100}%`;
+        slot.style.height = `${(ap.h / LOGICAL_H) * 100}%`;
+
+        if (!hasPhoto) {
+          const lbl = document.createElement('span');
+          lbl.className = 'ed-aperture-empty-lbl';
+          lbl.textContent = aps.length > 1 ? `+ Slide ${idx + 1}` : '+ Add Photo';
+          slot.appendChild(lbl);
+        }
+
+        slot.addEventListener('click', (e) => {
+          e.stopPropagation();
+          this.selectedAperture = idx;
+          this.updateSlidePills();
+          this.updateSlideReplaceBar();
+          this.renderFramesCanvas();
+
+          if (!hasPhoto) {
+            document.getElementById('fileInput')?.click();
+          }
+        });
+
+        overlay.appendChild(slot);
+      });
+    }
+
+    // Sync gallery thumb
+    const firstPhoto = this.sceneStore.scene.photos?.[0];
+    const asset = firstPhoto ? this.sceneStore.assets.get(firstPhoto.assetId) : null;
+    const galThumb = document.getElementById('galThumb');
+    if (galThumb && asset?.img) {
+      galThumb.classList.remove('photo-bg', 'p1');
+      galThumb.style.backgroundImage = `url(${asset.img.src || asset.img})`;
+    }
+  }
+
+  updateSlidePills() {
+    const pills = document.getElementById('edSlidePills');
+    if (!pills) return;
+    const frameDef = this.getFrameDef(this.activeFrameId);
+    const count = frameDef.apertures?.length || 1;
+
+    if (count <= 1) {
+      pills.style.display = 'none';
+      pills.innerHTML = '';
+      return;
+    }
+
+    pills.style.display = 'flex';
+    pills.innerHTML = Array.from({ length: count }).map((_, i) => {
+      const isSel = i === this.selectedAperture;
+      const hasPhoto = Boolean(this.sceneStore.scene.photos?.[i]);
+      return `
+        <button type="button" class="slide-pill ${isSel ? 'on' : ''}" data-slide="${i}">
+          Slide ${i + 1} ${hasPhoto ? '✓' : '(empty)'}
+        </button>
+      `;
+    }).join('');
+
+    pills.querySelectorAll('.slide-pill').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        this.selectedAperture = parseInt(btn.dataset.slide, 10);
+        this.updateSlidePills();
+        this.updateSlideReplaceBar();
+        this.renderFramesCanvas();
+      });
+    });
+  }
+
+  updateSlideReplaceBar() {
+    const bar = document.getElementById('edReplaceBar');
+    const replaceBtn = document.getElementById('btnReplaceImg');
+    const clearBtn = document.getElementById('btnRemoveImg');
+    if (!bar) return;
+
+    const hasPhoto = Boolean(this.sceneStore.scene.photos?.[this.selectedAperture]);
+    const frameDef = this.getFrameDef(this.activeFrameId);
+    const count = frameDef.apertures?.length || 1;
+
+    if (hasPhoto) {
+      bar.style.display = 'flex';
+      if (replaceBtn) {
+        replaceBtn.textContent = count > 1 ? `🔄 Replace Slide ${this.selectedAperture + 1}` : '🔄 Replace Photo';
+      }
+      if (clearBtn) {
+        clearBtn.textContent = count > 1 ? `✕ Clear Slide ${this.selectedAperture + 1}` : '✕ Clear Photo';
+      }
+    } else {
+      bar.style.display = 'none';
+    }
+  }
+
+  clearActiveSlidePhoto() {
+    const cur = this.selectedAperture;
+    delete this.sceneStore.scene.photos[cur];
+    this.renderFramesCanvas();
+    this.updateSlidePills();
+    this.updateSlideReplaceBar();
+    this.toast(`Slide ${cur + 1} cleared`);
+  }
+
+  /* layers */
+  renderLayers() {
+    const host = document.getElementById('layerHost');
+    if (!host) return;
+    host.innerHTML = '';
+    this.layers.forEach((L) => {
+      const el = document.createElement('div');
+      el.className = 'layer ' + L.type + (L.vis ? '' : ' off');
+      el.dataset.id = L.id;
+      el.style.left = L.x + '%';
+      el.style.top = L.y + '%';
+      if (L.type === 'sticker') {
+        el.textContent = L.content;
+        if (L.size) el.style.fontSize = L.size + 'px';
+      } else {
+        el.textContent = L.content;
+        el.style.color = L.color;
+        el.style.fontSize = (L.size || 20) + 'px';
+      }
+      host.appendChild(el);
+    });
+    this.bindLayerDrag();
+  }
+
+  bindLayerDrag() {
+    document.querySelectorAll('#layerHost .layer').forEach((el) => {
+      el.addEventListener('pointerdown', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        const L = this.layers.find((x) => String(x.id) === String(el.dataset.id));
+        if (!L) return;
+        const stage = document.getElementById('studioFrameStage');
+        if (!stage) return;
+        const rect = stage.getBoundingClientRect();
+
+        const move = (ev) => {
+          L.x = Math.max(2, Math.min(98, ((ev.clientX - rect.left) / rect.width) * 100));
+          L.y = Math.max(2, Math.min(98, ((ev.clientY - rect.top) / rect.height) * 100));
+          el.style.left = L.x + '%';
+          el.style.top = L.y + '%';
+        };
+        const up = () => {
+          window.removeEventListener('pointermove', move);
+          window.removeEventListener('pointerup', up);
+        };
+        window.addEventListener('pointermove', move);
+        window.addEventListener('pointerup', up);
+      });
+    });
+  }
+
+  renderLayerList() {
+    const list = document.getElementById('layerList');
+    if (!list) return;
+    if (!this.layers.length) {
+      list.innerHTML = '<p class="hint" style="padding:14px 0">No layers yet — add a sticker or text first</p>';
+      return;
+    }
+    list.innerHTML = [...this.layers].reverse().map((L) => `
+      <div class="lyr-row" data-id="${L.id}">
+        <div class="lyr-ic">${L.type === 'sticker' ? L.content : '<b style="font-size:14px">T</b>'}</div>
+        <div class="grow">
+          <b>${L.type === 'sticker' ? 'Sticker' : 'Text'}</b>
+          <span>${L.type === 'text' ? L.content : 'Drag on frame to position'}</span>
+        </div>
+        <button type="button" class="mini-btn" data-act="size-" title="Smaller">−</button>
+        <button type="button" class="mini-btn" data-act="size+" title="Bigger">+</button>
+        <button type="button" class="mini-btn" data-act="vis" title="Show / hide">${L.vis ? '👁' : '🙈'}</button>
+        <button type="button" class="mini-btn" data-act="up" title="Bring forward">↑</button>
+        <button type="button" class="mini-btn" data-act="del" title="Delete">✕</button>
+      </div>
+    `).join('');
+
+    list.onclick = (e) => {
+      const btn = e.target.closest('.mini-btn');
+      if (!btn) return;
+      const row = e.target.closest('.lyr-row');
+      if (!row) return;
+      const id = row.dataset.id;
+      const i = this.layers.findIndex((x) => String(x.id) === String(id));
+      if (i === -1) return;
+      const L = this.layers[i];
+      const act = btn.dataset.act;
+
+      if (act === 'vis') {
+        L.vis = !L.vis;
+      } else if (act === 'del') {
+        this.layers.splice(i, 1);
+        this.toast('Layer deleted');
+      } else if (act === 'up' && i < this.layers.length - 1) {
+        this.layers.splice(i, 1);
+        this.layers.push(L);
+        this.toast('Moved to front');
+      } else if (act === 'size+') {
+        if (L.type === 'text') L.size = Math.min(48, (L.size || 20) + 2);
+        else L.size = Math.min(96, (L.size || 44) + 4);
+      } else if (act === 'size-') {
+        if (L.type === 'text') L.size = Math.max(12, (L.size || 20) - 2);
+        else L.size = Math.max(20, (L.size || 44) - 4);
+      }
+      this.renderLayers();
+      this.renderLayerList();
+    };
+  }
+
+  /* ================= CAMERA SCREEN (LIVE PREVIEW, DOTS, EV, ZOOM, SHUTTER) ================= */
+  initCameraScreen() {
+    this.camVideo = document.getElementById('camVideo');
+
+    // Build Snapchat-style frame selection dots with webapp frames
+    this.buildDots();
+    this.setCamFrame(0, false);
+
+    // Dots row click
+    document.getElementById('dotsRow')?.addEventListener('click', (e) => {
+      const d = e.target.closest('.dot');
+      if (d) this.setCamFrame(parseInt(d.dataset.i, 10), false);
+    });
+
+    // Stage swipe across frames
+    const stage = document.getElementById('camStage');
+    let swX = null;
+    if (stage) {
+      stage.addEventListener('pointerdown', (e) => {
+        if (e.target.closest('button, input, .cam-ev-slider-wrap, .cam-ev-ruler-wrap, .cam-stage-zoom')) return;
+        swX = e.clientX;
+      });
+      stage.addEventListener('pointerup', (e) => {
+        if (swX === null) return;
+        const dx = e.clientX - swX;
+        swX = null;
+        if (Math.abs(dx) > 42) {
+          const total = this.getAllFrames().length;
+          this.setCamFrame((this.camFrameIndex + (dx < 0 ? 1 : -1) + total) % total);
+        }
+      });
+      stage.addEventListener('pointercancel', () => { swX = null; });
+    }
+
+    // Dots row scroll
+    const dotsRow = document.getElementById('dotsRow');
+    if (dotsRow) {
+      let scrollTimer = null;
+      dotsRow.addEventListener('scroll', () => {
+        clearTimeout(scrollTimer);
+        scrollTimer = setTimeout(() => {
+          const center = dotsRow.scrollLeft + dotsRow.clientWidth / 2;
+          let best = 0, bd = 1e9;
+          [...dotsRow.children].forEach((d, i) => {
+            const c = d.offsetLeft + d.offsetWidth / 2;
+            const dd = Math.abs(c - center);
+            if (dd < bd) { bd = dd; best = i; }
+          });
+          if (best !== this.camFrameIndex) {
+            this.setCamFrame(best, false);
+          }
+        }, 60);
+      });
+    }
+
+    // Flip Camera button
+    const flipCam = () => {
+      this.camFacingMode = this.camFacingMode === 'user' ? 'environment' : 'user';
+      const simView = document.getElementById('simView');
+      if (simView) {
+        simView.classList.toggle('mirror', (this.state.mirror ?? true) && this.camFacingMode === 'user');
+      }
+      this.camTried = false;
+      this.startCamera();
+      this.toast('Camera flipped');
+    };
+    document.getElementById('flipCam')?.addEventListener('click', flipCam);
+
+    // EV Ruler drag interaction
+    this.initEvRuler();
+
+    // EV range fallback slider
+    const evRange = document.getElementById('camEvRange');
+    evRange?.addEventListener('input', (e) => {
+      this.setCameraEV(parseFloat(e.target.value));
+    });
+
+    // LUT circle button: opens LUT selection sheet
+    document.getElementById('camBtnLutToggle')?.addEventListener('click', () => {
+      this.openSheet('luts');
+    });
+
+    // Quick Zoom Buttons
+    document.querySelectorAll('#camZoomBar .cam-stage-zoom-btn').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const z = parseFloat(btn.dataset.camZoom || '1.0');
+        this.setCameraZoom(z);
+      });
+    });
+
+    // 2-Finger Pinch to Zoom
+    if (stage) {
+      let initialPinchDist = null;
+      let initialPinchZoom = 1.0;
+      stage.addEventListener('touchstart', (e) => {
+        if (e.touches.length === 2) {
+          initialPinchDist = Math.hypot(
+            e.touches[0].clientX - e.touches[1].clientX,
+            e.touches[0].clientY - e.touches[1].clientY
+          );
+          initialPinchZoom = this.camZoom;
+        }
+      }, { passive: true });
+
+      stage.addEventListener('touchmove', (e) => {
+        if (e.touches.length === 2 && initialPinchDist) {
+          const dist = Math.hypot(
+            e.touches[0].clientX - e.touches[1].clientX,
+            e.touches[0].clientY - e.touches[1].clientY
+          );
+          const factor = dist / initialPinchDist;
+          this.setCameraZoom(initialPinchZoom * factor, false);
+        }
+      }, { passive: true });
+
+      const endPinch = () => { initialPinchDist = null; };
+      stage.addEventListener('touchend', endPinch);
+      stage.addEventListener('touchcancel', endPinch);
+    }
+
+    // Shutter button: capture photo with zero quality loss and active LUT
+    document.getElementById('shutter')?.addEventListener('click', () => {
+      this.captureCameraPhoto();
+    });
+
+    // Frame chooser button: tap to open frame selection sheet
+    document.getElementById('galThumb')?.addEventListener('click', () => {
+      this.openSheet('framesel');
+    });
+  }
+
+  buildDots() {
+    const row = document.getElementById('dotsRow');
+    if (!row) return;
+    const frames = this.getAllFrames();
+
+    row.innerHTML = frames.map((f, i) => {
+      const isSelected = i === this.camFrameIndex;
+      const num = i + 1;
+      return `
+        <button type="button" class="dot ${isSelected ? 'on' : ''}" data-i="${i}" title="${f.name}" aria-label="${f.name}">
+          <span class="dot-num">${num}</span>
+        </button>
+      `;
+    }).join('');
+  }
+
+  setCamFrame(i, scroll = true) {
+    const frames = this.getAllFrames();
+    if (!frames.length) return;
+    this.camFrameIndex = (i + frames.length) % frames.length;
+    triggerHaptic('selection');
+    const f = frames[this.camFrameIndex];
+
+    const nameEl = document.getElementById('camFrameName');
+    if (nameEl) {
+      const slideNote = f.capabilities?.photoCount > 1 ? ` (${f.capabilities.photoCount} Slides)` : '';
+      nameEl.textContent = `${f.name}${slideNote}`;
+    }
+    const metaEl = document.getElementById('camFrameNameMeta');
+    if (metaEl) metaEl.textContent = f.name.toUpperCase();
+
+    document.querySelectorAll('#dotsRow .dot').forEach((d) => {
+      d.classList.toggle('on', parseInt(d.dataset.i, 10) === this.camFrameIndex);
+    });
+
+    if (scroll) {
+      const row = document.getElementById('dotsRow');
+      const d = row?.children?.[this.camFrameIndex];
+      if (d && row) {
+        row.scrollTo({
+          left: d.offsetLeft - row.clientWidth / 2 + d.offsetWidth / 2,
+          behavior: 'smooth'
+        });
+      }
+    }
+
+    this.renderCamFrameOverlay();
+  }
+
+  renderCamFrameOverlay() {
+    const overlayCanvas = document.getElementById('camFrameOverlayCanvas');
+    if (!overlayCanvas) return;
+    const ctx = overlayCanvas.getContext('2d');
+    if (!ctx) return;
+
+    const viewport = overlayCanvas.parentElement;
+    const vw = viewport?.clientWidth || 392;
+    const vh = viewport?.clientHeight || 600;
+
+    overlayCanvas.width = vw;
+    overlayCanvas.height = vh;
+    ctx.clearRect(0, 0, vw, vh);
+
+    const frames = this.getAllFrames();
+    const frameDef = frames[this.camFrameIndex] || FRAME_CATALOG[0];
+
+    const scaleX = vw / LOGICAL_W;
+    const scaleY = vh / LOGICAL_H;
+
+    ctx.save();
+
+    // 1. Draw frame background
+    if (frameDef.pattern === 'citrus-gradient') {
+      const grad = ctx.createLinearGradient(0, 0, 0, vh);
+      grad.addColorStop(0, '#FFF7ED');
+      grad.addColorStop(0.45, '#FDE5BE');
+      grad.addColorStop(1, '#F6C9A3');
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, 0, vw, vh);
+    } else {
+      ctx.fillStyle = frameDef.background || '#FAF7F2';
+      ctx.fillRect(0, 0, vw, vh);
+    }
+
+    // 2. Clear apertures with transparent cutouts so camera video shines through
+    const aps = frameDef.apertures || [{ x: 180, y: 180, w: 1800, h: 2340 }];
+    aps.forEach((ap, idx) => {
+      const ax = ap.x * scaleX;
+      const ay = ap.y * scaleY;
+      const aw = ap.w * scaleX;
+      const ah = ap.h * scaleY;
+
+      ctx.clearRect(ax, ay, aw, ah);
+
+      // Aperture guide outline
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.9)';
+      ctx.lineWidth = 2;
+      ctx.setLineDash([8, 6]);
+      ctx.strokeRect(ax, ay, aw, ah);
+      ctx.setLineDash([]);
+
+      ctx.strokeStyle = 'rgba(0, 0, 0, 0.2)';
+      ctx.lineWidth = 1;
+      ctx.strokeRect(ax, ay, aw, ah);
+
+      // Slide label badge
+      if (aps.length > 1) {
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.65)';
+        ctx.fillRect(ax + 8, ay + 8, 54, 22);
+        ctx.fillStyle = '#ffffff';
+        ctx.font = 'bold 11px sans-serif';
+        ctx.fillText(`Slide ${idx + 1}`, ax + 14, ay + 23);
+      }
+    });
+
+    // 3. Draw border if specified
+    if (frameDef.borderColor) {
+      ctx.strokeStyle = frameDef.borderColor;
+      ctx.lineWidth = Math.max(2, Math.round(16 * scaleX));
+      ctx.strokeRect(0, 0, vw, vh);
+    }
+
+    ctx.restore();
+  }
+
+  setCameraZoom(zoomVal, updateButtons = true) {
+    const clamped = Math.min(5.0, Math.max(0.5, zoomVal));
+    this.camZoom = parseFloat(clamped.toFixed(2));
+
+    const zoomInd = document.getElementById('camZoomIndicator');
+    if (zoomInd) {
+      zoomInd.textContent = `${this.camZoom.toFixed(1)}x`;
+      zoomInd.style.display = 'block';
+      zoomInd.style.opacity = '1';
+      clearTimeout(this._zoomIndTimeout);
+      this._zoomIndTimeout = setTimeout(() => {
+        zoomInd.style.opacity = '0';
+        setTimeout(() => { zoomInd.style.display = 'none'; }, 200);
+      }, 1200);
+    }
+
+    if (updateButtons) {
+      document.querySelectorAll('#camZoomBar .cam-stage-zoom-btn').forEach((b) => {
+        const bz = parseFloat(b.dataset.camZoom || '1');
+        b.classList.toggle('active', Math.abs(bz - this.camZoom) < 0.2);
+      });
+    }
+
+    const track = this.camStream?.getVideoTracks()?.[0];
+    if (track && typeof track.getCapabilities === 'function') {
+      const caps = track.getCapabilities();
+      if (caps.zoom) {
+        const minZ = caps.zoom.min || 1;
+        const maxZ = caps.zoom.max || 5;
+        const hwZoom = Math.min(maxZ, Math.max(minZ, this.camZoom));
+        track.applyConstraints({ advanced: [{ zoom: hwZoom }] }).catch(() => {});
+      }
+    }
+
+    this.applyCameraVideoTransform();
+  }
+
+  setCameraEV(evVal) {
+    const clamped = Math.min(2.0, Math.max(-2.0, evVal));
+    this.camEv = parseFloat(clamped.toFixed(1));
+
+    const valText = document.getElementById('camEvValText');
+    if (valText) {
+      valText.textContent = `${this.camEv > 0 ? '+' : ''}${this.camEv.toFixed(1)} EV`;
+    }
+
+    const badge = document.getElementById('camEvBadge');
+    if (badge) {
+      badge.textContent = this.camEv === 0 ? '☀️ EV' : `${this.camEv > 0 ? '+' : ''}${this.camEv.toFixed(1)}`;
+    }
+
+    const track = this.camStream?.getVideoTracks()?.[0];
+    if (track && typeof track.getCapabilities === 'function') {
+      const caps = track.getCapabilities();
+      if (caps.exposureCompensation) {
+        const minEV = caps.exposureCompensation.min ?? -2;
+        const maxEV = caps.exposureCompensation.max ?? 2;
+        const hwEV = Math.min(maxEV, Math.max(minEV, this.camEv));
+        track.applyConstraints({ advanced: [{ exposureCompensation: hwEV }] }).catch(() => {});
+      }
+    }
+
+    this.applyCameraVideoFilters();
+    // Sync ruler visual position
+    this._syncEvRuler();
+  }
+
+  _syncEvRuler() {
+    const valEl = document.getElementById('camEvRulerVal');
+    if (valEl) {
+      valEl.textContent = this.camEv === 0 ? '0.0' : `${this.camEv > 0 ? '+' : ''}${this.camEv.toFixed(1)}`;
+    }
+    // Shift the ruler track so the current EV value is under the center line
+    const track = document.getElementById('camEvRulerTrack');
+    if (track) {
+      // 1 EV = 32px of track movement
+      const px = this.camEv * 32;
+      track.style.transform = `translateX(${-px}px)`;
+    }
+  }
+
+  initEvRuler() {
+    const track = document.getElementById('camEvRulerTrack');
+    const ruler = document.getElementById('camEvRuler');
+    if (!track || !ruler) return;
+
+    // Build tick marks: from -2.0 to +2.0 in steps of 0.1
+    const steps = [];
+    for (let v = -20; v <= 20; v++) {
+      const ev = v / 10;
+      const isMajor = Number.isInteger(ev);
+      const isHalf = Math.abs(v % 5) === 0;
+      steps.push({ ev, isMajor, isHalf });
+    }
+    track.innerHTML = steps.map(({ ev, isMajor, isHalf }) => {
+      const cls = isMajor ? 'ev-tick major' : isHalf ? 'ev-tick half' : 'ev-tick';
+      const label = isMajor ? `<span class="ev-tick-label">${ev > 0 ? '+' : ''}${ev.toFixed(0)}</span>` : '';
+      return `<div class="${cls}">${label}</div>`;
+    }).join('');
+
+    // Drag to adjust EV
+    let dragStartX = null;
+    let dragStartEv = 0;
+
+    const onPointerDown = (e) => {
+      dragStartX = e.clientX;
+      dragStartEv = this.camEv;
+      ruler.setPointerCapture(e.pointerId);
+      ruler.classList.add('dragging');
+      e.preventDefault();
+    };
+    const onPointerMove = (e) => {
+      if (dragStartX === null) return;
+      const dx = e.clientX - dragStartX;
+      // 32px per 1.0 EV
+      const deltaEv = -dx / 32;
+      this.setCameraEV(dragStartEv + deltaEv);
+      const evRange = document.getElementById('camEvRange');
+      if (evRange) evRange.value = this.camEv;
+    };
+    const onPointerUp = () => {
+      dragStartX = null;
+      ruler.classList.remove('dragging');
+    };
+
+    ruler.addEventListener('pointerdown', onPointerDown);
+    ruler.addEventListener('pointermove', onPointerMove);
+    ruler.addEventListener('pointerup', onPointerUp);
+    ruler.addEventListener('pointercancel', onPointerUp);
+
+    this._syncEvRuler();
+  }
+
+  applyCameraVideoTransform() {
+    if (!this.camVideo) return;
+    const mirror = this.camFacingMode === 'user' ? 'scaleX(-1)' : 'scaleX(1)';
+    this.camVideo.style.transform = `${mirror} scale(${this.camZoom})`;
+  }
+
+  applyCameraVideoFilters() {
+    if (!this.camVideo) return;
+    const b = (1 + this.camEv * 0.22).toFixed(2);
+    const c = (1 + Math.abs(this.camEv) * 0.05).toFixed(2);
+    const lutFilter = this.isLutBypassed ? 'none' : this.getLutCssFilter(this.activeLut, this.lutIntensity);
+
+    const baseFilter = `brightness(${b}) contrast(${c})`;
+    this.camVideo.style.filter = lutFilter !== 'none' ? `${baseFilter} ${lutFilter}` : baseFilter;
+  }
+
+  async startCamera() {
+    this.camVideo = document.getElementById('camVideo');
+    const simView = document.getElementById('simView');
+
+    if (this.camStream) {
+      this.camStream.getTracks().forEach((t) => t.stop());
+      this.camStream = null;
+    }
+
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      if (this.camVideo) this.camVideo.style.display = 'none';
+      if (simView) simView.style.display = 'block';
+      this.renderCamFrameOverlay();
+      this.toast('Simulated camera viewfinder active');
+      return;
+    }
+
+    try {
+      const constraints = {
+        video: {
+          facingMode: { ideal: this.camFacingMode },
+          width: { min: 1280, ideal: 3840, max: 7680 },
+          height: { min: 720, ideal: 2160, max: 4320 },
+          frameRate: { ideal: 60, min: 24 }
+        },
+        audio: false
+      };
+      const stream = await navigator.mediaDevices.getUserMedia(constraints);
+      this.camStream = stream;
+      if (this.camVideo) {
+        this.camVideo.srcObject = stream;
+        this.camVideo.style.display = 'block';
+        await this.camVideo.play();
+      }
+      if (simView) simView.style.display = 'none';
+
+      this.applyCameraVideoTransform();
+      this.applyCameraVideoFilters();
+      this.setCameraZoom(this.camZoom);
+      this.setCameraEV(this.camEv);
+      this.renderCamFrameOverlay();
+    } catch (err) {
+      console.warn('[Camera] getUserMedia high-res fallback, attempting standard constraints:', err);
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: { ideal: this.camFacingMode } },
+          audio: false
+        });
+        this.camStream = stream;
+        if (this.camVideo) {
+          this.camVideo.srcObject = stream;
+          this.camVideo.style.display = 'block';
+          await this.camVideo.play();
+        }
+        if (simView) simView.style.display = 'none';
+        this.applyCameraVideoTransform();
+        this.applyCameraVideoFilters();
+        this.renderCamFrameOverlay();
+      } catch (err2) {
+        console.warn('[Camera] getUserMedia fallback to simulated:', err2);
+        if (this.camVideo) this.camVideo.style.display = 'none';
+        if (simView) simView.style.display = 'block';
+        this.renderCamFrameOverlay();
+        this.toast('Live camera blocked — simulated viewfinder');
+      }
+    }
+  }
+
+  stopCamera() {
+    if (this.camStream) {
+      this.camStream.getTracks().forEach((t) => t.stop());
+      this.camStream = null;
+    }
+    if (this.camVideo) {
+      this.camVideo.srcObject = null;
+    }
+  }
+
+  playShutterSound() {
+    try {
+      const AudioContext = window.AudioContext || window.webkitAudioContext;
+      if (!AudioContext) return;
+      const actx = new AudioContext();
+      const osc = actx.createOscillator();
+      const gain = actx.createGain();
+      osc.type = 'triangle';
+      osc.frequency.setValueAtTime(800, actx.currentTime);
+      osc.frequency.exponentialRampToValueAtTime(120, actx.currentTime + 0.08);
+      gain.gain.setValueAtTime(0.3, actx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.01, actx.currentTime + 0.08);
+      osc.connect(gain);
+      gain.connect(actx.destination);
+      osc.start();
+      osc.stop(actx.currentTime + 0.09);
+    } catch (e) {}
+  }
+
+  async captureCameraPhoto() {
+    triggerHaptic('heavy');
+    const fl = document.getElementById('flash');
+    if (fl) {
+      fl.classList.add('on');
+      setTimeout(() => fl.classList.remove('on'), 140);
+    }
+
+    if (this.state.sound ?? true) {
+      this.playShutterSound();
+    }
+
+    const track = this.camStream?.getVideoTracks()?.[0];
+    let rawImg = null;
+    let rawW = 1080;
+    let rawH = 1350;
+
+    // 1. Utilize full hardware camera sensor power via ImageCapture.takePhoto()
+    if (track && typeof window.ImageCapture === 'function') {
+      try {
+        const imageCapture = new ImageCapture(track);
+        const photoBlob = await imageCapture.takePhoto({ fillLightMode: 'off' });
+        rawImg = await new Promise((resolve, reject) => {
+          const im = new Image();
+          im.onload = () => resolve(im);
+          im.onerror = reject;
+          im.src = URL.createObjectURL(photoBlob);
+        });
+        rawW = rawImg.naturalWidth || rawImg.width;
+        rawH = rawImg.naturalHeight || rawImg.height;
+      } catch (err) {
+        console.warn('[Camera] ImageCapture native photo error, falling back to stream frame:', err);
+      }
+    }
+
+    // 2. Fallback to video element stream frame if ImageCapture unavailable or failed
+    if (!rawImg) {
+      if (this.camVideo && this.camVideo.readyState >= 2 && this.camVideo.style.display !== 'none') {
+        rawImg = this.camVideo;
+        rawW = this.camVideo.videoWidth || 1920;
+        rawH = this.camVideo.videoHeight || 1080;
+      }
+    }
+
+    // 3. Compose high quality canvas at full native resolution
+    const snapCanvas = document.createElement('canvas');
+    snapCanvas.width = rawW;
+    snapCanvas.height = rawH;
+    const sctx = snapCanvas.getContext('2d');
+    sctx.imageSmoothingEnabled = true;
+    sctx.imageSmoothingQuality = 'high';
+
+    // Apply EV Filter if non-zero
+    if (this.camEv !== 0) {
+      const b = 1 + this.camEv * 0.22;
+      const c = 1 + Math.abs(this.camEv) * 0.05;
+      sctx.filter = `brightness(${b}) contrast(${c})`;
+    }
+
+    // Apply active LUT filter
+    const lutFilter = this.isLutBypassed ? 'none' : this.getLutCssFilter(this.activeLut, this.lutIntensity);
+    if (lutFilter !== 'none') {
+      sctx.filter = sctx.filter !== 'none' ? `${sctx.filter} ${lutFilter}` : lutFilter;
+    }
+
+    // Apply User Facing mirror if front camera
+    if (this.camFacingMode === 'user') {
+      sctx.translate(rawW, 0);
+      sctx.scale(-1, 1);
+    }
+
+    // Apply digital zoom crop if zoomed in
+    if (this.camZoom > 1.0) {
+      const cropW = rawW / this.camZoom;
+      const cropH = rawH / this.camZoom;
+      const cropX = (rawW - cropW) / 2;
+      const cropY = (rawH - cropH) / 2;
+      if (rawImg) {
+        sctx.drawImage(rawImg, cropX, cropY, cropW, cropH, 0, 0, rawW, rawH);
+      } else {
+        this.fillPlaceholderGradient(sctx, rawW, rawH);
+      }
+    } else {
+      if (rawImg) {
+        sctx.drawImage(rawImg, 0, 0, rawW, rawH);
+      } else {
+        this.fillPlaceholderGradient(sctx, rawW, rawH);
+      }
+    }
+
+    const dataUrl = snapCanvas.toDataURL('image/jpeg', 0.98);
+    const finalImg = new Image();
+    finalImg.onload = () => {
+      const assetId = `cam-asset-${Date.now()}`;
+      this.sceneStore.assets.set(assetId, { img: finalImg, w: rawW, h: rawH });
+
+      // Target current active aperture or slide
+      const targetAp = this.selectedAperture || 0;
+      this.sceneStore.scene.photos[targetAp] = {
+        id: `photo-${Date.now()}`,
+        assetId,
+        x: 0,
+        y: 0,
+        scale: 1,
+        rotation: 0
+      };
+
+      // Update camera gallery thumb
+      const g = document.getElementById('galThumb');
+      if (g) {
+        g.classList.remove('photo-bg', 'p1');
+        g.style.backgroundImage = `url(${dataUrl})`;
+      }
+
+      // Re-render Frames editor canvas
+      this.renderFramesCanvas();
+      this.updateSlidePills();
+      this.updateSlideReplaceBar();
+
+      // Advance to next empty aperture if available
+      const frameDef = this.getFrameDef(this.activeFrameId);
+      if (frameDef.apertures && frameDef.apertures.length > 1) {
+        for (let i = 0; i < frameDef.apertures.length; i++) {
+          if (!this.sceneStore.scene.photos[i]) {
+            this.selectedAperture = i;
+            this.updateSlidePills();
+            this.updateSlideReplaceBar();
+            break;
+          }
+        }
+      }
+
+      const lutTitle = this.getLutTitle(this.activeLut);
+      this.toast(`Photo captured into Slide ${targetAp + 1} (${lutTitle})! 📸`);
+    };
+    finalImg.src = dataUrl;
+  }
+
+  fillPlaceholderGradient(ctx, w, h) {
+    const grad = ctx.createLinearGradient(0, 0, w, h);
+    grad.addColorStop(0, '#f59e0b');
+    grad.addColorStop(0.5, '#ec4899');
+    grad.addColorStop(1, '#3b82f6');
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, w, h);
+  }
+
+  /* ================= SHEET CONTROLLER ================= */
+  initSheets() {
+    document.getElementById('sheetVeil')?.addEventListener('click', () => this.closeSheets());
+    document.querySelectorAll('#mobileAppContainer .sheet-handle').forEach((h) => {
+      h.addEventListener('click', () => this.closeSheets());
+    });
+  }
+
+  openSheet(secOrId) {
+    this.closeSheets();
+    const veil = document.getElementById('sheetVeil');
+    const unifiedSheet = document.getElementById('sheet');
+
+    // Check if secOrId is a section name in the unified sheet
+    const targetSec = document.querySelector(`#mobileAppContainer .sheet-sec[data-sec="${secOrId}"]`);
+    if (targetSec && unifiedSheet) {
+      document.querySelectorAll('#mobileAppContainer .sheet-sec').forEach((s) => {
+        s.classList.toggle('on', s.dataset.sec === secOrId);
+      });
+      if (veil) veil.classList.add('on');
+      unifiedSheet.classList.add('on');
+      return;
+    }
+
+    // Check if secOrId is a separate sheet element ID
+    const separateSheet = document.getElementById(secOrId);
+    if (separateSheet) {
+      if (veil) veil.classList.add('on');
+      separateSheet.classList.add('on');
+    }
+  }
+
   closeSheets() {
-    document.getElementById('sheet')?.classList.remove('on');
+    document.querySelectorAll('#mobileAppContainer .sheet.on, #mobileAppContainer .sheet-sec.on').forEach((s) => {
+      s.classList.remove('on');
+    });
     document.getElementById('sheetVeil')?.classList.remove('on');
     document.getElementById('ctxSheet')?.classList.remove('on');
     document.getElementById('ctxVeil')?.classList.remove('on');
@@ -471,103 +2178,40 @@ export class MobileAppCoordinator {
   /* ================= EDITOR & CANVAS ================= */
   openEditor(id) {
     this.state.photo = id;
-    const saved = this.state.edMap[id];
-    this.state.zoom = saved ? saved.zoom : 1;
-    this.state.ox = saved ? saved.ox : 0;
-    this.state.oy = saved ? saved.oy : 0;
-    this.state.frame = saved ? saved.frame : 'matte';
     this.go('scr-editor');
   }
 
   loadUserMediaIntoMobile(media) {
     this.state.userMedia = media;
-    const edPhoto = document.getElementById('edPhoto');
-    const lutPrev = document.getElementById('lutPrev');
-    const expPrev = document.getElementById('expPrev');
-
-    const bgVal = media.src ? `url(${media.src})` : '';
-    if (edPhoto) {
-      edPhoto.className = 'photo-view photo-bg';
-      edPhoto.style.backgroundImage = bgVal;
-    }
-    if (lutPrev) lutPrev.style.backgroundImage = bgVal;
-    if (expPrev) expPrev.style.backgroundImage = bgVal;
-
-    const edTitle = document.getElementById('edTitle');
-    const aiPhotoName = document.getElementById('aiPhotoName');
-    if (edTitle) edTitle.textContent = media.name || 'Custom Media';
-    if (aiPhotoName) aiPhotoName.textContent = media.name || 'Custom Media';
+    const assetId = `upload-${Date.now()}`;
+    const img = media.img || media;
+    this.sceneStore.assets.set(assetId, {
+      img,
+      w: img.naturalWidth || img.width || 1080,
+      h: img.naturalHeight || img.height || 1080
+    });
+    const targetIdx = this.selectedAperture || 0;
+    this.sceneStore.scene.photos[targetIdx] = {
+      id: `photo-${Date.now()}`,
+      assetId,
+      x: 0,
+      y: 0,
+      scale: 1,
+      rotation: 0
+    };
+    this.renderStudioCanvas();
+    this.updateSlideReplaceBar();
+    this.toast(`Slide ${targetIdx + 1} updated ✓`);
   }
 
-  clampOffsets() {
-    const clip = document.getElementById('clip');
-    if (!clip) return;
-    const r = clip.getBoundingClientRect();
-    const mx = ((this.state.zoom - 1) * r.width) / 2;
-    const my = ((this.state.zoom - 1) * r.height) / 2;
-    this.state.ox = Math.max(-mx, Math.min(mx, this.state.ox));
-    this.state.oy = Math.max(-my, Math.min(my, this.state.oy));
-  }
+  clampOffsets() {}
 
-  applyTransform() {
-    const edPhoto = document.getElementById('edPhoto');
-    if (!edPhoto) return;
-    edPhoto.style.transform = `translate(${this.state.ox}px, ${this.state.oy}px) scale(${this.state.zoom})`;
-  }
+  applyTransform() {}
 
-  setZoom(z) {
-    this.state.zoom = Math.min(2.5, Math.max(1, z));
-    const zoomRange = document.getElementById('zoomRange');
-    const zoomVal = document.getElementById('zoomVal');
-    if (zoomRange) zoomRange.value = Math.round(this.state.zoom * 100);
-    if (zoomVal) zoomVal.textContent = `${this.state.zoom.toFixed(2)}×`;
-    this.clampOffsets();
-    this.applyTransform();
-  }
+  setZoom(z) {}
 
   renderEditor() {
-    const p = this.samplePhotos.find((x) => x.id === this.state.photo);
-    const edPhoto = document.getElementById('edPhoto');
-    const edTitle = document.getElementById('edTitle');
-    const edSub = document.getElementById('edSub');
-    const aiPhotoName = document.getElementById('aiPhotoName');
-    const frameBox = document.getElementById('frameBox');
-    const guides = document.getElementById('guides');
-    const tGuides = document.getElementById('tGuides');
-    const zoomRange = document.getElementById('zoomRange');
-    const zoomVal = document.getElementById('zoomVal');
-    const frameMeta = document.getElementById('frameMeta');
-
-    if (p && !this.state.userMedia) {
-      if (edPhoto) edPhoto.className = `photo-view photo-bg ${this.state.photo}`;
-      if (edTitle) edTitle.textContent = p.title;
-      if (aiPhotoName) aiPhotoName.textContent = p.title;
-    }
-
-    const capName = (s) => s.charAt(0).toUpperCase() + s.slice(1);
-    const sizeLabel = { '4:5': '1080 × 1350 • 4:5', '1:1': '1080 × 1080 • 1:1', '9:16': '1080 × 1920 • 9:16' }[this.state.size];
-    if (edSub) edSub.textContent = `${sizeLabel} • ${capName(this.state.frame)}`;
-    if (frameBox) frameBox.className = `frame ${this.state.frame}`;
-
-    if (guides) guides.classList.toggle('show', this.state.guides);
-    if (tGuides) {
-      tGuides.classList.toggle('on', this.state.guides);
-      tGuides.setAttribute('aria-pressed', this.state.guides);
-    }
-
-    document.querySelectorAll('#mobileAppContainer [data-frame]').forEach((b) => {
-      b.classList.toggle('on', b.dataset.frame === this.state.frame);
-    });
-
-    if (zoomRange) zoomRange.value = Math.round(this.state.zoom * 100);
-    if (zoomVal) zoomVal.textContent = `${this.state.zoom.toFixed(2)}×`;
-    if (frameMeta) {
-      frameMeta.textContent = `POCKET FRAMES • ${this.state.size} • LUT: ${(this.luts[this.state.lut]?.name || '').toUpperCase()}`;
-    }
-
-    this.clampOffsets();
-    this.applyTransform();
-    this.applyLUT();
+    this.renderStudioCanvas();
   }
 
   /* ================= 3D LUT COLOR LAB ================= */
@@ -763,6 +2407,113 @@ export class MobileAppCoordinator {
     }, 55);
   }
 
+  async renderMasterExportBlob(quality = 0.98) {
+    if (typeof document !== 'undefined' && document.fonts?.ready) {
+      await document.fonts.ready;
+    }
+    const W = 1080;
+    const H = 1350;
+    const offCanvas = document.createElement('canvas');
+    offCanvas.width = W;
+    offCanvas.height = H;
+    const ctx = offCanvas.getContext('2d');
+
+    const frameDef = this.getFrameDef ? this.getFrameDef(this.activeFrameId) : (getFrameById(this.state?.frame) || FRAME_CATALOG[0]);
+    const lutFilter = this.isLutBypassed ? 'none' : (this.getLutCssFilter ? this.getLutCssFilter(this.activeLut, this.lutIntensity) : 'none');
+
+    if (frameDef && frameDef.isUploaded) {
+      ctx.clearRect(0, 0, W, H);
+      ctx.fillStyle = frameDef.background || '#FAF7F2';
+      ctx.fillRect(0, 0, W, H);
+
+      const ap = frameDef.apertures?.[0];
+      const photo = this.sceneStore?.scene?.photos?.[0];
+      if (ap && photo && this.sceneStore?.assets) {
+        const asset = this.sceneStore.assets.get(photo.assetId);
+        if (asset?.img) {
+          const ax = (ap.x / LOGICAL_W) * W;
+          const ay = (ap.y / LOGICAL_H) * H;
+          const aw = (ap.w / LOGICAL_W) * W;
+          const ah = (ap.h / LOGICAL_H) * H;
+          ctx.save();
+          ctx.beginPath();
+          ctx.rect(ax, ay, aw, ah);
+          ctx.clip();
+          if (lutFilter !== 'none') ctx.filter = lutFilter;
+          ctx.drawImage(asset.img, ax, ay, aw, ah);
+          ctx.restore();
+        }
+      }
+
+      if (frameDef.dataUrl) {
+        await new Promise((res) => {
+          const img = new Image();
+          img.onload = () => { ctx.drawImage(img, 0, 0, W, H); res(); };
+          img.onerror = res;
+          img.src = frameDef.dataUrl;
+        });
+      }
+    } else if (this.sceneStore?.scene && this.sceneStore?.assets) {
+      const photos = this.sceneStore.scene.photos || [];
+      photos.forEach((p) => {
+        if (p) p._lutFilter = lutFilter;
+      });
+
+      renderScene(ctx, this.sceneStore.scene, this.sceneStore.assets, {
+        targetWidth: W,
+        targetHeight: H,
+        isExport: true,
+        editorState: { selectedId: null, gridVisible: false, guidesVisible: false }
+      });
+    }
+
+    return new Promise((res, rej) => {
+      offCanvas.toBlob((blob) => {
+        if (blob) res(blob);
+        else rej(new Error('Failed to encode master canvas'));
+      }, 'image/jpeg', quality);
+    });
+  }
+
+  async saveCurrentFrameToGallery() {
+    await triggerHaptic('medium');
+    this.toast('Saving to Gallery…');
+    try {
+      const blob = await this.renderMasterExportBlob();
+      const filename = `PocketFrames_${this.state?.frame || 'studio'}_${Date.now()}.jpg`;
+      await saveToDeviceGallery({ blob, filename });
+      await triggerHaptic('success');
+      this.toast('Saved to Gallery ✓');
+    } catch (err) {
+      console.error('[MobileApp] saveCurrentFrameToGallery error:', err);
+      this.toast('Could not save photo');
+    }
+  }
+
+  async shareCurrentFrameSheet() {
+    await triggerHaptic('light');
+    this.toast('Opening Share Sheet…');
+    try {
+      const blob = await this.renderMasterExportBlob();
+      const filename = `PocketFrames_${this.state?.frame || 'studio'}_${Date.now()}.jpg`;
+      await shareFramedPhoto({
+        blob,
+        filename,
+        title: 'Pocket Frames Creation',
+        text: 'Framed with Pocket Frames'
+      });
+    } catch (err) {
+      if (!err.canceled) {
+        console.error('[MobileApp] shareCurrentFrameSheet error:', err);
+        this.toast('Could not open share sheet');
+      }
+    }
+  }
+
+  exportStudioMaster() {
+    return this.saveCurrentFrameToGallery();
+  }
+
   /* ================= THEME & ACCESSIBILITY ================= */
   setTheme(t, silent) {
     if (document.body.dataset.theme !== t) {
@@ -783,7 +2534,9 @@ export class MobileAppCoordinator {
     if (ts === 's') this.phone.classList.add('ts-s');
     if (ts === 'l') this.phone.classList.add('ts-l');
     document.querySelectorAll('#mobileAppContainer #tsSeg button').forEach((b) => {
-      b.classList.toggle('on', b.dataset.ts === ts);
+      const isActive = b.dataset.ts === ts;
+      b.classList.toggle('on', isActive);
+      b.setAttribute('aria-pressed', String(isActive)); // keep ARIA state in sync
     });
     storage.set('pf-ts', ts);
   }
@@ -809,15 +2562,19 @@ export class MobileAppCoordinator {
   initFit() {
     const device = document.getElementById('device');
     const fit = () => {
-      if (!device) return;
-      if (window.innerWidth <= 768) {
-        device.style.transform = 'none';
-        return;
+      if (device) {
+        if (window.innerWidth <= 768) {
+          device.style.transform = 'none';
+        } else {
+          const s = Math.min((window.innerWidth - 20) / 412, (window.innerHeight - 70) / 866, 1);
+          device.style.transform = `scale(${s})`;
+        }
       }
-      const s = Math.min((window.innerWidth - 20) / 412, (window.innerHeight - 70) / 866, 1);
-      device.style.transform = `scale(${s})`;
+      if (this.current === 'scr-camera') this.renderCamFrameOverlay();
+      if (this.current === 'scr-editor') this.renderStudioCanvas();
     };
     window.addEventListener('resize', fit);
+    window.addEventListener('orientationchange', () => setTimeout(fit, 80));
     fit();
   }
 
@@ -1011,6 +2768,66 @@ export class MobileAppCoordinator {
         return;
       }
 
+      // 1. Home Screen (User ID Card) Buttons
+      if (e.target.closest('#btnEditIdCard, #btnEditProfileSheet')) {
+        this.openEditIdSheet();
+        return;
+      }
+      if (e.target.closest('#btnShareIdCard')) {
+        this.shareIdCard();
+        return;
+      }
+      if (e.target.closest('#btnSaveEditId')) {
+        this.saveEditId();
+        return;
+      }
+      if (e.target.closest('#btnCancelEditId')) {
+        this.closeSheets();
+        return;
+      }
+
+      // 2. Studio Frames Editor Screen Toolbar & Actions
+      if (e.target.closest('#mobBtnFrames')) {
+        this.openFramesSheet('all');
+        return;
+      }
+      if (e.target.closest('#mobBtnUploadPhoto')) {
+        this.triggerPhotoUpload();
+        return;
+      }
+      if (e.target.closest('#mobBtnStickers')) {
+        this.openStickersSheet('all');
+        return;
+      }
+      if (e.target.closest('#mobBtnText')) {
+        this.openTextSheet();
+        return;
+      }
+      if (e.target.closest('#mobBtnLayers')) {
+        this.openLayersSheet();
+        return;
+      }
+      if (e.target.closest('#mobBtnClearScene')) {
+        this.resetStudioScene();
+        return;
+      }
+      if (e.target.closest('#mobBtnSaveGallery, #mobBtnExportDirect, #mobBtnSaveExport')) {
+        this.saveCurrentFrameToGallery();
+        return;
+      }
+      if (e.target.closest('#mobBtnShareSheet')) {
+        this.shareCurrentFrameSheet();
+        return;
+      }
+      if (e.target.closest('#btnAddTextConfirm')) {
+        this.confirmAddCustomText();
+        return;
+      }
+      if (e.target.closest('#btnCancelText')) {
+        this.closeSheets();
+        return;
+      }
+
       // Onboarding Next
       const onbNext = e.target.closest('#onbNext');
       if (onbNext) {
@@ -1104,7 +2921,13 @@ export class MobileAppCoordinator {
           this.state.libFilter = 'all';
           this.state.homeFilter = 'all';
           document.querySelectorAll('#mobileAppContainer .chips .chip').forEach((c) => {
-            c.classList.toggle('on', c.dataset.filter === 'all');
+            const isAll = c.dataset.filter === 'all';
+            c.classList.toggle('on', isAll);
+            if (c.getAttribute('role') === 'tab') {
+              c.setAttribute('aria-selected', String(isAll));
+            } else if (c.getAttribute('role') === 'radio') {
+              c.setAttribute('aria-checked', String(isAll));
+            }
           });
         }
         this.renderGrids();
@@ -1116,8 +2939,15 @@ export class MobileAppCoordinator {
       if (chip) {
         const parent = chip.closest('.chips');
         if (parent) {
-          parent.querySelectorAll('.chip').forEach((c) => c.classList.remove('on'));
-          chip.classList.add('on');
+          parent.querySelectorAll('.chip').forEach((c) => {
+            const isSel = c === chip;
+            c.classList.toggle('on', isSel);
+            if (c.getAttribute('role') === 'tab') {
+              c.setAttribute('aria-selected', String(isSel));
+            } else if (c.getAttribute('role') === 'radio') {
+              c.setAttribute('aria-checked', String(isSel));
+            }
+          });
           if (parent.id === 'homeChips') {
             this.state.homeFilter = chip.dataset.filter;
             this.renderGrids();
@@ -1376,6 +3206,23 @@ export class MobileAppCoordinator {
       });
     }
 
+    // 9b. Camera & frames switches in settings
+    document.getElementById('swGrid')?.addEventListener('change', (e) => {
+      this.state.grid = e.target.checked;
+      document.getElementById('camGuides')?.classList.toggle('show', this.state.grid);
+    });
+    document.getElementById('swSound')?.addEventListener('change', (e) => {
+      this.state.sound = e.target.checked;
+    });
+    document.getElementById('swMirror')?.addEventListener('change', (e) => {
+      this.state.mirror = e.target.checked;
+      document.getElementById('simView')?.classList.toggle('mirror', this.state.mirror && this.camFacingMode === 'user');
+    });
+    document.getElementById('swWater')?.addEventListener('change', (e) => {
+      this.state.water = e.target.checked;
+      document.body.dataset.water = this.state.water ? 'on' : 'off';
+    });
+
     // 10. Theme Switcher with physics spring animation
     const switcher = document.getElementById('themeSwitcher');
     if (switcher) {
@@ -1415,7 +3262,16 @@ export class MobileAppCoordinator {
       }
     });
 
-    // 12. Keyboard shortcuts in Editor
+    // 12a. Keyboard switch toggle (Space or Enter on role="switch" / .switch checkboxes)
+    document.addEventListener('keydown', (e) => {
+      if ((e.key === 'Enter' || e.key === ' ') && e.target && e.target.matches && e.target.matches('#mobileAppContainer .switch input[type="checkbox"]')) {
+        e.preventDefault();
+        e.target.checked = !e.target.checked;
+        e.target.dispatchEvent(new Event('change', { bubbles: true }));
+      }
+    });
+
+    // 12b. Keyboard shortcuts in Editor
     document.addEventListener('keydown', (e) => {
       if (this.current !== 'scr-editor') return;
       const tag = (document.activeElement || {}).tagName;

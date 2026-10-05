@@ -6,11 +6,13 @@ import { applyMagneticSnap } from './alignment.js';
 import { calculateAnchoredZoom } from './gestures.js';
 import { FRAME_GEOMETRY } from '../frame/frameGeometry.js';
 import { loadUserImage } from '../image/imageLoader.js';
+import { triggerHaptic } from '../mobile/nativeBridge.js';
 
 export class PositionManager {
-  constructor(canvasElement, containerElement) {
+  constructor(canvasElement, containerElement, options = {}) {
     this.canvas = canvasElement;
     this.container = containerElement;
+    this.options = options;
 
     this.activePointers = new Map();
     this.isDragging = false;
@@ -20,6 +22,7 @@ export class PositionManager {
     this.initialPinchScale = 1;
     this.initialPinchMidpoint = { x: 0, y: 0 };
     this.wheelDebounceTimer = null;
+    this.lastSnapped = false;
 
     this.init();
   }
@@ -92,6 +95,12 @@ export class PositionManager {
         proposedY,
         state.editor.snapEnabled
       );
+
+      const isNowSnapped = Boolean(snapped.snappedX || snapped.snappedY);
+      if (isNowSnapped && !this.lastSnapped) {
+        triggerHaptic('light');
+      }
+      this.lastSnapped = isNowSnapped;
 
       store.setTransform({
         x: snapped.x,
@@ -193,9 +202,14 @@ export class PositionManager {
     };
     const handleDrop = async (e) => {
       e.preventDefault();
+      e.stopPropagation();
       this.container.classList.remove('drag-active');
       const files = e.dataTransfer?.files;
       if (files && files.length > 0) {
+        if (typeof this.options?.onDrop === 'function') {
+          this.options.onDrop(files[0]);
+          return;
+        }
         try {
           const loaded = await loadUserImage(files[0]);
           store.setImage(loaded);

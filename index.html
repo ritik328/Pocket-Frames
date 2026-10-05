@@ -101,10 +101,6 @@
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 13.4 9.6 20 11l-6.6 1.4L12 19l-1.4-6.6L4 11l6.6-1.4Z"/></svg>
           Studio Frame
         </a>
-        <a href="/app.html" class="btn-mobile-preview-toggle" id="btnToggleMobilePreview" title="Launch Android Phone App">
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="2" width="14" height="20" rx="3"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg>
-          Android App
-        </a>
       </div>
 
       <div class="format-chips" id="pf-format-chips">
@@ -182,6 +178,7 @@
         <!-- Photo & Video Upload Zone -->
         <div class="sidebar__section">
           <span class="eyebrow">Photo &amp; Video</span>
+          <input type="file" id="fileInput" accept="image/jpeg,image/png,image/webp,video/mp4,video/webm,video/quicktime" class="visually-hidden" hidden style="display:none;" aria-label="Upload photo or video file" />
           <button class="upload-zone" id="uploadBtn" type="button" title="Click to upload photograph or video">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
               <path d="M12 16V4M12 4 8 8M12 4l4 4"/><path d="M4 16v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3"/>
@@ -455,6 +452,12 @@
             <path d="M12 4v11M12 15l-4-4M12 15l4-4"/><path d="M4 18v1a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-1"/>
           </svg>
           <span id="downloadBtnText">Download frame</span>
+        </button>
+        <button class="btn--ghost" id="shareBtn" type="button" title="Share via Android Share Sheet">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/>
+          </svg>
+          <span id="shareBtnText">Share</span>
         </button>
       </div>
     </footer>

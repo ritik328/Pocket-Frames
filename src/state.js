@@ -153,6 +153,13 @@ class StateStore {
     if (imageData && !imageData.originalElement) {
       imageData.originalElement = imageData.element;
     }
+    // Revoke previous video Object URL to prevent memory leaks.
+    // Images revoke their own objectUrl immediately after decode (in imageLoader.js).
+    // Videos cannot revoke eagerly because the element keeps reading from the blob.
+    const prevImage = this.state.image;
+    if (prevImage?.objectUrl && prevImage.objectUrl !== imageData?.objectUrl) {
+      try { URL.revokeObjectURL(prevImage.objectUrl); } catch { /* ignore */ }
+    }
     this.state.image = imageData;
     this.notify('image');
   }

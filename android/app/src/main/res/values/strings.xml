@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Pocket Frames</string>
+    <string name="title_activity_main">Pocket Frames</string>
+    <string name="package_name">com.pocketframes.app</string>
+    <string name="custom_url_scheme">com.pocketframes.app</string>
+</resources>

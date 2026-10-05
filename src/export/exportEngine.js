@@ -4,6 +4,7 @@
 import { renderFrame } from '../frame/frameRenderer.js';
 import { ensureFontsReady } from '../frame/typography.js';
 import { checkAlignment } from '../editor/alignment.js';
+import { saveToDeviceGallery, shareFramedPhoto } from '../mobile/nativeBridge.js';
 
 export const EXPORT_PRESETS = {
   '1080x1350': {
@@ -97,27 +98,24 @@ export async function downloadFrame(state, onProgress = null) {
 
   return new Promise((resolve, reject) => {
     exportCanvas.toBlob(
-      (blob) => {
+      async (blob) => {
         if (!blob) {
           reject(new Error('Canvas encoding failed. The image may exceed browser memory limits.'));
           return;
         }
 
-        // Trigger native browser download
-        const blobUrl = URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.href = blobUrl;
-        link.download = filename;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-
-        setTimeout(() => {
-          URL.revokeObjectURL(blobUrl);
-          // Free canvas memory
-          exportCanvas.width = 1;
-          exportCanvas.height = 1;
-        }, 1000);
+        try {
+          // Native gallery save on Android / Web download fallback
+          await saveToDeviceGallery({ blob, filename });
+        } catch (e) {
+          console.error('[ExportEngine] saveToDeviceGallery error:', e);
+        } finally {
+          setTimeout(() => {
+            // Free canvas memory
+            exportCanvas.width = 1;
+            exportCanvas.height = 1;
+          }, 1000);
+        }
 
         if (onProgress) onProgress('Complete');
         resolve({ blob, filename });
@@ -127,3 +125,62 @@ export async function downloadFrame(state, onProgress = null) {
     );
   });
 }
+
+/**
+ * Render and share master frame via Native Android Share Sheet
+ * @param {object} state 
+ * @param {function} onProgress - Optional callback
+ */
+export async function shareCurrentFrame(state, onProgress = null) {
+  if (onProgress) onProgress('Preparing high-resolution typography...');
+  await ensureFontsReady();
+
+  const preset = EXPORT_PRESETS[state.export.resolution] || EXPORT_PRESETS['2160x2700'];
+  const exportCanvas = document.createElement('canvas');
+
+  if (onProgress) onProgress(`Rendering ${preset.width} × ${preset.height} master canvas...`);
+
+  renderFrame(exportCanvas, state, {
+    isExport: true,
+    targetWidth: preset.width,
+    targetHeight: preset.height
+  });
+
+  const mimeType = state.export.format || 'image/jpeg';
+  const quality = mimeType === 'image/jpeg' ? (state.export.quality || 0.99) : undefined;
+  const filename = generateExportFilename(state);
+
+  if (onProgress) onProgress('Opening share sheet...');
+
+  return new Promise((resolve, reject) => {
+    exportCanvas.toBlob(
+      async (blob) => {
+        if (!blob) {
+          reject(new Error('Canvas encoding failed.'));
+          return;
+        }
+
+        try {
+          const res = await shareFramedPhoto({
+            blob,
+            filename,
+            title: `Pocket Frames - ${state.metadata.device || 'Frame'}`,
+            text: 'Framed with Pocket Frames'
+          });
+          resolve(res);
+        } catch (e) {
+          reject(e);
+        } finally {
+          setTimeout(() => {
+            exportCanvas.width = 1;
+            exportCanvas.height = 1;
+          }, 1000);
+          if (onProgress) onProgress('Complete');
+        }
+      },
+      mimeType,
+      quality
+    );
+  });
+}
+

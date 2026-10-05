@@ -21,6 +21,7 @@ import {
   saveStickersToDb,
   getAllStickersFromDb,
   savePackToDb,
+  savePacksToDb,
   getAllPacksFromDb,
   deletePackFromDb,
   renamePackInDb,
@@ -29,6 +30,7 @@ import {
   importStickersBackup
 } from './stickerDb.js';
 import { CanvasResizer } from '../editor/canvasResizer.js';
+import { saveToDeviceGallery, shareFramedPhoto } from '../mobile/nativeBridge.js';
 
 // ─── DOM refs ─────────────────────────────────────────────────────────────────
 const canvas       = document.getElementById('v2-canvas');
@@ -125,9 +127,9 @@ async function executeDeleteCollection(packId, packLabel = '') {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${_devPin || '7788'}`
+        'Authorization': `Bearer ${_devPin}`
       },
-      body: JSON.stringify({ packId: packId, pin: _devPin || '7788' })
+      body: JSON.stringify({ packId: packId, pin: _devPin })
     });
 
     let data = null;
@@ -203,9 +205,9 @@ async function executeRenameCollection(packId, currentLabel = '', newLabel = '')
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${_devPin || '7788'}`
+        'Authorization': `Bearer ${_devPin}`
       },
-      body: JSON.stringify({ packId: packId, newLabel: trimmed, pin: _devPin || '7788' })
+      body: JSON.stringify({ packId: packId, newLabel: trimmed, pin: _devPin })
     });
 
     let data = null;
@@ -751,7 +753,21 @@ function buildStickerPackTabs() {
     const isActive = pack.id === _activePack;
     btn.className = `chip v2-pack-tab ${isActive ? 'active is-active' : ''}`;
     btn.dataset.pack = pack.id;
-    btn.innerHTML = `<span>${pack.emoji}</span> <span>${pack.label}</span>${pack.count !== undefined ? ` <small style="opacity:0.65;font-size:10px;">(${pack.count})</small>` : ''}`;
+    // Build button content with textContent to prevent XSS from user-supplied pack names/emoji
+    const emojiSpan = document.createElement('span');
+    emojiSpan.textContent = pack.emoji || '✦';
+    btn.appendChild(emojiSpan);
+    btn.appendChild(document.createTextNode(' '));
+    const labelSpan = document.createElement('span');
+    labelSpan.textContent = pack.label;
+    btn.appendChild(labelSpan);
+    if (pack.count !== undefined) {
+      const small = document.createElement('small');
+      small.style.cssText = 'opacity:0.65;font-size:10px;';
+      small.textContent = `(${pack.count})`;
+      btn.appendChild(document.createTextNode(' '));
+      btn.appendChild(small);
+    }
     btn.addEventListener('click', () => {
       _activePack = pack.id;
       stickerPackBtns.querySelectorAll('.chip, .v2-pack-tab').forEach(b => {
@@ -1354,15 +1370,11 @@ if (exportBtn) {
       );
 
       const mimeType = 'image/jpeg';
-      offCanvas.toBlob(blob => {
+      offCanvas.toBlob(async (blob) => {
         if (!blob) { showToast('Export failed'); return; }
-        const url  = URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.href  = url;
-        link.download = `PocketFrames_${preset.w}x${preset.h}.jpg`;
-        link.click();
-        setTimeout(() => URL.revokeObjectURL(url), 2000);
-        showToast('Downloaded ✓');
+        const filename = `PocketFrames_${preset.w}x${preset.h}.jpg`;
+        await saveToDeviceGallery({ blob, filename });
+        showToast('Saved to Gallery ✓');
       }, mimeType, 0.95);
     } catch (err) {
       console.error(err);
@@ -1704,15 +1716,9 @@ function initDevStickerBackdoor() {
         triggerPinError();
       }
     } catch (err) {
-      // Fallback check
-      if (entered === '7788') {
-        _devUnlocked = true;
-        _devPin = entered;
-        try {
-          sessionStorage.setItem('pk_dev_unlocked', '1');
-          sessionStorage.setItem('pk_dev_pin', entered);
-        } catch { /* storage full or private mode */ }
-        closePinModal();
+      // Server verification failed — do not fall back to hardcoded PIN
+      triggerPinError();
+      if (false) { // placeholder to preserve block structure
         if (typeof _pendingDevAction === 'function') {
           const fn = _pendingDevAction;
           _pendingDevAction = null;
@@ -2070,7 +2076,7 @@ function initDevStickerBackdoor() {
       return;
     }
 
-    const pinToUse = _devPin || (typeof window !== 'undefined' ? sessionStorage.getItem('pk_dev_pin') : '') || '7788';
+    const pinToUse = _devPin || (typeof window !== 'undefined' ? sessionStorage.getItem('pk_dev_pin') : '') || '';
 
     if (!_devUnlocked && !_devPin && (typeof window === 'undefined' || !sessionStorage.getItem('pk_dev_unlocked'))) {
       _pendingDevAction = () => btnSubmitUpload.click();

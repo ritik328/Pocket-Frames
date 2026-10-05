@@ -18,7 +18,9 @@ import { fileURLToPath } from 'url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-const DEV_PIN = process.env.DEV_PIN?.trim() || '7788';
+// DEV_PIN must be set explicitly in environment variables (.env or Vercel dashboard).
+// No hardcoded fallback — if unset, all sticker mutations are rejected with 401.
+const DEV_PIN = process.env.DEV_PIN?.trim() || '';
 
 // In serverless/cloud deployments (e.g. Vercel), the project root is read-only.
 // We detect this by checking if the app is running from /var/task (Vercel) or
@@ -514,6 +516,36 @@ export async function processStickerUpload(fileData, options = {}) {
     throw new Error('Invalid file data provided');
   }
 
+  // ── Per-file size cap ──────────────────────────────────────────────────────
+  const MAX_FILE_BYTES = 4 * 1024 * 1024; // 4MB per sticker
+  if (buffer.length > MAX_FILE_BYTES) {
+    throw new Error(`File too large: ${(buffer.length / (1024 * 1024)).toFixed(1)}MB exceeds the 4MB per-sticker limit.`);
+  }
+
+  // ── Block SVG uploads (SVG can embed <script> and event handlers) ──────────
+  const clientMimeLower = (mimeType || '').toLowerCase();
+  if (clientMimeLower.includes('svg') || clientMimeLower.includes('xml')) {
+    throw new Error('SVG and XML file uploads are not supported. Please use PNG, JPEG, or WebP images.');
+  }
+
+  // ── Server-side MIME validation via sharp ──────────────────────────────────
+  // Do not trust the client-declared MIME type alone — validate by actually
+  // decoding the buffer header through sharp. Any non-image bytes will throw.
+  const ALLOWED_SHARP_FORMATS = new Set(['jpeg', 'png', 'webp', 'gif', 'avif', 'tiff']);
+  try {
+    const meta = await sharp(buffer).metadata();
+    if (!meta.format || !ALLOWED_SHARP_FORMATS.has(meta.format)) {
+      throw new Error(`Unsupported image format detected by server: "${meta.format || 'unknown'}". Allowed: PNG, JPEG, WebP.`);
+    }
+    // Correct the MIME type to what sharp actually detected, not what the client claimed
+    const formatToMime = { jpeg: 'image/jpeg', png: 'image/png', webp: 'image/webp', gif: 'image/gif', avif: 'image/avif', tiff: 'image/tiff' };
+    mimeType = formatToMime[meta.format] || mimeType;
+  } catch (sharpErr) {
+    if (sharpErr.message.includes('Unsupported') || sharpErr.message.includes('Allowed')) throw sharpErr;
+    throw new Error(`Invalid image file: server could not decode the uploaded bytes as a valid image. (${sharpErr.message.slice(0, 120)})`);
+  }
+  // ──────────────────────────────────────────────────────────────────────────
+
   // 1. Background removal via danielgatis/rembg (with smart skip if already transparent)
   let cleanedBuffer = buffer;
   let bgMethod = 'direct-upload';
@@ -575,13 +607,13 @@ export async function processStickerUpload(fileData, options = {}) {
   const packId = groupName.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
   const packLabel = groupName.split(/[-\s]/).map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
 
-  // 3. Save to disk directly preserving original file format
+  // 3. Save to disk — use the server-validated mimeType, never the client-supplied filename extension
   let ext = 'png';
-  if (mimeType.includes('svg')) ext = 'svg';
-  else if (mimeType.includes('jpeg') || mimeType.includes('jpg')) ext = 'jpg';
+  if (mimeType.includes('jpeg') || mimeType.includes('jpg')) ext = 'jpg';
   else if (mimeType.includes('webp')) ext = 'webp';
   else if (mimeType.includes('gif')) ext = 'gif';
-  else if (fileData.name && path.extname(fileData.name)) ext = path.extname(fileData.name).replace('.', '').toLowerCase();
+  else if (mimeType.includes('avif')) ext = 'avif';
+  // Note: SVG uploads are blocked before this point — no svg branch needed.
 
   const stickerId = `custom-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
   const filename = `${stickerId}.${ext}`;
@@ -593,11 +625,11 @@ export async function processStickerUpload(fileData, options = {}) {
   try {
     meta = await sharp(cleanedBuffer).metadata();
   } catch {
-    // fallback if format is SVG or vector
+    // fallback for unusual valid formats
   }
 
   // Generate a self-contained base64 data URL for resilient serverless & client-side rendering
-  const mimePrefix = ext === 'svg' ? 'image/svg+xml' : `image/${ext === 'jpg' ? 'jpeg' : ext}`;
+  const mimePrefix = `image/${ext === 'jpg' ? 'jpeg' : ext}`;
   const base64DataUrl = `data:${mimePrefix};base64,${cleanedBuffer.toString('base64')}`;
 
   // In serverless mode (e.g. Vercel), /tmp is ephemeral and not shared across instances.

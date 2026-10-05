@@ -55,8 +55,6 @@ export async function loadUserImage(file) {
     img.src = objectUrl;
   });
 
-  URL.revokeObjectURL(objectUrl);
-
   // 3. Normalize orientation if needed
   const normalized = await normalizeImageOrientation(rawImg, orientation);
 
@@ -70,7 +68,8 @@ export async function loadUserImage(file) {
     extractedExif,
     rawExif,
     file,
-    filename: file.name || 'photograph.jpg'
+    filename: file.name || 'photograph.jpg',
+    objectUrl
   };
 }
 

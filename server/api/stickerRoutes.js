@@ -15,8 +15,21 @@ import {
 } from '../services/stickerService.js';
 
 export async function handleStickerRequest(req, res) {
-  // CORS Headers
-  res.setHeader('Access-Control-Allow-Origin', '*');
+  // CORS: restrict to production domain + localhost for dev.
+  const ALLOWED_ORIGINS = new Set([
+    'https://pocket-frames.vercel.app',
+    'https://www.pocket-frames.vercel.app',
+    process.env.ALLOWED_ORIGIN,
+    'http://localhost:5173',
+    'http://localhost:3000',
+    'http://127.0.0.1:5173',
+  ].filter(Boolean));
+
+  const requestOrigin = req.headers.origin || '';
+  const corsOrigin = ALLOWED_ORIGINS.has(requestOrigin) ? requestOrigin : 'https://pocket-frames.vercel.app';
+
+  res.setHeader('Access-Control-Allow-Origin', corsOrigin);
+  res.setHeader('Vary', 'Origin');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, DELETE, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With');
 
@@ -32,11 +45,24 @@ export async function handleStickerRequest(req, res) {
     const segments = pathname.split('/').filter(Boolean);
     const action = url.searchParams.get('action') || segments[segments.length - 1] || 'list';
 
-    // GET: List all custom stickers and packs
+    // GET: List all custom stickers and packs (always available, no auth required)
     if (req.method === 'GET' && (action === 'stickers' || action === 'list' || pathname.endsWith('/api/stickers') || pathname.endsWith('/api/stickers/'))) {
       const data = getStickerData();
       return sendJson(res, 200, data);
     }
+
+    // ─── FEATURE GATE ────────────────────────────────────────────────────────
+    // All sticker mutation routes (upload / delete / rename / verify-pin) are
+    // disabled unless ENABLE_STICKER_UPLOAD=true is explicitly set in env vars.
+    // This prevents accidental data mutations in production deployments.
+    const stickerUploadEnabled = process.env.ENABLE_STICKER_UPLOAD === 'true';
+    if (!stickerUploadEnabled) {
+      return sendJson(res, 403, {
+        success: false,
+        error: 'Sticker upload feature is disabled. Set ENABLE_STICKER_UPLOAD=true in your environment to enable it.'
+      });
+    }
+    // ─────────────────────────────────────────────────────────────────────────
 
     // Parse Body for POST / DELETE
     let body = {};

@@ -471,12 +471,16 @@ export class AiStudioModal {
 
     if (this.compStrengthsList) {
       const list = data.composition?.strengths || ['Clean diagonal division', 'Balanced color weight'];
-      this.compStrengthsList.innerHTML = list.map(s => `
-        <li>
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 12.5 9.5 18 20 5"/></svg>
-          <span>${s}</span>
-        </li>
-      `).join('');
+      this.compStrengthsList.innerHTML = ''; // clear previous
+      list.forEach(s => {
+        const li = document.createElement('li');
+        // Static SVG checkmark (safe — no user data)
+        li.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 12.5 9.5 18 20 5"/></svg>';
+        const span = document.createElement('span');
+        span.textContent = s; // AI-returned text: textContent, never innerHTML
+        li.appendChild(span);
+        this.compStrengthsList.appendChild(li);
+      });
     }
 
     if (this.compCritiqueText) {

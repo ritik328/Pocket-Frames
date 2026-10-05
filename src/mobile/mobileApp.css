@@ -385,10 +385,22 @@ body[data-theme="dark"] #mobileAppContainer .phone {
   pointer-events: none;
   transition: transform 0.42s var(--ease), opacity 0.42s;
 }
+#mobileAppContainer .screen:not(.active):not(.exit-fwd):not(.exit-back) {
+  display: none !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
+  z-index: -1 !important;
+}
+#mobileAppContainer .screen:not(.active) * {
+  pointer-events: none !important;
+}
 #mobileAppContainer .screen.active {
+  display: flex !important;
   opacity: 1;
   transform: none;
   pointer-events: auto;
+  visibility: visible !important;
+  z-index: 10;
 }
 #mobileAppContainer .screen.pre-fwd {
   transform: translateX(46px) !important;
@@ -2047,9 +2059,30 @@ body[data-theme="dark"] #mobileAppContainer .frame.polaroid {
   align-items: center;
   justify-content: space-around;
   isolation: isolate;
+  /* will-change: transform promotes the nav to its own compositing layer.
+     This prevents the browser from re-compositing the glassnav on every scroll
+     frame — critical for smooth performance on budget Android GPUs. */
+  will-change: transform;
   background-color: color-mix(in srgb, var(--nav-legibility) calc(var(--nav-tint) * 100%), transparent);
-  -webkit-backdrop-filter: blur(var(--nav-blur)) saturate(var(--nav-sat));
-  backdrop-filter: blur(var(--nav-blur)) saturate(var(--nav-sat));
+  /* Reduced blur: 18px (was 26px) — still visually convincing but ~50% cheaper
+     to rasterize on Mali-G57 class GPUs used in budget Android phones. */
+  -webkit-backdrop-filter: blur(18px) saturate(var(--nav-sat));
+  backdrop-filter: blur(18px) saturate(var(--nav-sat));
+  /* The decorative multi-layer glass shadow is on ::before (see below)
+     so the shadow itself is not included in the transition paint path. */
+  transition: transform 0.45s var(--ease), opacity 0.35s,
+    background-color 0.28s ease;
+}
+
+/* Decorative glass shadow on a composited pseudo-element.
+   We animate opacity (GPU-composited) instead of box-shadow (paint-triggering).
+   The shadow itself does not change — only its visibility transitions. */
+#mobileAppContainer .glassnav::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
   box-shadow:
     inset 0 0 0 1px color-mix(in srgb, var(--c-light) calc(var(--grl) * 14%), transparent),
     inset 1.8px 3px 0px -2px color-mix(in srgb, var(--c-light) calc(var(--grl) * 95%), transparent),
@@ -2062,8 +2095,8 @@ body[data-theme="dark"] #mobileAppContainer .frame.polaroid {
     0px 1px 5px 0px color-mix(in srgb, var(--c-dark) calc(var(--grd) * 12%), transparent),
     0px 8px 22px 0px color-mix(in srgb, var(--c-dark) calc(var(--grd) * 12%), transparent),
     0 18px 44px rgba(20, 14, 4, 0.20);
-  transition: transform 0.45s var(--ease), opacity 0.35s,
-    background-color 0.28s ease, box-shadow 0.4s cubic-bezier(1, 0, 0.4, 1);
+  opacity: 1;
+  transition: opacity 0.4s cubic-bezier(1, 0, 0.4, 1);
 }
 
 #mobileAppContainer .phone[data-nav="off"] .glassnav {
@@ -2163,6 +2196,7 @@ body[data-theme="dark"] #mobileAppContainer .frame.polaroid {
   background: var(--ink);
   opacity: 0.32;
   z-index: 55;
+  pointer-events: none !important;
 }
 
 /* ================= THEME SWITCHER ================= */
@@ -2318,8 +2352,10 @@ body[data-theme="dark"] #mobileAppContainer .toast .t-act {
   pointer-events: none;
   transition: 0.35s;
   z-index: 70;
+  display: none;
 }
 #mobileAppContainer .sheet-veil.on {
+  display: block !important;
   opacity: 1;
   pointer-events: auto;
 }
@@ -2346,9 +2382,15 @@ body[data-theme="dark"] #mobileAppContainer .toast .t-act {
     inset -1px -4px 6px -2px color-mix(in srgb, var(--c-dark) calc(var(--grd) * 14%), transparent),
     0 -14px 50px rgba(0, 0, 0, 0.25);
   transition: transform 0.45s var(--ease), background-color 0.4s, box-shadow 0.4s;
+  display: none;
+  visibility: hidden;
+  pointer-events: none;
 }
 #mobileAppContainer .sheet.on {
-  transform: none;
+  display: block !important;
+  visibility: visible !important;
+  pointer-events: auto !important;
+  transform: none !important;
 }
 #mobileAppContainer .sheet-handle {
   width: 44px;
@@ -2479,3 +2521,2126 @@ body[data-theme="dark"] #mobileAppContainer .toast .t-act {
   color: var(--ink);
   font-weight: 700;
 }
+
+/* ================= ACCESSIBILITY & KEYBOARD FOCUS STATES ================= */
+#mobileAppContainer .switch input:focus-visible + i {
+  outline: 2px solid var(--accent, #f59e0b);
+  outline-offset: 3px;
+}
+#mobileAppContainer .chip:focus-visible {
+  outline: 2px solid var(--accent, #f59e0b);
+  outline-offset: 2px;
+}
+#mobileAppContainer .switcher__input:focus-visible + .switcher__icon {
+  outline: 2px solid var(--accent, #f59e0b);
+  outline-offset: 2px;
+  border-radius: 50%;
+}
+#mobileAppContainer button:focus-visible,
+#mobileAppContainer input:focus-visible,
+#mobileAppContainer [tabindex="0"]:focus-visible {
+  outline: 2px solid var(--accent, #f59e0b);
+  outline-offset: 2px;
+}
+
+/* ================= CONSOLIDATED UTILITY & COMPONENT CLASSES ================= */
+#mobileAppContainer .sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+#mobileAppContainer .w-full {
+  width: 100%;
+}
+#mobileAppContainer .text-left {
+  text-align: left;
+}
+#mobileAppContainer .card-center {
+  text-align: center;
+}
+#mobileAppContainer .tag-translucent {
+  background: rgba(255, 255, 255, 0.6);
+}
+#mobileAppContainer .spacer-s {
+  height: 12px;
+}
+#mobileAppContainer .spacer-m {
+  height: 14px;
+}
+#mobileAppContainer .spacer-l {
+  height: 18px;
+}
+#mobileAppContainer .pt-0 {
+  padding-top: 0 !important;
+}
+#mobileAppContainer .pt-m {
+  padding-top: 12px;
+}
+#mobileAppContainer .zoom-row-compact {
+  padding: 0 4px;
+}
+#mobileAppContainer .zoom-row-padded {
+  padding: 0 4px 14px;
+}
+#mobileAppContainer .opt-label-tight {
+  margin-top: 0;
+}
+#mobileAppContainer .user-name {
+  font-size: 15px;
+}
+#mobileAppContainer .user-sub {
+  font-size: 12px;
+  color: var(--ink2);
+}
+#mobileAppContainer .mob-install-btn {
+  padding: 8px 16px;
+  font-size: 12px;
+}
+#mobileAppContainer .storage-text {
+  font-size: 11.5px;
+  color: var(--ink2);
+  font-weight: 500;
+}
+#mobileAppContainer .btn-check-updates {
+  width: 100%;
+  margin-top: 10px;
+  font-size: 12px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 8px;
+}
+#mobileAppContainer .exp-box.is-hidden {
+  display: none;
+}
+#mobileAppContainer .fill.fill-grn {
+  background: var(--grn);
+}
+#mobileAppContainer .fill.fill-blu {
+  background: var(--blu);
+}
+#mobileAppContainer .fill.fill-pnk {
+  background: var(--pnk);
+}
+#mobileAppContainer .fill.fill-yel {
+  background: var(--yel);
+}
+#mobileAppContainer .sheet-veil.ctx-layer {
+  z-index: 76;
+}
+#mobileAppContainer .sheet.ctx-layer {
+  z-index: 77;
+}
+
+/* ================= USER ID CARD (HOME SCREEN) ================= */
+#mobileAppContainer .id-card-screen {
+  padding: 16px 18px 100px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-height: 100%;
+  overflow-y: auto;
+}
+
+#mobileAppContainer .id-card-header {
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+#mobileAppContainer .id-card {
+  width: 100%;
+  max-width: 330px;
+  border-radius: 28px;
+  background: linear-gradient(145deg,
+    color-mix(in srgb, var(--card) 92%, #ffffff 8%),
+    color-mix(in srgb, var(--card) 85%, var(--accent, #f59e0b) 15%)
+  );
+  border: 1px solid color-mix(in srgb, var(--line) 60%, rgba(255,255,255,0.7));
+  box-shadow:
+    0 16px 36px -8px rgba(0,0,0,0.18),
+    0 3px 12px rgba(0,0,0,0.06),
+    inset 0 1px 2px rgba(255,255,255,0.85);
+  position: relative;
+  overflow: hidden;
+  padding: 22px 20px 18px;
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  isolation: isolate;
+  transition: transform 0.3s var(--ease-spring), box-shadow 0.3s;
+}
+
+#mobileAppContainer .id-card::before {
+  content: '';
+  position: absolute;
+  top: -50%;
+  left: -50%;
+  width: 200%;
+  height: 200%;
+  background: radial-gradient(circle at 75% 25%, rgba(255,255,255,0.3) 0%, transparent 45%);
+  pointer-events: none;
+}
+
+#mobileAppContainer .id-card-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 18px;
+}
+
+#mobileAppContainer .id-chip-graphic {
+  width: 38px;
+  height: 28px;
+  border-radius: 6px;
+  background: linear-gradient(135deg, #d4af37, #f7e7a9, #b8860b);
+  border: 1px solid #996515;
+  box-shadow: inset 0 1px 2px rgba(255,255,255,0.6);
+  position: relative;
+}
+#mobileAppContainer .id-chip-graphic::after {
+  content: '';
+  position: absolute;
+  inset: 4px;
+  border: 1px solid rgba(0,0,0,0.25);
+  border-radius: 3px;
+}
+
+#mobileAppContainer .id-card-brand {
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: var(--ink);
+  opacity: 0.85;
+}
+
+#mobileAppContainer .id-card-profile {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  margin-bottom: 20px;
+}
+
+#mobileAppContainer .id-avatar-wrap {
+  width: 90px;
+  height: 90px;
+  border-radius: 50%;
+  padding: 3px;
+  background: linear-gradient(135deg, var(--accent, #f59e0b), var(--pnk, #ec4899), #3b82f6);
+  box-shadow: 0 8px 20px rgba(0,0,0,0.15);
+  position: relative;
+  margin-bottom: 10px;
+}
+
+#mobileAppContainer .id-avatar-img {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  object-fit: cover;
+  background: var(--pill);
+  display: grid;
+  place-items: center;
+  font-size: 32px;
+  font-weight: 700;
+  color: var(--ink);
+  overflow: hidden;
+}
+#mobileAppContainer .id-avatar-img img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+#mobileAppContainer .id-avatar-badge {
+  position: absolute;
+  bottom: 0;
+  right: 0;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--card);
+  border: 2px solid var(--bg);
+  box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+  display: grid;
+  place-items: center;
+  color: var(--ink);
+  cursor: pointer;
+}
+
+#mobileAppContainer .id-user-name {
+  font-size: 20px;
+  font-weight: 800;
+  letter-spacing: -0.3px;
+  color: var(--ink);
+  margin-bottom: 4px;
+}
+
+#mobileAppContainer .id-user-role {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+  color: var(--accent, #f59e0b);
+  background: color-mix(in srgb, var(--accent, #f59e0b) 14%, transparent);
+  padding: 3px 10px;
+  border-radius: 999px;
+  display: inline-block;
+}
+
+#mobileAppContainer .id-details-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  background: color-mix(in srgb, var(--pill) 60%, transparent);
+  border-radius: 18px;
+  padding: 12px 14px;
+  margin-bottom: 16px;
+  border: 1px solid var(--line);
+}
+
+#mobileAppContainer .id-field {
+  display: flex;
+  flex-direction: column;
+}
+
+#mobileAppContainer .id-field label {
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+  color: var(--ink2);
+  margin-bottom: 2px;
+}
+
+#mobileAppContainer .id-field b {
+  font-size: 13.5px;
+  font-weight: 700;
+  color: var(--ink);
+}
+
+#mobileAppContainer .id-card-bottom {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-top: 1px dashed var(--line);
+  padding-top: 10px;
+}
+
+#mobileAppContainer .id-barcode {
+  height: 20px;
+  width: 130px;
+  background: repeating-linear-gradient(90deg,
+    var(--ink) 0px, var(--ink) 2px,
+    transparent 2px, transparent 4px,
+    var(--ink) 4px, var(--ink) 7px,
+    transparent 7px, transparent 9px,
+    var(--ink) 9px, var(--ink) 10px,
+    transparent 10px, transparent 13px,
+    var(--ink) 13px, var(--ink) 16px
+  );
+  opacity: 0.75;
+}
+
+#mobileAppContainer .id-nfc-icon {
+  color: var(--ink2);
+  opacity: 0.7;
+}
+
+#mobileAppContainer .id-actions {
+  width: 100%;
+  max-width: 330px;
+  margin-top: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+/* ================= STUDIO FRAME EDITOR (FRAMES SCREEN) ================= */
+#mobileAppContainer #scr-editor .scr-body {
+  padding-bottom: 120px !important;
+}
+
+#mobileAppContainer .studio-canvas-wrap {
+  width: 100%;
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  padding: 4px 0 8px;
+  min-height: 0;
+}
+
+#mobileAppContainer #mobStudioCanvas {
+  max-width: 100%;
+  width: 100%;
+  height: 52vh;
+  max-height: 52vh;
+  object-fit: contain;
+  border-radius: 20px;
+  box-shadow: 0 16px 40px rgba(0,0,0,0.22), 0 3px 10px rgba(0,0,0,0.08);
+  background: #ffffff;
+  display: block;
+  touch-action: manipulation;
+  cursor: pointer;
+}
+
+#mobileAppContainer .canvas-aperture-tap-hint {
+  position: absolute;
+  bottom: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(0, 0, 0, 0.72);
+  color: #ffffff;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  padding: 5px 14px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.2px;
+  box-shadow: 0 4px 14px rgba(0,0,0,0.25);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  pointer-events: none;
+  transition: opacity 0.4s ease;
+  white-space: nowrap;
+  z-index: 5;
+}
+
+/* Multi-Slide Replace & Upload Bar */
+#mobileAppContainer .studio-slides-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  overflow-x: auto;
+  scrollbar-width: none;
+  padding: 6px 2px 2px;
+}
+#mobileAppContainer .studio-slides-bar::-webkit-scrollbar {
+  display: none;
+}
+
+#mobileAppContainer .slide-replace-card {
+  flex: 1;
+  min-width: 95px;
+  background: var(--card);
+  border: 1.5px solid var(--line);
+  border-radius: 16px;
+  padding: 6px 8px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+  transition: all 0.2s ease;
+  box-shadow: var(--sh-s);
+}
+#mobileAppContainer .slide-replace-card.active {
+  border-color: var(--accent, #f59e0b);
+  background: color-mix(in srgb, var(--accent, #f59e0b) 9%, var(--card));
+}
+
+#mobileAppContainer .slide-thumb-preview {
+  width: 44px;
+  height: 34px;
+  border-radius: 8px;
+  background: var(--pill);
+  overflow: hidden;
+  display: grid;
+  place-items: center;
+  font-size: 14px;
+  border: 1px solid var(--line);
+}
+#mobileAppContainer .slide-thumb-preview img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+#mobileAppContainer .slide-title {
+  font-size: 10.5px;
+  font-weight: 700;
+  color: var(--ink);
+}
+
+#mobileAppContainer .slide-actions-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  width: 100%;
+}
+
+#mobileAppContainer .slide-replace-btn {
+  flex: 1;
+  padding: 4px 6px;
+  font-size: 10px;
+  font-weight: 700;
+  border-radius: 999px;
+  border: none;
+  background: var(--ink);
+  color: #ffffff;
+  cursor: pointer;
+  transition: transform 0.15s, opacity 0.15s;
+  text-align: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  white-space: nowrap;
+}
+#mobileAppContainer .slide-replace-btn:active {
+  transform: scale(0.92);
+}
+#mobileAppContainer .slide-replace-btn.empty {
+  background: color-mix(in srgb, var(--accent, #f59e0b) 16%, transparent);
+  color: var(--accent, #f59e0b);
+}
+
+#mobileAppContainer .slide-remove-btn {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: none;
+  background: var(--pill);
+  color: var(--ink2);
+  display: grid;
+  place-items: center;
+  font-size: 10px;
+  cursor: pointer;
+  transition: transform 0.15s;
+}
+#mobileAppContainer .slide-remove-btn:active {
+  transform: scale(0.88);
+}
+
+#mobileAppContainer .studio-mobile-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-around;
+  background: var(--card);
+  border-radius: 20px;
+  padding: 6px 8px;
+  box-shadow: var(--sh-s);
+  border: 1px solid var(--line);
+  margin-top: 10px;
+  gap: 4px;
+}
+
+#mobileAppContainer .studio-bar-btn {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  padding: 8px 4px;
+  border-radius: 14px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--ink2);
+  transition: all 0.2s ease;
+  min-height: 48px;
+}
+#mobileAppContainer .studio-bar-btn:active {
+  transform: scale(0.92);
+}
+#mobileAppContainer .studio-bar-btn.active {
+  color: var(--accent, #f59e0b);
+  background: color-mix(in srgb, var(--accent, #f59e0b) 12%, transparent);
+}
+
+/* ================= CAMERA SCREEN & SNAPCHAT CIRCLES SLIDER ================= */
+#mobileAppContainer #scr-camera {
+  background: #000;
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+}
+#mobileAppContainer #scr-camera:not(.active) {
+  display: none !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
+  z-index: -1 !important;
+}
+#mobileAppContainer #scr-camera:not(.active) * {
+  pointer-events: none !important;
+  display: none !important;
+}
+
+#mobileAppContainer .cam-viewport {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  background: #000;
+}
+
+#mobileAppContainer .cam-video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+#mobileAppContainer .cam-fallback-view {
+  position: absolute;
+  inset: 0;
+  background-size: cover;
+  background-position: center;
+  display: none;
+}
+
+#mobileAppContainer .cam-frame-overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  display: block;
+  z-index: 10;
+  width: 100%;
+  height: 100%;
+}
+
+#mobileAppContainer #camOverlayCanvas {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+#mobileAppContainer .cam-top-controls {
+  position: absolute;
+  top: 48px;
+  left: 18px;
+  right: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  z-index: 25;
+}
+
+#mobileAppContainer .cam-top-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+#mobileAppContainer .cam-icon-btn {
+  height: 38px;
+  padding: 0 10px;
+  min-width: 38px;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.55);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  cursor: pointer;
+  transition: transform 0.15s, background 0.15s;
+}
+#mobileAppContainer .cam-icon-btn:active {
+  transform: scale(0.92);
+}
+
+#mobileAppContainer .cam-pill-status {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+  color: #fff;
+  background: rgba(0, 0, 0, 0.45);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  padding: 6px 14px;
+  border-radius: 999px;
+}
+
+/* Floating EV Slider Popover */
+#mobileAppContainer .cam-ev-slider-wrap {
+  position: absolute;
+  top: 96px;
+  left: 20px;
+  right: 20px;
+  background: rgba(18, 18, 22, 0.82);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  border-radius: 20px;
+  padding: 12px 18px;
+  z-index: 35;
+  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.55);
+}
+#mobileAppContainer .cam-ev-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+#mobileAppContainer .cam-ev-title {
+  font-size: 12px;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.85);
+  letter-spacing: 0.4px;
+}
+#mobileAppContainer .cam-ev-val {
+  font-size: 13px;
+  font-weight: 800;
+  color: #f59e0b;
+}
+#mobileAppContainer .cam-ev-slider-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+#mobileAppContainer .cam-ev-sub {
+  font-size: 10.5px;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.55);
+}
+#mobileAppContainer .cam-ev-range {
+  flex: 1;
+  accent-color: #f59e0b;
+  cursor: pointer;
+  height: 6px;
+}
+
+/* Floating Zoom Indicator on Pinch */
+#mobileAppContainer .cam-zoom-indicator {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: rgba(0, 0, 0, 0.75);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  color: #ffffff;
+  font-size: 22px;
+  font-weight: 800;
+  padding: 8px 20px;
+  border-radius: 999px;
+  border: 1.5px solid rgba(255, 255, 255, 0.35);
+  pointer-events: none;
+  z-index: 40;
+  letter-spacing: 0.5px;
+  box-shadow: 0 8px 26px rgba(0, 0, 0, 0.45);
+}
+
+/* Zoom Levels Bar */
+#mobileAppContainer .cam-zoom-bar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  border-radius: 999px;
+  padding: 3px 6px;
+  margin-bottom: 2px;
+}
+#mobileAppContainer .cam-zoom-btn {
+  border: none;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.85);
+  font-size: 11.5px;
+  font-weight: 700;
+  padding: 4px 10px;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+#mobileAppContainer .cam-zoom-btn.active {
+  background: #ffffff;
+  color: #000000;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+#mobileAppContainer .cam-bottom-section {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 84px; /* Cleanly anchored above the 72px floating glassnav */
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  z-index: 30;
+  pointer-events: auto;
+}
+
+#mobileAppContainer .cam-frame-pill {
+  font-size: 12.5px;
+  font-weight: 700;
+  color: #ffffff;
+  letter-spacing: 0.4px;
+  text-shadow: 0 2px 8px rgba(0,0,0,0.8);
+  background: rgba(0, 0, 0, 0.55);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  padding: 5px 16px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  pointer-events: none;
+  transition: all 0.2s ease;
+}
+
+#mobileAppContainer .snap-circles-wrap {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  position: relative;
+}
+
+#mobileAppContainer .snap-circles-track {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  padding: 8px 40vw;
+  width: 100%;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+#mobileAppContainer .snap-circles-track::-webkit-scrollbar {
+  display: none;
+}
+
+#mobileAppContainer .snap-circle {
+  flex: 0 0 50px;
+  height: 50px;
+  border-radius: 50%;
+  scroll-snap-align: center;
+  background: rgba(255, 255, 255, 0.9);
+  border: 2px solid rgba(255, 255, 255, 0.5);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: transform 0.22s var(--ease-spring), border-color 0.22s, box-shadow 0.22s, opacity 0.22s;
+  position: relative;
+  overflow: hidden;
+  opacity: 0.75;
+  font-size: 18px;
+}
+#mobileAppContainer .snap-circle.active {
+  transform: scale(1.3);
+  opacity: 1;
+  border-color: #ffffff;
+  box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.5), 0 8px 24px rgba(0,0,0,0.6);
+}
+
+#mobileAppContainer .cam-shutter-ring {
+  width: 68px;
+  height: 68px;
+  border-radius: 50%;
+  border: 4px solid #ffffff;
+  background: rgba(255, 255, 255, 0.2);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  transition: transform 0.15s ease, background 0.15s ease;
+  margin-top: 2px;
+}
+#mobileAppContainer .cam-shutter-core {
+  width: 50px;
+  height: 50px;
+  border-radius: 50%;
+  background: #ffffff;
+  display: block;
+  transition: transform 0.15s ease;
+}
+#mobileAppContainer .cam-shutter-ring:active {
+  transform: scale(0.92);
+}
+#mobileAppContainer .cam-shutter-ring:active .cam-shutter-core {
+  transform: scale(0.85);
+}
+
+/* Flash feedback */
+#mobileAppContainer .cam-flash-veil {
+  position: absolute;
+  inset: 0;
+  background: #fff;
+  opacity: 0;
+  pointer-events: none;
+  z-index: 40;
+  transition: opacity 0.08s ease;
+}
+#mobileAppContainer .cam-flash-veil.flashing {
+  opacity: 0.85;
+}
+
+/* ================= BOTTOM SHEETS FOR FRAMES, STICKERS, TEXT, LAYERS ================= */
+#mobileAppContainer .sheet-scroll-body {
+  max-height: 55vh;
+  overflow-y: auto;
+  padding: 8px 0 20px;
+  scrollbar-width: none;
+}
+#mobileAppContainer .sheet-scroll-body::-webkit-scrollbar {
+  display: none;
+}
+
+#mobileAppContainer .sheet-grid-frames {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px;
+  margin-top: 10px;
+}
+
+#mobileAppContainer .frame-card-tile {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  transition: transform 0.15s, border-color 0.2s, box-shadow 0.2s;
+  text-align: center;
+}
+#mobileAppContainer .frame-card-tile.active {
+  border-color: var(--accent, #f59e0b);
+  box-shadow: 0 0 0 2px var(--accent, #f59e0b);
+}
+#mobileAppContainer .frame-card-tile:active {
+  transform: scale(0.96);
+}
+#mobileAppContainer .frame-thumb-mini {
+  width: 100%;
+  height: 72px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 11px;
+}
+
+#mobileAppContainer .sticker-catalog-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+  margin-top: 12px;
+}
+
+#mobileAppContainer .sticker-tile-btn {
+  aspect-ratio: 1;
+  background: var(--pill);
+  border-radius: 14px;
+  display: grid;
+  place-items: center;
+  padding: 8px;
+  border: 1px solid var(--line);
+  cursor: pointer;
+  transition: transform 0.15s, background-color 0.2s;
+}
+#mobileAppContainer .sticker-tile-btn:active {
+  transform: scale(0.88);
+}
+#mobileAppContainer .sticker-tile-btn svg {
+  width: 100%;
+  height: 100%;
+}
+
+#mobileAppContainer .layer-list-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  margin-bottom: 8px;
+}
+
+/* ================= USER FRAMES & CAMERA SYSTEM (LIQUID GLASS) ================= */
+#mobileAppContainer .ed-canvas-wrap {
+  display: flex;
+  justify-content: center;
+  padding: 4px 0 14px;
+}
+#mobileAppContainer .frame {
+  position: relative;
+  width: 100%;
+  max-width: 300px;
+  aspect-ratio: 4/5;
+  border-radius: 8px;
+  transition: background 0.3s;
+}
+#mobileAppContainer .frame .clip {
+  position: absolute;
+  overflow: hidden;
+  background: #151517;
+  transition: inset 0.3s, border-radius 0.3s;
+  cursor: pointer;
+}
+#mobileAppContainer .frame .clip > .img {
+  position: absolute;
+  inset: 0;
+  background-size: cover;
+  background-position: center;
+}
+#mobileAppContainer .frame.none .clip {
+  inset: 0;
+  border-radius: 20px;
+}
+#mobileAppContainer .frame.matte {
+  background: var(--card2);
+  box-shadow: var(--sh-m);
+}
+#mobileAppContainer .frame.matte .clip {
+  inset: 16px 16px 34px;
+  border: 1px solid rgba(0, 0, 0, 0.55);
+}
+#mobileAppContainer .frame.polaroid {
+  background: #FBF7EE;
+  box-shadow: var(--sh-m);
+}
+body[data-theme="dark"] #mobileAppContainer .frame.polaroid,
+#mobileAppContainer[data-theme="dark"] .frame.polaroid {
+  background: #232329;
+}
+#mobileAppContainer .frame.polaroid .clip {
+  inset: 14px 14px 62px;
+}
+#mobileAppContainer .frame.round {
+  background: var(--card2);
+  box-shadow: var(--sh-m);
+}
+#mobileAppContainer .frame.round .clip {
+  inset: 12px;
+  border-radius: 34px;
+}
+#mobileAppContainer .frame.film {
+  background: #101013;
+  box-shadow: var(--sh-m);
+}
+#mobileAppContainer .frame.film .clip {
+  inset: 10px 26px;
+}
+#mobileAppContainer .frame.film::before,
+#mobileAppContainer .frame.film::after {
+  content: "";
+  position: absolute;
+  top: 10px;
+  bottom: 10px;
+  width: 9px;
+  border-radius: 3px;
+  background: repeating-linear-gradient(180deg, #ded9cc 0 7px, transparent 7px 16px);
+}
+#mobileAppContainer .frame.film::before { left: 8px; }
+#mobileAppContainer .frame.film::after { right: 8px; }
+#mobileAppContainer .frame.heart {
+  background: color-mix(in srgb, var(--pnk) 60%, var(--card));
+  box-shadow: var(--sh-m);
+}
+#mobileAppContainer .frame.heart .clip {
+  inset: 10px;
+  clip-path: url(#heartClip);
+  -webkit-clip-path: url(#heartClip);
+}
+#mobileAppContainer .frame.vhs {
+  background: #17131f;
+  box-shadow: var(--sh-m);
+}
+#mobileAppContainer .frame.vhs .clip {
+  inset: 14px 14px 40px;
+  border-radius: 6px;
+}
+#mobileAppContainer .frame.vhs .clip::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: repeating-linear-gradient(180deg, rgba(255, 255, 255, 0.07) 0 1px, transparent 1px 3px);
+}
+#mobileAppContainer .vhs-osd {
+  display: none;
+  position: absolute;
+  right: 18px;
+  bottom: 14px;
+  font-family: monospace;
+  font-size: 10px;
+  font-weight: 700;
+  color: #ff5b5b;
+  letter-spacing: 1px;
+}
+#mobileAppContainer .frame.vhs .vhs-osd {
+  display: block;
+}
+#mobileAppContainer .frame-meta {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 11px;
+  text-align: center;
+  font-size: 8.5px;
+  font-weight: 700;
+  letter-spacing: 1.6px;
+  color: var(--ink2);
+  opacity: 0;
+  transition: opacity 0.3s;
+}
+#mobileAppContainer .frame.matte .frame-meta,
+#mobileAppContainer .frame.polaroid .frame-meta {
+  opacity: 1;
+}
+body[data-water="off"] #mobileAppContainer .frame-meta,
+#mobileAppContainer[data-water="off"] .frame-meta {
+  opacity: 0 !important;
+}
+
+#mobileAppContainer .layer {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  cursor: grab;
+  user-select: none;
+  z-index: 3;
+  touch-action: none;
+  line-height: 1;
+}
+#mobileAppContainer .layer.text {
+  font-weight: 800;
+  font-size: 20px;
+  color: #fff;
+  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.55);
+  white-space: nowrap;
+}
+#mobileAppContainer .layer.sticker {
+  font-size: 44px;
+  filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.3));
+}
+#mobileAppContainer .layer.off {
+  display: none;
+}
+#mobileAppContainer .ed-tools {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+  flex-wrap: wrap;
+  padding: 2px 0 10px;
+}
+#mobileAppContainer .tool {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  border-radius: 999px;
+  padding: 11px 15px;
+  background: var(--card);
+  box-shadow: var(--sh-s);
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--ink2);
+  transition: 0.2s;
+  cursor: pointer;
+  border: none;
+}
+#mobileAppContainer .tool:active {
+  transform: scale(0.95);
+}
+#mobileAppContainer .tool.on {
+  background: var(--ink);
+  color: var(--bg);
+}
+#mobileAppContainer .hint {
+  font-size: 11px;
+  color: var(--ink2);
+  text-align: center;
+  padding-top: 4px;
+  font-weight: 500;
+}
+
+/* ============ CAMERA ============ */
+#mobileAppContainer #scr-camera .scr-body {
+  display: flex;
+  flex-direction: column;
+  padding: 4px 14px 106px;
+  height: 100%;
+}
+#mobileAppContainer .cam-stage {
+  flex: 1;
+  position: relative;
+  min-height: 0;
+  border-radius: 20px;
+  overflow: hidden;
+}
+#mobileAppContainer .cam-stage .frame {
+  position: absolute;
+  inset: 0;
+  width: auto;
+  max-width: none;
+  aspect-ratio: auto;
+  height: 100%;
+}
+#mobileAppContainer .cam-stage .frame.matte .clip {
+  inset: 14px 14px 30px;
+}
+#mobileAppContainer .cam-stage .frame-meta {
+  font-size: 7.5px;
+  bottom: 9px;
+}
+#mobileAppContainer .cam-stage .vhs-osd {
+  right: 22px;
+  bottom: 12px;
+}
+#mobileAppContainer #camVideo {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: none;
+}
+#mobileAppContainer .simview {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  background: linear-gradient(160deg, #2c3350, #4d4066 45%, #7a5a4f 75%, #3a2f35);
+}
+#mobileAppContainer .simview i {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(14px);
+  opacity: 0.85;
+}
+#mobileAppContainer .simview .b1 {
+  width: 60%;
+  height: 44%;
+  left: -12%;
+  top: 8%;
+  background: radial-gradient(circle, #f7c877, rgba(247, 200, 119, 0) 70%);
+  animation: drift1 9s ease-in-out infinite alternate;
+}
+#mobileAppContainer .simview .b2 {
+  width: 70%;
+  height: 52%;
+  right: -18%;
+  bottom: -6%;
+  background: radial-gradient(circle, #7fa7e8, rgba(127, 167, 232, 0) 70%);
+  animation: drift2 11s ease-in-out infinite alternate;
+}
+#mobileAppContainer .simview .b3 {
+  width: 34%;
+  height: 26%;
+  left: 34%;
+  top: 40%;
+  background: radial-gradient(circle, #f0a0c8, rgba(240, 160, 200, 0) 70%);
+  animation: drift1 7s ease-in-out infinite alternate-reverse;
+}
+@keyframes drift1 {
+  to { transform: translate(26%, 14%) scale(1.15); }
+}
+@keyframes drift2 {
+  to { transform: translate(-22%, -12%) scale(1.1); }
+}
+#mobileAppContainer .simview.mirror {
+  transform: scaleX(-1);
+}
+#mobileAppContainer .guides {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  transition: opacity 0.25s;
+  pointer-events: none;
+  z-index: 4;
+}
+#mobileAppContainer .guides.show {
+  opacity: 1;
+}
+#mobileAppContainer .guides i {
+  position: absolute;
+  background: rgba(255, 255, 255, 0.6);
+  box-shadow: 0 0 0 0.5px rgba(0, 0, 0, 0.25);
+}
+#mobileAppContainer .guides i:nth-child(1) { left: 33.33%; top: 0; bottom: 0; width: 1px; }
+#mobileAppContainer .guides i:nth-child(2) { left: 66.66%; top: 0; bottom: 0; width: 1px; }
+#mobileAppContainer .guides i:nth-child(3) { top: 33.33%; left: 0; right: 0; height: 1px; }
+#mobileAppContainer .guides i:nth-child(4) { top: 66.66%; left: 0; right: 0; height: 1px; }
+
+/* cam-ctl defined in new camera layout section below */
+
+#mobileAppContainer .shutter {
+  width: 70px;
+  height: 70px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 0 0 4px rgba(255, 255, 255, 0.35), 0 10px 26px rgba(0, 0, 0, 0.3);
+  transition: transform 0.12s;
+  cursor: pointer;
+  border: none;
+}
+#mobileAppContainer .shutter:active {
+  transform: scale(0.88);
+}
+body[data-theme="dark"] #mobileAppContainer .shutter,
+#mobileAppContainer[data-theme="dark"] .shutter {
+  box-shadow: 0 0 0 4px rgba(255, 255, 255, 0.22), 0 10px 26px rgba(0, 0, 0, 0.5);
+}
+#mobileAppContainer .cam-frame-name {
+  text-align: center;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--ink2);
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+  padding: 2px 0 6px;
+}
+#mobileAppContainer .dots-row {
+  display: flex;
+  gap: 14px;
+  overflow-x: auto;
+  padding: 8px 20px 10px;
+  scroll-snap-type: x mandatory;
+  scrollbar-width: none;
+}
+#mobileAppContainer .dots-row::-webkit-scrollbar {
+  display: none;
+}
+#mobileAppContainer .dot {
+  flex: 0 0 auto;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  scroll-snap-align: center;
+  position: relative;
+  overflow: hidden;
+  box-shadow: var(--sh-s);
+  border: 2.5px solid transparent;
+  transition: transform 0.25s, border-color 0.25s;
+  padding: 0;
+  background: none;
+  cursor: pointer;
+}
+#mobileAppContainer .dot.on {
+  transform: scale(1.2);
+  border-color: var(--ink);
+  box-shadow: var(--sh-m);
+}
+#mobileAppContainer .dot .din {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+}
+#mobileAppContainer .d-none {
+  background: var(--card);
+  background-image: linear-gradient(135deg, transparent 44%, var(--ink2) 46%, var(--ink2) 54%, transparent 56%);
+}
+#mobileAppContainer .d-matte {
+  background: var(--card2);
+  box-shadow: inset 0 0 0 6px var(--card2), inset 0 0 0 7px rgba(0, 0, 0, 0.5);
+}
+#mobileAppContainer .d-polaroid {
+  background: linear-gradient(180deg, #9a9184 0 62%, #FBF7EE 62%);
+}
+#mobileAppContainer .d-round {
+  background: #9a9184;
+  box-shadow: inset 0 0 0 5px var(--card2);
+  border-radius: 50%;
+}
+#mobileAppContainer .d-film {
+  background: #101013;
+  box-shadow: inset 6px 0 0 -2px #ded9cc, inset -6px 0 0 -2px #ded9cc;
+}
+#mobileAppContainer .d-heart {
+  background: color-mix(in srgb, var(--pnk) 70%, #fff);
+}
+#mobileAppContainer .d-vhs {
+  background: linear-gradient(135deg, #7f5df0, #e06bc9);
+}
+
+/* ============ FLOATING CAMERA CONTROLS (EV & ZOOM) ============ */
+#mobileAppContainer .cam-stage-top {
+  position: absolute;
+  top: 14px;
+  left: 14px;
+  right: 14px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  z-index: 10;
+  pointer-events: auto;
+}
+#mobileAppContainer .cam-stage-btn {
+  background: rgba(20, 20, 25, 0.65);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: #fff;
+  border-radius: 999px;
+  padding: 8px 14px;
+  font-size: 12px;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  cursor: pointer;
+  transition: transform 0.15s, background 0.2s;
+}
+#mobileAppContainer .cam-stage-btn:active {
+  transform: scale(0.92);
+}
+#mobileAppContainer .cam-ev-slider-wrap {
+  position: absolute;
+  top: 60px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 86%;
+  max-width: 280px;
+  background: rgba(18, 18, 22, 0.88);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 20px;
+  padding: 12px 16px;
+  z-index: 25;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
+}
+#mobileAppContainer .cam-ev-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+#mobileAppContainer .cam-ev-title {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: rgba(255, 255, 255, 0.6);
+}
+#mobileAppContainer .cam-ev-val {
+  font-size: 13px;
+  font-weight: 800;
+  color: #f1d377;
+}
+#mobileAppContainer .cam-ev-slider-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+#mobileAppContainer .cam-ev-sub {
+  font-size: 10px;
+  color: rgba(255, 255, 255, 0.5);
+  font-weight: 600;
+}
+#mobileAppContainer .cam-ev-range {
+  flex: 1;
+  accent-color: #f1d377;
+  height: 6px;
+  cursor: pointer;
+}
+#mobileAppContainer .cam-zoom-indicator {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: rgba(0, 0, 0, 0.7);
+  color: #fff;
+  border-radius: 999px;
+  padding: 8px 18px;
+  font-size: 16px;
+  font-weight: 800;
+  pointer-events: none;
+  z-index: 20;
+  backdrop-filter: blur(8px);
+}
+#mobileAppContainer .cam-stage-zoom {
+  position: absolute;
+  bottom: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 8px;
+  background: rgba(18, 18, 22, 0.65);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  padding: 4px 6px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  z-index: 10;
+}
+#mobileAppContainer .cam-stage-zoom-btn {
+  background: none;
+  border: none;
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 11px;
+  font-weight: 700;
+  padding: 5px 10px;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+#mobileAppContainer .cam-stage-zoom-btn.active {
+  background: #ffffff;
+  color: #121212;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+/* ============ EV RULER (top of viewfinder) ============ */
+#mobileAppContainer .cam-ev-ruler-wrap {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 52px; /* leave room for LUT button on the right */
+  z-index: 12;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  pointer-events: auto;
+  padding: 0 8px;
+}
+#mobileAppContainer .cam-ev-ruler {
+  width: 100%;
+  height: 40px;
+  overflow: hidden;
+  position: relative;
+  cursor: grab;
+  touch-action: pan-y;
+  -webkit-user-select: none;
+  user-select: none;
+}
+#mobileAppContainer .cam-ev-ruler.dragging {
+  cursor: grabbing;
+}
+#mobileAppContainer .cam-ev-ruler-track {
+  display: flex;
+  align-items: flex-end;
+  gap: 0;
+  position: absolute;
+  left: 50%;
+  bottom: 8px;
+  transform: translateX(0);
+  transition: transform 0.08s linear;
+  will-change: transform;
+}
+#mobileAppContainer .ev-tick {
+  flex: 0 0 auto;
+  width: 32px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 3px;
+}
+#mobileAppContainer .ev-tick::before {
+  content: '';
+  display: block;
+  width: 1px;
+  height: 8px;
+  background: rgba(255,255,255,0.45);
+  border-radius: 1px;
+}
+#mobileAppContainer .ev-tick.half::before {
+  height: 13px;
+  background: rgba(255,255,255,0.65);
+  width: 1.5px;
+}
+#mobileAppContainer .ev-tick.major::before {
+  height: 18px;
+  background: #ffffff;
+  width: 2px;
+}
+#mobileAppContainer .ev-tick-label {
+  font-size: 9px;
+  font-weight: 700;
+  color: rgba(255,255,255,0.9);
+  letter-spacing: 0.3px;
+  line-height: 1;
+  position: absolute;
+  bottom: 26px;
+  transform: translateX(-50%);
+  pointer-events: none;
+}
+#mobileAppContainer .cam-ev-ruler-center-line {
+  position: absolute;
+  bottom: 0;
+  left: 50%;
+  width: 2px;
+  height: 100%;
+  background: #F1D377;
+  transform: translateX(-50%);
+  pointer-events: none;
+  z-index: 2;
+  border-radius: 2px;
+}
+#mobileAppContainer .cam-ev-ruler-val {
+  font-size: 10px;
+  font-weight: 800;
+  color: #F1D377;
+  letter-spacing: 0.5px;
+  text-align: center;
+  padding: 1px 0 2px;
+  pointer-events: none;
+}
+
+/* ============ LUT CIRCLE BUTTON (top-right of viewfinder) ============ */
+#mobileAppContainer .cam-lut-circle-btn {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: rgba(20, 20, 25, 0.75);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  box-shadow: 0 4px 14px rgba(0,0,0,0.4);
+  z-index: 12;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  transition: transform 0.15s, box-shadow 0.2s;
+}
+#mobileAppContainer .cam-lut-circle-btn:active {
+  transform: scale(0.88);
+}
+#mobileAppContainer .cam-lut-circle-dot {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #999;
+  display: block;
+  transition: background 0.3s;
+  box-shadow: 0 0 0 2px rgba(255,255,255,0.25);
+}
+
+/* ============ BOTTOM CONTROLS (frame chooser, shutter, flip) ============ */
+#mobileAppContainer .cam-ctl {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 24px 8px;
+}
+#mobileAppContainer .cam-frame-pick-btn {
+  width: 50px;
+  height: 50px;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.13);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 2px solid rgba(255,255,255,0.28);
+  box-shadow: 0 4px 14px rgba(0,0,0,0.3);
+  display: grid;
+  place-items: center;
+  color: #fff;
+  cursor: pointer;
+  transition: transform 0.15s, background 0.2s;
+  flex: 0 0 auto;
+}
+#mobileAppContainer .cam-frame-pick-btn:active {
+  transform: scale(0.88);
+  background: rgba(255,255,255,0.22);
+}
+#mobileAppContainer .cam-flip-btn {
+  width: 50px;
+  height: 50px;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.13);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 2px solid rgba(255,255,255,0.28);
+  box-shadow: 0 4px 14px rgba(0,0,0,0.3);
+  display: grid;
+  place-items: center;
+  color: #fff;
+  cursor: pointer;
+  transition: transform 0.15s, background 0.2s;
+  flex: 0 0 auto;
+}
+#mobileAppContainer .cam-flip-btn:active {
+  transform: scale(0.88) rotate(180deg);
+  background: rgba(255,255,255,0.22);
+}
+
+/* Shutter wrap (dots above + shutter button) */
+#mobileAppContainer .cam-shutter-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  flex: 0 0 auto;
+}
+
+/* ============ MINI NUMBERED DOTS (above shutter) ============ */
+#mobileAppContainer .cam-dots-mini {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  justify-content: center;
+  overflow-x: auto;
+  max-width: 160px;
+  padding: 2px 4px;
+  scrollbar-width: none;
+}
+#mobileAppContainer .cam-dots-mini::-webkit-scrollbar {
+  display: none;
+}
+#mobileAppContainer .cam-dots-mini .dot {
+  flex: 0 0 auto;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  border: 1.5px solid rgba(255,255,255,0.35);
+  background: rgba(255,255,255,0.12);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  transition: transform 0.2s, border-color 0.2s, background 0.2s;
+  padding: 0;
+}
+#mobileAppContainer .cam-dots-mini .dot.on {
+  transform: scale(1.18);
+  border-color: #ffffff;
+  background: rgba(255,255,255,0.28);
+  box-shadow: 0 0 0 2px rgba(255,255,255,0.2);
+}
+#mobileAppContainer .cam-dots-mini .dot-num {
+  font-size: 10px;
+  font-weight: 800;
+  color: rgba(255,255,255,0.85);
+  line-height: 1;
+  pointer-events: none;
+}
+#mobileAppContainer .cam-dots-mini .dot.on .dot-num {
+  color: #fff;
+}
+
+
+#mobileAppContainer .sheet-sec {
+  display: none;
+}
+#mobileAppContainer .sheet-sec.on {
+  display: block;
+  animation: fadeUp 0.35s ease;
+}
+#mobileAppContainer .stk-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+}
+#mobileAppContainer .stk {
+  font-size: 30px;
+  padding: 10px 0;
+  border-radius: 18px;
+  background: var(--pill);
+  transition: transform 0.15s;
+  border: none;
+  cursor: pointer;
+}
+#mobileAppContainer .stk:active {
+  transform: scale(0.88);
+}
+#mobileAppContainer .txt-row {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+#mobileAppContainer .txt-input {
+  flex: 1;
+  border: none;
+  outline: none;
+  border-radius: 16px;
+  padding: 13px 16px;
+  font-size: 14px;
+  background: var(--pill);
+  color: var(--ink);
+}
+#mobileAppContainer .swatches {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+#mobileAppContainer .swdot {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  border: 2.5px solid transparent;
+  transition: 0.2s;
+  cursor: pointer;
+}
+#mobileAppContainer .swdot.on {
+  border-color: var(--ink);
+  transform: scale(1.12);
+}
+#mobileAppContainer .lyr-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 4px;
+  border-bottom: 1px solid var(--line);
+}
+#mobileAppContainer .lyr-row:last-child {
+  border-bottom: none;
+}
+#mobileAppContainer .lyr-ic {
+  width: 38px;
+  height: 38px;
+  border-radius: 12px;
+  background: var(--pill);
+  display: grid;
+  place-items: center;
+  font-size: 18px;
+  flex: 0 0 auto;
+}
+#mobileAppContainer .lyr-row .grow {
+  flex: 1;
+}
+#mobileAppContainer .lyr-row b {
+  font-size: 13px;
+  display: block;
+}
+#mobileAppContainer .lyr-row span {
+  font-size: 11px;
+  color: var(--ink2);
+}
+#mobileAppContainer .mini-btn {
+  width: 32px;
+  height: 32px;
+  border-radius: 10px;
+  background: var(--pill);
+  display: grid;
+  place-items: center;
+  color: var(--ink2);
+  font-size: 13px;
+  font-weight: 700;
+  flex: 0 0 auto;
+  border: none;
+  cursor: pointer;
+}
+#mobileAppContainer .mini-btn:active {
+  transform: scale(0.9);
+}
+#mobileAppContainer .fsel-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+}
+#mobileAppContainer .fsel {
+  border-radius: 16px;
+  padding: 0;
+  text-align: center;
+  background: none;
+  border: none;
+  cursor: pointer;
+}
+#mobileAppContainer .fsel-box {
+  position: relative;
+  width: 100%;
+  height: 112px;
+  border-radius: 14px;
+  overflow: hidden;
+  margin-bottom: 6px;
+}
+#mobileAppContainer .fsel-box .frame {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  max-width: none;
+  aspect-ratio: auto;
+  border-radius: 0;
+}
+#mobileAppContainer .fsel-box .frame-meta {
+  font-size: 5px;
+  bottom: 6px;
+  letter-spacing: 1px;
+}
+#mobileAppContainer .fsel-box .vhs-osd {
+  font-size: 6px;
+  right: 8px;
+  bottom: 7px;
+}
+#mobileAppContainer .fsel b {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--ink2);
+}
+#mobileAppContainer .fsel.on b {
+  color: var(--ink);
+}
+#mobileAppContainer .fsel.on .fsel-box {
+  outline: 3px solid var(--ink);
+  outline-offset: 2px;
+  border-radius: 16px;
+}
+#mobileAppContainer .pf-prev {
+  width: 74px;
+  height: 74px;
+  border-radius: 50%;
+  margin: 0 auto 12px;
+  display: grid;
+  place-items: center;
+  font-size: 24px;
+  font-weight: 700;
+  color: #2a2118;
+  border: 3px solid var(--card);
+  box-shadow: var(--sh-s);
+}
+#mobileAppContainer .pf-field {
+  margin-bottom: 10px;
+}
+#mobileAppContainer .pf-field label {
+  display: block;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--ink2);
+  margin: 0 2px 5px;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+}
+#mobileAppContainer .pf-field input {
+  width: 100%;
+  border: none;
+  outline: none;
+  border-radius: 14px;
+  padding: 12px 14px;
+  font-size: 14px;
+  background: var(--pill);
+  color: var(--ink);
+}
+#mobileAppContainer .pf-field input[type="range"] {
+  padding: 0;
+  background: transparent;
+  accent-color: var(--ink);
+}
+#mobileAppContainer .ed-replace-bar {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  margin-bottom: 10px;
+  flex-wrap: wrap;
+}
+
+/* ============ STUDIO FRAME CANVAS STAGE ============ */
+#mobileAppContainer .studio-frame-stage {
+  position: relative;
+  width: 100%;
+  max-width: 320px;
+  aspect-ratio: 4 / 5;
+  border-radius: 20px;
+  overflow: hidden;
+  background: var(--card2);
+  box-shadow: var(--sh-m);
+  margin: 0 auto;
+}
+#mobileAppContainer #edCanvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
+}
+#mobileAppContainer .ed-aperture-overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: auto;
+  z-index: 2;
+}
+#mobileAppContainer .ed-aperture-slot {
+  position: absolute;
+  cursor: pointer;
+  border-radius: 8px;
+  transition: box-shadow 0.2s, background 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--ink2);
+  font-size: 11px;
+  font-weight: 700;
+  text-align: center;
+  user-select: none;
+}
+#mobileAppContainer .ed-aperture-slot.is-empty {
+  background: rgba(0, 0, 0, 0.05);
+  box-shadow: inset 0 0 0 1.5px dashed rgba(25, 25, 25, 0.25);
+}
+#mobileAppContainer[data-theme="dark"] .ed-aperture-slot.is-empty {
+  background: rgba(255, 255, 255, 0.06);
+  box-shadow: inset 0 0 0 1.5px dashed rgba(255, 255, 255, 0.25);
+}
+#mobileAppContainer .ed-aperture-slot.is-active {
+  box-shadow: 0 0 0 2.5px var(--cor), inset 0 0 0 1.5px var(--cor);
+}
+#mobileAppContainer .ed-aperture-empty-lbl {
+  background: rgba(25, 25, 25, 0.75);
+  color: #fff;
+  border-radius: 999px;
+  padding: 5px 12px;
+  font-size: 11px;
+  font-weight: 700;
+  pointer-events: none;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.25);
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+#mobileAppContainer .slide-pills {
+  display: flex;
+  gap: 6px;
+  justify-content: center;
+  align-items: center;
+  margin-bottom: 8px;
+  flex-wrap: wrap;
+}
+#mobileAppContainer .slide-pill {
+  border-radius: 999px;
+  padding: 6px 14px;
+  font-size: 11.5px;
+  font-weight: 700;
+  background: var(--pill);
+  color: var(--ink2);
+  border: none;
+  cursor: pointer;
+  transition: all 0.18s;
+}
+#mobileAppContainer .slide-pill.on {
+  background: var(--ink);
+  color: var(--bg);
+  box-shadow: var(--sh-s);
+}
+
+/* ============ FRAME PICKER SHEET EXTENSIONS ============ */
+#mobileAppContainer .frame-cat-chips {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  padding: 6px 0 12px;
+  margin: 0 -4px;
+  scrollbar-width: none;
+}
+#mobileAppContainer .frame-cat-chips::-webkit-scrollbar {
+  display: none;
+}
+#mobileAppContainer .fsel-thumb-canvas {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
+  border-radius: 12px;
+}
+#mobileAppContainer .fsel-multi-badge {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  background: rgba(15, 15, 18, 0.78);
+  color: #fff;
+  border-radius: 6px;
+  font-size: 8.5px;
+  font-weight: 700;
+  padding: 2px 6px;
+  letter-spacing: 0.5px;
+  pointer-events: none;
+}
+
+/* ============ 3D LUT COLOR LAB STYLES ============ */
+#mobileAppContainer .lut-controls-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: var(--pill);
+  padding: 12px 14px;
+  border-radius: 18px;
+  margin-bottom: 14px;
+}
+#mobileAppContainer .lut-int-wrap {
+  flex: 1;
+}
+#mobileAppContainer .lut-int-head {
+  display: flex;
+  justify-content: space-between;
+  font-size: 11.5px;
+  font-weight: 700;
+  color: var(--ink2);
+  margin-bottom: 5px;
+}
+#mobileAppContainer .lut-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px;
+}
+#mobileAppContainer .lut-card {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: var(--card);
+  padding: 9px 11px;
+  border-radius: 16px;
+  box-shadow: var(--sh-s);
+  cursor: pointer;
+  border: 2px solid transparent;
+  transition: all 0.2s;
+  text-align: left;
+}
+#mobileAppContainer .lut-card:active {
+  transform: scale(0.96);
+}
+#mobileAppContainer .lut-card.on {
+  border-color: var(--ink);
+  background: color-mix(in srgb, var(--card) 90%, var(--ink));
+}
+#mobileAppContainer .lut-swatch-box {
+  width: 42px;
+  height: 42px;
+  border-radius: 12px;
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  font-size: 16px;
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.1);
+  overflow: hidden;
+}
+#mobileAppContainer .lut-swatch-canvas {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+#mobileAppContainer .lut-info {
+  flex: 1;
+  min-width: 0;
+}
+#mobileAppContainer .lut-name {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--ink);
+  display: block;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+#mobileAppContainer .lut-desc {
+  font-size: 10px;
+  color: var(--ink2);
+  display: block;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+
+

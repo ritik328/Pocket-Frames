@@ -9,7 +9,7 @@ import { PositionManager } from './editor/positionManager.js';
 import { MetadataEditor } from './metadata/metadataEditor.js';
 import { calculateFitScale, calculateFillScale, clampZoom } from './editor/zoomManager.js';
 import { checkAlignment } from './editor/alignment.js';
-import { downloadFrame, getPreflightSummary, EXPORT_PRESETS } from './export/exportEngine.js';
+import { downloadFrame, shareCurrentFrame, getPreflightSummary, EXPORT_PRESETS } from './export/exportEngine.js';
 import { loadUserImage } from './image/imageLoader.js';
 import { setupKeyboardShortcuts } from './shortcuts.js';
 import { loadProjectFromDB, clearProjectFromDB } from './storage/projectStorage.js';
@@ -25,11 +25,11 @@ import { SidebarLutControl } from './lut/sidebarLutControl.js';
 import { VideoDock } from './video/videoDock.js';
 import { videoManager } from './video/videoManager.js';
 import { videoExportModal } from './video/videoExportModal.js';
-import { initMobileApp } from './mobile/mobileApp.js';
 
 // DOM Elements with Dual-Selector Support
 const previewCanvas = document.getElementById('previewCanvas');
-const previewContainer = document.getElementById('previewContainer') || document.getElementById('canvasArea');
+const canvasArea = document.getElementById('canvasArea');
+const previewContainer = document.getElementById('previewContainer') || canvasArea;
 const fileInput = document.getElementById('fileInput');
 const btnUpload = document.getElementById('uploadBtn') || document.getElementById('btnUpload');
 
@@ -61,6 +61,8 @@ const btnToggleCleanPreview = document.getElementById('previewBtn') || document.
 
 const btnDownload = document.getElementById('downloadBtn') || document.getElementById('btnDownload');
 const downloadBtnText = document.getElementById('downloadBtnText');
+const btnShare = document.getElementById('shareBtn');
+const shareBtnText = document.getElementById('shareBtnText');
 const headerResLabel = document.getElementById('headerResLabel');
 const pfResolution = document.getElementById('pfResolution');
 const pfFormat = document.getElementById('pfFormat');
@@ -97,50 +99,35 @@ export function showToast(msg) {
   }, 2200);
 }
 
-// Initialize App
+
+// Initialize App — Desktop Web Studio only.
+// Mobile PWA now lives exclusively in app.html / src/mobile/mobileEntry.js.
 async function initApp() {
-  // 1. Immediately boot Android Mobile PWA & Liquid Glass Experience (0ms latency, non-blocking)
-  try {
-    initMobileApp();
+  // 1. Immediate initial preview render so canvas is never blank
+  updatePreview();
 
-    const btnToggleMobilePreview = document.getElementById('btnToggleMobilePreview');
-    const mobileContainer = document.getElementById('mobileAppContainer');
-    const btnClosePreview = document.getElementById('mobBtnClosePreview');
-
-    const togglePreview = (forceState) => {
-      if (!mobileContainer) return;
-      const shouldShow = forceState !== undefined ? forceState : !mobileContainer.classList.contains('force-mobile-preview');
-      mobileContainer.classList.toggle('force-mobile-preview', shouldShow);
-      btnToggleMobilePreview?.classList.toggle('is-active', shouldShow);
-      if (shouldShow) {
-        showToast('📱 Android Phone Preview Mode Activated');
-      }
-    };
-
-    btnToggleMobilePreview?.addEventListener('click', () => togglePreview());
-    btnClosePreview?.addEventListener('click', () => togglePreview(false));
-    window.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape' && mobileContainer?.classList.contains('force-mobile-preview')) {
-        togglePreview(false);
-      }
-    });
-  } catch (err) {
-    console.error('[PocketFrames] Error initializing mobile app:', err);
-  }
-
-  // 2. Setup desktop canvas and async dependencies
-  await ensureFontsReady();
-
-  // Setup sub-managers
+  // 2. Setup sub-managers
   if (previewCanvas && previewContainer) {
-    positionManager = new PositionManager(previewCanvas, previewContainer);
-    canvasResizer = new CanvasResizer(previewCanvas, previewContainer, () => {
-      updatePreview();
-    });
+    try {
+      positionManager = new PositionManager(previewCanvas, previewContainer, {
+        onDrop: (file) => handleFileLoad(file)
+      });
+      canvasResizer = new CanvasResizer(previewCanvas, previewContainer, () => {
+        updatePreview();
+      });
+    } catch (e) {
+      console.warn('[PocketFrames] Error initializing PositionManager / CanvasResizer:', e);
+    }
   }
   
   const panelDetails = document.getElementById('panelDetails') || document.querySelector('.sidebar--right');
-  metadataEditor = new MetadataEditor(panelDetails);
+  if (panelDetails) {
+    try {
+      metadataEditor = new MetadataEditor(panelDetails);
+    } catch (e) {
+      console.warn('[PocketFrames] Error initializing MetadataEditor:', e);
+    }
+  }
   setupKeyboardShortcuts();
 
   // Setup Event Listeners
@@ -150,22 +137,37 @@ async function initApp() {
   initThemeSwitcher();
 
   // Initialize AI Photography Director Studio Modal
-  aiStudioModal = new AiStudioModal();
+  try {
+    aiStudioModal = new AiStudioModal();
+  } catch (e) {
+    console.warn('[PocketFrames] Error initializing AiStudioModal:', e);
+  }
 
   // Initialize Hasselblad 3D LUT Color Lab Backdoor & On-Page Controls
-  lutBackdoorModal = new LutBackdoorModal();
-  await lutManager.init();
-  sidebarLutControl = new SidebarLutControl(() => lutBackdoorModal);
+  try {
+    lutBackdoorModal = new LutBackdoorModal();
+    await lutManager.init();
+    sidebarLutControl = new SidebarLutControl(() => lutBackdoorModal);
+  } catch (e) {
+    console.warn('[PocketFrames] Error initializing LUT subsystem:', e);
+  }
 
   // Initialize Video Playback Dock & Real-Time Grading Loop
-  videoDock = new VideoDock(previewContainer || canvasArea);
-  videoManager.setUpdateCallback(() => performUpdatePreview());
+  try {
+    videoDock = new VideoDock(previewContainer || canvasArea);
+    videoManager.setUpdateCallback(() => performUpdatePreview());
+  } catch (e) {
+    console.warn('[PocketFrames] Error initializing VideoDock:', e);
+  }
 
   // Initialize Interactive Dots for Dark Mode (Desktop only)
   const dotsCanvas = document.getElementById('interactiveDotsCanvas');
-  const canvasArea = document.getElementById('canvasArea');
   if (dotsCanvas && canvasArea) {
-    new InteractiveDots(dotsCanvas, canvasArea);
+    try {
+      new InteractiveDots(dotsCanvas, canvasArea);
+    } catch (e) {
+      console.warn('[PocketFrames] Error initializing InteractiveDots:', e);
+    }
   }
 
   // Handle Resize
@@ -177,7 +179,14 @@ async function initApp() {
   // Restore session from IndexedDB if available
   await tryRestoreSession();
 
-  // Initial render
+  // 3. Ensure fonts are loaded and re-render with crisp loaded typography
+  try {
+    await ensureFontsReady();
+  } catch (err) {
+    console.warn('[PocketFrames] Font loading check warning:', err);
+  }
+
+  // Synchronize full canvas and preflight UI
   updatePreview();
   updatePreflightUI();
 }
@@ -697,6 +706,34 @@ function setupEventListeners() {
         showToast(`Export failed: ${err.message}`);
         if (downloadBtnText) downloadBtnText.textContent = 'Download frame';
         btnDownload.disabled = false;
+      }
+    });
+  }
+
+  if (btnShare) {
+    btnShare.addEventListener('click', async () => {
+      const state = store.getState();
+      if (!state.image) {
+        showToast('Upload a photo first to share your frame.');
+        return;
+      }
+
+      try {
+        btnShare.disabled = true;
+        if (shareBtnText) shareBtnText.textContent = 'Preparing...';
+
+        await shareCurrentFrame(state, (msg) => {
+          if (shareBtnText) shareBtnText.textContent = msg;
+        });
+
+        showToast('Share Sheet opened ✓');
+      } catch (err) {
+        if (!err.canceled) {
+          showToast(`Share failed: ${err.message}`);
+        }
+      } finally {
+        if (shareBtnText) shareBtnText.textContent = 'Share';
+        btnShare.disabled = false;
       }
     });
   }

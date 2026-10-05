@@ -8,8 +8,22 @@ import { checkRateLimit, validateImageTransport } from '../utils/rateLimit.js';
 import { getServiceStatus, createPost, analyzePhoto, getCompositionRecommendation, getCritique } from '../services/geminiService.js';
 
 export async function handleAiRequest(req, res, next) {
-  // Set CORS headers for all responses
-  res.setHeader('Access-Control-Allow-Origin', '*');
+  // CORS: restrict to production domain + localhost for dev.
+  // The Gemini AI endpoint only makes sense to call from our own frontend.
+  const ALLOWED_ORIGINS = new Set([
+    'https://pocket-frames.vercel.app',
+    'https://www.pocket-frames.vercel.app',
+    process.env.ALLOWED_ORIGIN,            // optional custom domain via env var
+    'http://localhost:5173',
+    'http://localhost:3000',
+    'http://127.0.0.1:5173',
+  ].filter(Boolean));
+
+  const requestOrigin = req.headers.origin || '';
+  const corsOrigin = ALLOWED_ORIGINS.has(requestOrigin) ? requestOrigin : 'https://pocket-frames.vercel.app';
+
+  res.setHeader('Access-Control-Allow-Origin', corsOrigin);
+  res.setHeader('Vary', 'Origin');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With');
 
@@ -37,8 +51,14 @@ export async function handleAiRequest(req, res, next) {
   }
 
   // Rate Limiting Check
-  const clientIp = req.headers['x-forwarded-for']?.split(',')[0] || req.socket?.remoteAddress || '127.0.0.1';
-  const rateLimitResult = checkRateLimit(clientIp);
+  // Use x-real-ip (set by Vercel's edge, cannot be spoofed by clients).
+  // Fall back to x-forwarded-for only if x-real-ip is absent (local dev).
+  const clientIp =
+    req.headers['x-real-ip'] ||
+    req.headers['x-forwarded-for']?.split(',')[0]?.trim() ||
+    req.socket?.remoteAddress ||
+    '127.0.0.1';
+  const rateLimitResult = await checkRateLimit(clientIp);
 
   if (!rateLimitResult.allowed) {
     return sendJson(res, 429, {

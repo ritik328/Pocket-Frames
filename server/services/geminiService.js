@@ -121,15 +121,22 @@ async function executeAiOperation(operation, payload, userPrompt) {
     imageBase64 = imageBase64.split(',')[1];
   }
 
+  // ── Sanitize user-controlled fields before prompt interpolation ──────────
+  // Prevents prompt injection via crafted strings in user_notes, device, or metadata.
+  const sanitizeStr = (val, maxLen) => {
+    if (val == null) return null;
+    return String(val).replace(/[<>"'`]/g, '').slice(0, maxLen).trim() || null;
+  };
+
   const contextNotes = [
-    `Day Number: ${payload.day_number || 18}`,
-    `Campaign: ${payload.campaign || '47 DAYS / 47 FRAMES'}`,
-    `Device: ${payload.device || payload.metadata?.device || 'OPPO Smartphone'}`,
-    payload.metadata?.focalLength ? `Focal Length: ${payload.metadata.focalLength}` : null,
-    payload.metadata?.aperture ? `Aperture: ${payload.metadata.aperture}` : null,
-    payload.metadata?.shutter ? `Shutter Speed: ${payload.metadata.shutter}` : null,
-    payload.metadata?.iso ? `ISO: ${payload.metadata.iso}` : null,
-    payload.user_notes ? `Photographer Notes: ${payload.user_notes}` : null
+    `Day Number: ${Math.max(1, Math.min(100, parseInt(payload.day_number, 10) || 18))}`,
+    `Campaign: ${sanitizeStr(payload.campaign, 80) || '47 DAYS / 47 FRAMES'}`,
+    `Device: ${sanitizeStr(payload.device || payload.metadata?.device, 80) || 'OPPO Smartphone'}`,
+    payload.metadata?.focalLength ? `Focal Length: ${sanitizeStr(payload.metadata.focalLength, 20)}` : null,
+    payload.metadata?.aperture ? `Aperture: ${sanitizeStr(payload.metadata.aperture, 20)}` : null,
+    payload.metadata?.shutter ? `Shutter Speed: ${sanitizeStr(payload.metadata.shutter, 20)}` : null,
+    payload.metadata?.iso ? `ISO: ${sanitizeStr(String(payload.metadata.iso), 10)}` : null,
+    payload.user_notes ? `Photographer Notes: ${sanitizeStr(payload.user_notes, 500)}` : null
   ].filter(Boolean).join('\n');
 
   const requestBody = {

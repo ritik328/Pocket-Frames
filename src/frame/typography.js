@@ -29,7 +29,10 @@ export const FONT_CONFIG = {
 export async function ensureFontsReady() {
   if (document.fonts && document.fonts.ready) {
     try {
-      await document.fonts.ready;
+      await Promise.race([
+        document.fonts.ready,
+        new Promise(resolve => setTimeout(resolve, 800))
+      ]);
     } catch (err) {
       console.warn('Font loading check error, proceeding with system fallbacks:', err);
     }
