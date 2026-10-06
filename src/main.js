@@ -2,7 +2,7 @@
  * Pocket Frames - Main Application Coordinator
  * Powers the Modern Liquid Glass Studio layout.
  */
-import { store } from './state.js';
+import { store, DEFAULT_METADATA, isStaleOrFilenameDevice } from './state.js';
 import { renderFrame } from './frame/frameRenderer.js';
 import { ensureFontsReady } from './frame/typography.js';
 import { PositionManager } from './editor/positionManager.js';
@@ -178,6 +178,9 @@ async function initApp() {
 
   // Restore session from IndexedDB if available
   await tryRestoreSession();
+  if (isStaleOrFilenameDevice(store.getState().metadata.device)) {
+    store.setMetadata({ device: DEFAULT_METADATA.device }, false);
+  }
 
   // 3. Ensure fonts are loaded and re-render with crisp loaded typography
   try {
@@ -413,18 +416,24 @@ export async function handleFileLoad(file) {
     const fillScale = calculateFillScale(loaded.width, loaded.height);
     store.setTransform({ x: 0, y: 0, scale: fillScale }, true);
 
-    // If EXIF extracted, auto-fill editable metadata
+    // Auto-fill editable metadata from EXIF, or reset to clean defaults
     if (loaded.extractedExif) {
-      const updates = {};
-      if (loaded.extractedExif.device) updates.device = loaded.extractedExif.device;
-      if (loaded.extractedExif.focalLength) updates.focalLength = loaded.extractedExif.focalLength;
-      if (loaded.extractedExif.aperture) updates.aperture = loaded.extractedExif.aperture;
-      if (loaded.extractedExif.shutter) updates.shutter = loaded.extractedExif.shutter;
-      if (loaded.extractedExif.iso) updates.iso = loaded.extractedExif.iso;
+      const candidateDevice = loaded.extractedExif.device;
+      const deviceToUse = candidateDevice && !isStaleOrFilenameDevice(candidateDevice, file.name)
+        ? candidateDevice
+        : DEFAULT_METADATA.device;
 
-      if (Object.keys(updates).length > 0) {
-        store.setMetadata(updates, true);
-      }
+      store.setMetadata({
+        brand: DEFAULT_METADATA.brand,
+        device: deviceToUse,
+        focalLength: loaded.extractedExif.focalLength || DEFAULT_METADATA.focalLength,
+        aperture: loaded.extractedExif.aperture || DEFAULT_METADATA.aperture,
+        shutter: loaded.extractedExif.shutter || DEFAULT_METADATA.shutter,
+        iso: loaded.extractedExif.iso || DEFAULT_METADATA.iso
+      }, true);
+    } else {
+      // Photo without EXIF (or unknown) - reset to clean defaults instead of carrying over previous file's metadata/filenames
+      store.setMetadata({ ...DEFAULT_METADATA }, true);
     }
     showToast(isVideo ? 'Video loaded into frame! Press Play or Space.' : 'Photo uploaded & centered.');
   } catch (err) {
@@ -742,7 +751,8 @@ function setupEventListeners() {
   if (btnClearSession) {
     btnClearSession.addEventListener('click', async () => {
       await clearProjectFromDB();
-      showToast('Local cache cleared.');
+      store.resetNewFrame();
+      showToast('Local cache cleared & reset.');
     });
   }
 
@@ -850,6 +860,9 @@ async function tryRestoreSession() {
       store.setTransform(saved.transform, false);
     }
     if (saved.metadata) {
+      if (isStaleOrFilenameDevice(saved.metadata.device, saved.filename)) {
+        saved.metadata.device = DEFAULT_METADATA.device;
+      }
       store.setMetadata(saved.metadata, false);
     }
     if (saved.editor) {

@@ -46,7 +46,7 @@ export class MetadataEditor {
 
     // Subscribe to external state changes (e.g. undo/redo or EXIF auto-fill)
     store.subscribe((state, changeType) => {
-      if (changeType === 'undo' || changeType === 'redo' || changeType === 'image' || changeType === 'reset') {
+      if (changeType === 'undo' || changeType === 'redo' || changeType === 'image' || changeType === 'reset' || changeType === 'metadata') {
         this.syncInputsFromState(state.metadata);
       }
     });

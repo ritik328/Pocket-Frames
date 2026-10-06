@@ -115,12 +115,6 @@ async function loadUserVideo(file) {
   const height = video.videoHeight || 1080;
   const duration = video.duration || 0;
 
-  // Clean filename for device title
-  const cleanTitle = (file.name || 'Video Clip')
-    .replace(/\.[^/.]+$/, '')
-    .replace(/[-_]/g, ' ')
-    .trim();
-
   return {
     type: 'video',
     isVideo: true,
@@ -132,7 +126,7 @@ async function loadUserVideo(file) {
     duration,
     orientation: 1,
     extractedExif: {
-      device: cleanTitle || 'Cinema Video',
+      device: 'OPPO Find X9',
       focalLength: '28mm',
       aperture: 'f/1.8',
       shutter: '1/60',

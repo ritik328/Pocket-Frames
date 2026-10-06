@@ -12,6 +12,42 @@ export const DEFAULT_METADATA = {
   iso: '1600'
 };
 
+/**
+ * Detects if a device string is a raw file name, timestamp, or video title rather than a camera model.
+ */
+export function isStaleOrFilenameDevice(device, filename = '') {
+  if (!device || typeof device !== 'string') return true;
+  const d = device.trim();
+  if (!d) return true;
+
+  // Specific legacy names
+  if (/GOTKingsroad/i.test(d)) return true;
+
+  // Timestamp formats like "2026 09 14 17 18 56", "2024-05-01_123456", "20240501_123456"
+  if (/\b\d{4}[-_ ]\d{2}[-_ ]\d{2}\b/.test(d)) return true;
+  if (/\b\d{6,8}[-_ ]\d{4,6}\b/.test(d)) return true;
+
+  // Common file prefixes like "VID_...", "MOV_...", "IMG_...", "GOT..."
+  if (/^(VID|MOV|IMG|PXL|DSC|CLIP|RECORD|VIDEO|GOT)[-_ ]/i.test(d)) return true;
+
+  // File extensions like .mp4, .mov, etc.
+  if (/\.(mp4|mov|webm|m4v|avi|mkv|jpg|jpeg|png|webp)$/i.test(d)) return true;
+
+  // Generic placeholder video names
+  if (/^(video clip|cinema video|video frame)$/i.test(d)) return true;
+
+  // Matches file name without extension
+  if (filename) {
+    const cleanFn = filename.replace(/\.[^/.]+$/, '').replace(/[-_]/g, ' ').trim().toLowerCase();
+    if (cleanFn && (d.toLowerCase() === cleanFn || d.toLowerCase().includes(cleanFn))) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+
 export const DEFAULT_STATE = {
   image: null, // { element, file, filename, width, height, orientation }
   transform: {
@@ -55,6 +91,9 @@ class StateStore {
   constructor() {
     this.state = JSON.parse(JSON.stringify(DEFAULT_STATE));
     this.state.image = null;
+    if (isStaleOrFilenameDevice(this.state.metadata.device)) {
+      this.state.metadata.device = DEFAULT_METADATA.device;
+    }
 
     this.listeners = new Set();
     this.undoStack = [];
@@ -81,11 +120,15 @@ class StateStore {
     clearTimeout(this.persistDebounceTimer);
     this.persistDebounceTimer = setTimeout(() => {
       if (this.state.image && this.state.image.file) {
+        const cleanMetadata = { ...this.state.metadata };
+        if (isStaleOrFilenameDevice(cleanMetadata.device, this.state.image.filename)) {
+          cleanMetadata.device = DEFAULT_METADATA.device;
+        }
         saveProjectToDB({
           imageBlob: this.state.image.file,
           filename: this.state.image.filename,
           transform: this.state.transform,
-          metadata: this.state.metadata,
+          metadata: cleanMetadata,
           originalExif: this.state.originalExif,
           editor: this.state.editor,
           export: this.state.export,
@@ -179,9 +222,13 @@ class StateStore {
     if (commitHistory) {
       this.pushHistory();
     }
+    const cleanPartial = { ...partial };
+    if (cleanPartial.device !== undefined && isStaleOrFilenameDevice(cleanPartial.device)) {
+      cleanPartial.device = DEFAULT_METADATA.device;
+    }
     this.state.metadata = {
       ...this.state.metadata,
-      ...partial
+      ...cleanPartial
     };
     this.notify('metadata');
   }
