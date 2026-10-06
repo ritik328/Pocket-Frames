@@ -8,7 +8,7 @@
  * All element x, y, w, h are in this space. Renderers scale to viewport.
  */
 
-import { getFrameById } from './frameDefinitions.js';
+import { getFrameById, FRAME_CATALOG } from './frameDefinitions.js';
 
 export const SCHEMA_VERSION = 1;
 export const LOGICAL_W = 2160;
@@ -349,7 +349,14 @@ export class SceneStore {
         });
         resolve(assetId);
       };
-      img.onerror = reject;
+      img.onerror = () => {
+        console.warn(`[SceneStore] Failed to decode image asset: "${assetId}"`);
+        this._assets.set(assetId, {
+          blob, url, img: null, displayImg: null,
+          w: 200, h: 200, filename
+        });
+        resolve(assetId);
+      };
       img.src = url;
     });
   }
@@ -478,15 +485,27 @@ export class SceneStore {
           const record = req.result;
           if (!record) { resolve(false); return; }
 
-          this._scene = JSON.parse(record.scene);
-
-          // Restore photo assets
-          if (record.photoBlobs) {
-            for (const [id, blob] of Object.entries(record.photoBlobs)) {
-              await this.registerAsset(id, blob, id);
+          try {
+            this._scene = JSON.parse(record.scene);
+            if (!this._scene.frame || !FRAME_CATALOG.some(f => f.id === this._scene.frame.id)) {
+              this._scene.frame = { id: FRAME_CATALOG[0].id };
             }
+
+            // Restore photo assets
+            if (record.photoBlobs) {
+              for (const [id, blob] of Object.entries(record.photoBlobs)) {
+                try {
+                  await this.registerAsset(id, blob, id);
+                } catch (assetErr) {
+                  console.warn('[SceneStore] Error restoring photo asset:', id, assetErr);
+                }
+              }
+            }
+            resolve(true);
+          } catch (parseErr) {
+            console.warn('[SceneStore] Error parsing restored scene:', parseErr);
+            resolve(false);
           }
-          resolve(true);
         };
         req.onerror = () => resolve(false);
       });

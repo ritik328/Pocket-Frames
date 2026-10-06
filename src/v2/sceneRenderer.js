@@ -8,7 +8,7 @@
  * scale = targetWidth / LOGICAL_W
  */
 
-import { getFrameById } from './frameDefinitions.js';
+import { getFrameById, FRAME_CATALOG } from './frameDefinitions.js';
 import { LOGICAL_W, LOGICAL_H } from './scene.js';
 
 // ─── Font config ──────────────────────────────────────────────────────────────
@@ -57,7 +57,7 @@ export function renderScene(ctx, scene, assets, options = {}) {
   ctx.imageSmoothingEnabled = true;
   ctx.imageSmoothingQuality = 'high';
 
-  const frameDef = getFrameById(scene.frame?.id || 'classic-white') || getFrameById('classic-white');
+  const frameDef = getFrameById(scene?.frame?.id) || FRAME_CATALOG[0];
 
   // 1. Canvas background
   renderBackground(ctx, scene, frameDef, scale);

@@ -1528,49 +1528,46 @@ async function init() {
   initThemeSwitcher();
   sizeCanvas();
 
-  // Restore session
-  const restored = await sceneStore.loadFromDB();
-  if (restored) showToast('Session restored');
+  // 1. Immediately start render loop so canvas renders on frame 1 without waiting
+  renderLoop();
+  scheduleRender();
 
   // Set up overlay controller
-  _overlay = new OverlayController(overlayEl, canvas, getScale);
-  _overlay.onSelectionChange(id => {
-    showPropsForSelected(id);
-    scheduleRender();
-  });
+  try {
+    _overlay = new OverlayController(overlayEl, canvas, getScale);
+    _overlay.onSelectionChange(id => {
+      showPropsForSelected(id);
+      scheduleRender();
+    });
+  } catch (err) {
+    console.warn('[StudioApp] Error initializing OverlayController:', err);
+  }
 
   // Set up liquid glass canvas resizer
-  const canvasWrap = document.getElementById('v2-canvas-wrap');
-  const canvasArea = document.getElementById('v2-canvas-area');
+  try {
+    const canvasWrap = document.getElementById('v2-canvas-wrap');
+    const canvasArea = document.getElementById('v2-canvas-area');
 
-  v2Resizer = new CanvasResizer(canvas, canvasWrap, () => {
-    scheduleRender();
-    if (_overlay) {
-      if (typeof _overlay.refresh === 'function') _overlay.refresh();
-      else if (typeof _overlay.onScaleChange === 'function') _overlay.onScaleChange();
-    }
-  }, {
-    prefix: 'v2',
-    canvasArea: canvasArea,
-    overlayEl: overlayEl,
-    aspectRatio: LOGICAL_H / LOGICAL_W,
-    storageKey: 'pocketframes-v2-canvas-width',
-    defaultWidth: 400,
-    defaultFit: true,
-    setHeight: true,
-    fitPaddingBottom: 90
-  });
-
-  // Sticker preload + panels
-  await migrateFromLocalStorage();
-  await preloadStickers();
-  buildStickerPackTabs();
-  buildStickerGrid();
-  buildFrameCategoryTabs();
-  buildFrameGrid();
-
-  // Metadata
-  updateMetaInputs();
+    v2Resizer = new CanvasResizer(canvas, canvasWrap, () => {
+      scheduleRender();
+      if (_overlay) {
+        if (typeof _overlay.refresh === 'function') _overlay.refresh();
+        else if (typeof _overlay.onScaleChange === 'function') _overlay.onScaleChange();
+      }
+    }, {
+      prefix: 'v2',
+      canvasArea: canvasArea,
+      overlayEl: overlayEl,
+      aspectRatio: LOGICAL_H / LOGICAL_W,
+      storageKey: 'pocketframes-v2-canvas-width',
+      defaultWidth: 400,
+      defaultFit: true,
+      setHeight: true,
+      fitPaddingBottom: 90
+    });
+  } catch (err) {
+    console.warn('[StudioApp] Error initializing CanvasResizer:', err);
+  }
 
   // Subscribe to scene changes → re-render & update UI
   sceneStore.subscribe((scene, changeType) => {
@@ -1585,17 +1582,57 @@ async function init() {
   updateLayersPanel();
   updateUndoRedo();
 
-  // Start render loop
-  renderLoop();
-
   // Default tab
   activateTab('photo');
 
   // Default font btn
   textFontBtns[0]?.classList.add('is-active');
 
+  // Restore session
+  try {
+    const restored = await sceneStore.loadFromDB();
+    if (restored) {
+      showToast('Session restored');
+      scheduleRender();
+    }
+  } catch (err) {
+    console.warn('[StudioApp] Error restoring session:', err);
+  }
+
+  // Sticker preload + panels
+  try {
+    await migrateFromLocalStorage();
+  } catch (err) {
+    console.warn('[StudioApp] LocalStorage migration warning:', err);
+  }
+
+  try {
+    await preloadStickers();
+  } catch (err) {
+    console.warn('[StudioApp] Preload stickers warning:', err);
+  }
+
+  try {
+    buildStickerPackTabs();
+    buildStickerGrid();
+    buildFrameCategoryTabs();
+    buildFrameGrid();
+  } catch (err) {
+    console.warn('[StudioApp] Build panels warning:', err);
+  }
+
+  // Metadata
+  updateMetaInputs();
+
   // Initialize Developer Sticker Backdoor
-  initDevStickerBackdoor();
+  try {
+    initDevStickerBackdoor();
+  } catch (err) {
+    console.warn('[StudioApp] Dev backdoor warning:', err);
+  }
+
+  // Final render update
+  scheduleRender();
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
